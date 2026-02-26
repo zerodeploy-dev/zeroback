@@ -28,6 +28,12 @@ export function validatorToTypeString(json: ValidatorJSON): string {
       return `${validatorToTypeString(json.value)} | undefined`;
     case "record":
       return `Record<${validatorToTypeString(json.keys)}, ${validatorToTypeString(json.values)}>`;
+    case "float64":
+      return "number";
+    case "int64":
+      return "bigint";
+    case "bytes":
+      return "ArrayBuffer";
     default:
       return "any";
   }
@@ -133,6 +139,33 @@ export function validate<T>(value: unknown, json: ValidatorJSON): T {
       result[key] = validate(val, json.values);
     }
     return result as T;
+  }
+
+  if (json.type === "float64") {
+    if (typeof value !== "number") {
+      throw new Error(`Expected float64 (number), got ${typeof value}`);
+    }
+    return value as T;
+  }
+
+  if (json.type === "int64") {
+    if (typeof value === "bigint") {
+      return value as T;
+    }
+    if (typeof value === "number" && Number.isInteger(value)) {
+      return value as T;
+    }
+    throw new Error(`Expected int64 (integer), got ${typeof value === "number" ? "non-integer number" : typeof value}`);
+  }
+
+  if (json.type === "bytes") {
+    if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+      return value as T;
+    }
+    if (typeof value === "string") {
+      return value as T;
+    }
+    throw new Error(`Expected bytes (ArrayBuffer or base64 string), got ${typeof value}`);
   }
 
   throw new Error(`Unknown validator type`);

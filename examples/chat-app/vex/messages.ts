@@ -166,6 +166,25 @@ export const sendWithMetadata = mutation({
   },
 });
 
+// Mutation that uses v.float64() and v.int64() validators
+export const sendWithScore = mutation({
+  args: {
+    body: v.string(),
+    author: v.string(),
+    channel: v.string(),
+    score: v.float64(),
+    priority: v.int64(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("messages", {
+      body: args.body,
+      author: args.author,
+      channel: args.channel,
+    });
+    return { score: args.score, priority: args.priority };
+  },
+});
+
 // Action that calls another action via ctx.runAction
 export const sendAndCount = action({
   args: {

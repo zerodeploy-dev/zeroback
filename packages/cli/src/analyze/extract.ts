@@ -14,7 +14,10 @@ export type ValidatorJSON =
   | { type: "literal"; value: string | number | boolean }
   | { type: "any" }
   | { type: "optional"; value: ValidatorJSON }
-  | { type: "record"; keys: ValidatorJSON; values: ValidatorJSON };
+  | { type: "record"; keys: ValidatorJSON; values: ValidatorJSON }
+  | { type: "float64" }
+  | { type: "int64" }
+  | { type: "bytes" };
 
 export type FunctionManifest = {
   [fnName: string]: {
@@ -241,6 +244,12 @@ function extractValidator(callExpr: ts.CallExpression, sf: ts.SourceFile): Valid
         return { type: "record", keys: extractValidator(callExpr.arguments[0], sf), values: extractValidator(callExpr.arguments[1], sf) };
       }
       return { type: "record", keys: { type: "string" }, values: { type: "any" } };
+    case "v.float64":
+      return { type: "float64" };
+    case "v.int64":
+      return { type: "int64" };
+    case "v.bytes":
+      return { type: "bytes" };
     default:
       return { type: "any" };
   }

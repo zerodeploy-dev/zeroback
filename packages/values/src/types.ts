@@ -10,7 +10,10 @@ export type ValidatorKind =
   | "literal"
   | "any"
   | "optional"
-  | "record";
+  | "record"
+  | "float64"
+  | "int64"
+  | "bytes";
 
 export type ValidatorJSON =
   | { type: "string" }
@@ -24,7 +27,10 @@ export type ValidatorJSON =
   | { type: "literal"; value: string | number | boolean }
   | { type: "any" }
   | { type: "optional"; value: ValidatorJSON }
-  | { type: "record"; keys: ValidatorJSON; values: ValidatorJSON };
+  | { type: "record"; keys: ValidatorJSON; values: ValidatorJSON }
+  | { type: "float64" }
+  | { type: "int64" }
+  | { type: "bytes" };
 
 export type PropertyValidators = Record<string, Validator<any>>;
 

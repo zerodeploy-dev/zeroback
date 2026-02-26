@@ -75,4 +75,16 @@ export const v = {
       values: values.json,
     });
   },
+
+  float64(): Validator<number> {
+    return createValidator<number, "float64">("float64", { type: "float64" });
+  },
+
+  int64(): Validator<bigint> {
+    return createValidator<bigint, "int64">("int64", { type: "int64" });
+  },
+
+  bytes(): Validator<ArrayBuffer> {
+    return createValidator<ArrayBuffer, "bytes">("bytes", { type: "bytes" });
+  },
 };
