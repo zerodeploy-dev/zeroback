@@ -365,6 +365,9 @@ v.array(v.string())                       // array
 v.union(v.literal("a"), v.literal("b"))   // union type
 v.optional(v.string())                    // optional field
 v.record(v.string(), v.string())          // record / map type
+v.float64()                               // IEEE 754 double (number)
+v.int64()                                 // 64-bit integer (bigint)
+v.bytes()                                 // binary data (ArrayBuffer)
 v.any()                                   // any type
 ```
 
@@ -553,7 +556,7 @@ npx tsc --build packages/values packages/server packages/cli
 | `v.union()`, `v.literal()`, `v.any()` | Implemented |
 | Runtime schema enforcement on writes | Implemented |
 | `v.record()` | Implemented |
-| `v.bytes()`, `v.int64()`, `v.float64()` | Not yet |
+| `v.bytes()`, `v.int64()`, `v.float64()` | Implemented |
 
 ### Client SDK (`@vex/client`)
 
