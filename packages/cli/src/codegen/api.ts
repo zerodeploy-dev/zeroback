@@ -9,58 +9,82 @@ export function generateApi(manifest: FunctionManifest, outputPath: string): voi
     "",
   ];
 
-  // Group functions by module (file), separating public vs internal
-  const publicGrouped: Record<string, Record<string, { type: "query" | "mutation" | "action"; argsType: string }>> = {};
-  const internalGrouped: Record<string, Record<string, { type: "query" | "mutation" | "action"; argsType: string }>> = {};
+  // Collect all functions with their module path and function name
+  type FnEntry = { modulePath: string; funcName: string; fullName: string; type: "query" | "mutation" | "action"; argsType: string };
+  const publicFns: FnEntry[] = [];
+  const internalFns: FnEntry[] = [];
 
   for (const [fnName, fn] of Object.entries(manifest)) {
-    const [moduleName, funcName] = fnName.includes(":")
+    const [modulePath, funcName] = fnName.includes(":")
       ? [fnName.split(":")[0], fnName.split(":").slice(1).join(":")]
       : ["default", fnName];
 
-    const target = fn.isInternal ? internalGrouped : publicGrouped;
-    if (!target[moduleName]) target[moduleName] = {};
-
-    target[moduleName][funcName] = {
+    const entry: FnEntry = {
+      modulePath,
+      funcName,
+      fullName: fnName,
       type: fn.type,
       argsType: fn.args.type === "object" && fn.args.value
         ? `{ ${Object.entries(fn.args.value as Record<string, any>).map(([k, v]) => `${k}: ${validatorTypeToTs(v)}`).join("; ")} }`
         : "Record<string, never>",
     };
+
+    (fn.isInternal ? internalFns : publicFns).push(entry);
   }
 
-  // Generate api object (public functions only)
-  lines.push(`export const api = {`);
-  for (const [moduleName, funcs] of Object.entries(publicGrouped)) {
-    lines.push(`  ${moduleName}: {`);
-    for (const [funcName, fn] of Object.entries(funcs)) {
-      const refType = `"${fn.type}"`;
-      lines.push(`    ${funcName}: { _name: "${moduleName}:${funcName}" as const, _type: ${refType} as const } as FunctionReference<${refType}, ${fn.argsType}, any>,`);
-    }
-    lines.push(`  },`);
-  }
-  lines.push(`};`);
+  lines.push(`export const api = ${generateNestedObject(publicFns)} as const;`);
+  lines.push(``);
 
-  // Generate internal object (internal functions only)
-  if (Object.keys(internalGrouped).length > 0) {
-    lines.push(``);
-    lines.push(`export const internal = {`);
-    for (const [moduleName, funcs] of Object.entries(internalGrouped)) {
-      lines.push(`  ${moduleName}: {`);
-      for (const [funcName, fn] of Object.entries(funcs)) {
-        const refType = `"${fn.type}"`;
-        lines.push(`    ${funcName}: { _name: "${moduleName}:${funcName}" as const, _type: ${refType} as const } as FunctionReference<${refType}, ${fn.argsType}, any>,`);
-      }
-      lines.push(`  },`);
-    }
-    lines.push(`};`);
+  if (internalFns.length > 0) {
+    lines.push(`export const internal = ${generateNestedObject(internalFns)} as const;`);
   } else {
-    lines.push(``);
     lines.push(`export const internal = {};`);
   }
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, lines.join("\n") + "\n");
+}
+
+type FnEntry = { modulePath: string; funcName: string; fullName: string; type: "query" | "mutation" | "action"; argsType: string };
+
+function generateNestedObject(fns: FnEntry[]): string {
+  // Build a tree: { segment: { segment: { __fns: [entries] } } }
+  type TreeNode = { children: Record<string, TreeNode>; fns: FnEntry[] };
+  const root: TreeNode = { children: {}, fns: [] };
+
+  for (const fn of fns) {
+    // Split module path: "users/auth" → ["users", "auth"]
+    const segments = fn.modulePath.split("/");
+    let node = root;
+    for (const seg of segments) {
+      if (!node.children[seg]) {
+        node.children[seg] = { children: {}, fns: [] };
+      }
+      node = node.children[seg];
+    }
+    node.fns.push(fn);
+  }
+
+  function renderNode(node: TreeNode, indent: string): string {
+    const lines: string[] = ["{"];
+    const inner = indent + "  ";
+
+    // Render child namespaces
+    for (const [name, child] of Object.entries(node.children)) {
+      lines.push(`${inner}${name}: ${renderNode(child, inner)},`);
+    }
+
+    // Render functions at this level
+    for (const fn of node.fns) {
+      const refType = `"${fn.type}"`;
+      lines.push(`${inner}${fn.funcName}: { _name: "${fn.modulePath}:${fn.funcName}" as const, _type: ${refType} as const } as FunctionReference<${refType}, ${fn.argsType}, any>,`);
+    }
+
+    lines.push(`${indent}}`);
+    return lines.join("\n");
+  }
+
+  return renderNode(root, "");
 }
 
 function validatorTypeToTs(json: any): string {

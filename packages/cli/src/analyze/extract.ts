@@ -1,6 +1,6 @@
 import * as ts from "typescript";
 import * as path from "path";
-import { readFileSync, existsSync, readdirSync } from "fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 
 export type ValidatorJSON =
   | { type: "string" }
@@ -41,21 +41,36 @@ export type SchemaJSON = {
 export function extractFunctions(vexDir: string): FunctionManifest {
   const manifest: FunctionManifest = {};
 
-  // Scan all .ts files in vex/ (excluding _generated, schema)
-  const files = readdirSync(vexDir).filter((f) => {
-    if (!f.endsWith(".ts")) return false;
-    if (f === "schema.ts") return false;
-    if (f.startsWith("_")) return false;
-    return true;
-  });
-
-  for (const file of files) {
-    const filePath = path.join(vexDir, file);
-    const moduleName = path.basename(file, ".ts");
+  for (const { filePath, moduleName } of scanFunctionFiles(vexDir, vexDir)) {
     extractFunctionsFromFile(filePath, moduleName, manifest);
   }
 
   return manifest;
+}
+
+function scanFunctionFiles(dir: string, rootDir: string): { filePath: string; moduleName: string }[] {
+  const results: { filePath: string; moduleName: string }[] = [];
+
+  for (const entry of readdirSync(dir)) {
+    if (entry.startsWith("_") || entry === "node_modules") continue;
+    const fullPath = path.join(dir, entry);
+
+    if (statSync(fullPath).isDirectory()) {
+      results.push(...scanFunctionFiles(fullPath, rootDir));
+      continue;
+    }
+
+    if (!entry.endsWith(".ts")) continue;
+    if (entry === "schema.ts") continue;
+
+    // Module name is the path relative to rootDir without extension, using forward slashes
+    // e.g., "messages" or "users/auth"
+    const relPath = path.relative(rootDir, fullPath).replace(/\\/g, "/");
+    const moduleName = relPath.replace(/\.ts$/, "");
+    results.push({ filePath: fullPath, moduleName });
+  }
+
+  return results;
 }
 
 function extractFunctionsFromFile(filePath: string, moduleName: string, manifest: FunctionManifest): void {

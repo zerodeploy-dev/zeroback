@@ -736,6 +736,26 @@ describe("return value validators", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Nested Directory Functions
+// ---------------------------------------------------------------------------
+
+describe("nested directory functions", () => {
+  it("calls a function in a nested directory (utils/stats:messageCount)", async () => {
+    const c = await freshClient();
+    const ch = `nested-${Date.now()}`;
+
+    // Insert some messages
+    await c.mutation("messages:send", { body: "a", author: "test", channel: ch });
+    await c.mutation("messages:send", { body: "b", author: "test", channel: ch });
+
+    // Call the nested function
+    const { result } = await c.query("utils/stats:messageCount", { channel: ch });
+    expect(result.channel).toBe(ch);
+    expect(result.count).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Default Indexes (by_creation_time, by_id)
 // ---------------------------------------------------------------------------
 

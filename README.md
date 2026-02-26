@@ -591,7 +591,7 @@ npx tsc --build packages/values packages/server packages/cli
 | Generated `DataModel` types | Implemented |
 | Typed `query` / `mutation` / `action` factories | Implemented |
 | `vex dev` (watch, codegen, bundle, local server) | Implemented |
-| Nested directory function discovery | Not yet |
+| Nested directory function discovery | Implemented |
 | Generated `internal` API object | Implemented |
 | `vex deploy` (production deployment) | Not yet |
 | `vex run` (invoke functions from CLI) | Not yet |
