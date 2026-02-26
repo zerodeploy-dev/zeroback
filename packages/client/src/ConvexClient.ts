@@ -25,6 +25,9 @@ export class ConvexClient {
   /** Centralized query result cache with optimistic update support. */
   readonly queryStore = new QueryStore();
 
+  /** Sequential mutation queue — ensures mutations execute one at a time in order. */
+  private mutationQueue: Promise<void> = Promise.resolve();
+
   constructor(url: string) {
     this.url = url;
     this.subscriptions = new SubscriptionRegistry();
@@ -148,30 +151,36 @@ export class ConvexClient {
     return this.queryStore.getResult(key);
   }
 
-  async mutation(
+  mutation(
     fnName: string,
     args: unknown,
     opts?: { optimisticUpdate?: (store: LocalStore) => void },
   ): Promise<unknown> {
     const id = crypto.randomUUID();
 
-    // Apply optimistic update before sending
+    // Apply optimistic update immediately (before waiting in queue)
     if (opts?.optimisticUpdate) {
       this.queryStore.addLayer(id, opts.optimisticUpdate);
     }
 
-    try {
-      const result = await new Promise((resolve, reject) => {
-        this.pendingRequests.set(id, { resolve, reject });
-        this.send({ type: "mutation", id, fn: fnName, args });
-      });
-      return result;
-    } finally {
-      // Remove optimistic layer when mutation completes (success or failure)
-      if (opts?.optimisticUpdate) {
-        this.queryStore.removeLayer(id);
+    // Chain onto the mutation queue so mutations execute sequentially
+    const result = this.mutationQueue.then(async () => {
+      try {
+        return await new Promise((resolve, reject) => {
+          this.pendingRequests.set(id, { resolve, reject });
+          this.send({ type: "mutation", id, fn: fnName, args });
+        });
+      } finally {
+        if (opts?.optimisticUpdate) {
+          this.queryStore.removeLayer(id);
+        }
       }
-    }
+    });
+
+    // Update the queue — always resolve so subsequent mutations aren't blocked by failures
+    this.mutationQueue = result.then(() => {}, () => {});
+
+    return result;
   }
 
   async action(fnName: string, args: unknown): Promise<unknown> {

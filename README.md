@@ -569,7 +569,7 @@ npx tsc --build packages/values packages/server packages/cli
 | Message queuing while disconnected | Implemented |
 | Auto re-subscribe on reconnect / server reset | Implemented |
 | Optimistic updates | Implemented |
-| Sequential mutation queue (ordered execution) | Not yet |
+| Sequential mutation queue (ordered execution) | Implemented |
 | Auth token management (`setAuth`) | Not yet |
 
 ### React (`@vex/react`)
