@@ -1,0 +1,30 @@
+{
+  "name": "@vex/react",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@vex/client": "workspace:*",
+    "@vex/server": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "tsc --build --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "react": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}

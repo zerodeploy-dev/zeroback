@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@vex/values": ["./packages/values/src"],
+      "@vex/values/*": ["./packages/values/src/*"],
+      "@vex/server": ["./packages/server/src"],
+      "@vex/server/*": ["./packages/server/src/*"],
+      "@vex/client": ["./packages/client/src"],
+      "@vex/client/*": ["./packages/client/src/*"],
+      "@vex/react": ["./packages/react/src"],
+      "@vex/react/*": ["./packages/react/src/*"],
+      "@vex/cli": ["./packages/cli/src"],
+      "@vex/cli/*": ["./packages/cli/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "**/dist"]
+}
