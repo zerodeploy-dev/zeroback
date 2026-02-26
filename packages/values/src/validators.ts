@@ -64,4 +64,15 @@ export const v = {
       value: members.map((m) => m.json),
     });
   },
+
+  record<K extends Validator<string>, V extends Validator<any>>(
+    keys: K,
+    values: V
+  ): Validator<Record<K["_type"], V["_type"]>> {
+    return createValidator<Record<K["_type"], V["_type"]>, "record">("record", {
+      type: "record",
+      keys: keys.json,
+      values: values.json,
+    });
+  },
 };

@@ -13,7 +13,8 @@ export type ValidatorJSON =
   | { type: "union"; value: ValidatorJSON[] }
   | { type: "literal"; value: string | number | boolean }
   | { type: "any" }
-  | { type: "optional"; value: ValidatorJSON };
+  | { type: "optional"; value: ValidatorJSON }
+  | { type: "record"; keys: ValidatorJSON; values: ValidatorJSON };
 
 export type FunctionManifest = {
   [fnName: string]: {
@@ -235,6 +236,11 @@ function extractValidator(callExpr: ts.CallExpression, sf: ts.SourceFile): Valid
         if (ts.isToken(val) && val.kind === ts.SyntaxKind.FalseKeyword) return { type: "literal", value: false };
       }
       return { type: "any" };
+    case "v.record":
+      if (callExpr.arguments.length >= 2 && ts.isCallExpression(callExpr.arguments[0]) && ts.isCallExpression(callExpr.arguments[1])) {
+        return { type: "record", keys: extractValidator(callExpr.arguments[0], sf), values: extractValidator(callExpr.arguments[1], sf) };
+      }
+      return { type: "record", keys: { type: "string" }, values: { type: "any" } };
     default:
       return { type: "any" };
   }

@@ -13,6 +13,7 @@ export interface DbOps {
 export type Scheduler = {
   runAfter(delayMs: number, fnName: string, args?: unknown): Promise<string>;
   runAt(timestamp: number, fnName: string, args?: unknown): Promise<string>;
+  cancel(id: string): Promise<void>;
 };
 
 export type QueryCtx<DataModel> = {
@@ -27,6 +28,7 @@ export type MutationCtx<DataModel> = {
 export type ActionCtx<DataModel> = {
   runQuery(fnName: string, args?: unknown): Promise<any>;
   runMutation(fnName: string, args?: unknown): Promise<any>;
+  runAction(fnName: string, args?: unknown): Promise<any>;
   scheduler: Scheduler;
 };
 

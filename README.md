@@ -364,6 +364,7 @@ v.object({ name: v.string() })            // nested object
 v.array(v.string())                       // array
 v.union(v.literal("a"), v.literal("b"))   // union type
 v.optional(v.string())                    // optional field
+v.record(v.string(), v.string())          // record / map type
 v.any()                                   // any type
 ```
 
@@ -476,8 +477,8 @@ npx tsc --build packages/values packages/server packages/cli
 | HTTP Actions (`httpRouter()`, `httpAction()`, route/prefix matching) | Implemented |
 | Argument validation (runtime `v` validators) | Implemented |
 | Internal functions (`internalQuery`, `internalMutation`, `internalAction`) | Implemented |
-| Return value validators | Not yet |
-| `ctx.runAction()` in action context | Not yet |
+| Return value validators | Implemented |
+| `ctx.runAction()` in action context | Implemented |
 
 ### Database
 
@@ -522,8 +523,8 @@ npx tsc --build packages/values packages/server packages/cli
 | `scheduler.runAfter(delayMs, fn, args)` | Implemented |
 | `scheduler.runAt(timestamp, fn, args)` | Implemented |
 | Backed by SQLite + Cloudflare DO Alarms | Implemented |
-| `scheduler.cancel(id)` | Not yet |
-| Cron jobs (`cronJobs()`, interval/cron expressions) | Not yet |
+| `scheduler.cancel(id)` | Implemented |
+| Cron jobs (`cronJobs()`, interval/cron expressions, hourly/daily/weekly/monthly) | Implemented |
 
 ### Authentication
 
@@ -551,7 +552,7 @@ npx tsc --build packages/values packages/server packages/cli
 | `v.id()`, `v.object()`, `v.array()`, `v.optional()` | Implemented |
 | `v.union()`, `v.literal()`, `v.any()` | Implemented |
 | Runtime schema enforcement on writes | Implemented |
-| `v.record()` | Not yet |
+| `v.record()` | Implemented |
 | `v.bytes()`, `v.int64()`, `v.float64()` | Not yet |
 
 ### Client SDK (`@vex/client`)
@@ -577,7 +578,7 @@ npx tsc --build packages/values packages/server packages/cli
 | `useMutation(ref)` | Implemented |
 | `useAction(ref)` | Implemented |
 | `useConnectionState()` | Implemented |
-| `usePaginatedQuery()` with `loadMore` | Not yet |
+| `usePaginatedQuery()` with `loadMore` | Implemented |
 
 ### Codegen & Tooling
 

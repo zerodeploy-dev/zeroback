@@ -26,6 +26,8 @@ export function validatorToTypeString(json: ValidatorJSON): string {
       return json.value.map((v) => validatorToTypeString(v)).join(" | ");
     case "optional":
       return `${validatorToTypeString(json.value)} | undefined`;
+    case "record":
+      return `Record<${validatorToTypeString(json.keys)}, ${validatorToTypeString(json.values)}>`;
     default:
       return "any";
   }
@@ -119,6 +121,18 @@ export function validate<T>(value: unknown, json: ValidatorJSON): T {
       return undefined as T;
     }
     return validate(value, json.value) as T;
+  }
+
+  if (json.type === "record") {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new Error(`Expected record (object), got ${typeof value}`);
+    }
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      validate(key, json.keys);
+      result[key] = validate(val, json.values);
+    }
+    return result as T;
   }
 
   throw new Error(`Unknown validator type`);

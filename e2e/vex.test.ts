@@ -587,3 +587,145 @@ describe("internal functions", () => {
     expect(updated[0].body).toBe("internal push");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cron Jobs
+// ---------------------------------------------------------------------------
+
+describe("cron jobs", () => {
+  it("cron job executes on schedule and triggers subscription update", async () => {
+    const c = await freshClient();
+    const ch = "cron-test";
+
+    // Insert a message into the cron-test channel
+    await c.mutation("messages:send", { body: "will be cleaned", author: "test", channel: ch });
+
+    // Verify it exists
+    const { id: subId, result: before } = await c.query("messages:list", { channel: ch });
+    const countBefore = before.length;
+    expect(countBefore).toBeGreaterThanOrEqual(1);
+
+    // The cron job runs every 5 seconds and deletes messages in "cron-test" channel.
+    // Wait for the cron to fire and delete them.
+    const updated = await c.waitForUpdate(subId, 10_000);
+
+    // After cron runs, messages should be empty
+    expect(updated.length).toBeLessThan(countBefore);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scheduler Cancel
+// ---------------------------------------------------------------------------
+
+describe("scheduler.cancel", () => {
+  it("cancels a scheduled job before it runs", async () => {
+    const c = await freshClient();
+    const ch = `cancel-test-${Date.now()}`;
+
+    // Schedule a message to be sent in 2 seconds
+    const jobId = await c.mutation("messages:scheduleSend", {
+      body: "should not appear",
+      author: "scheduler",
+      channel: ch,
+      delayMs: 2000,
+    });
+
+    // Cancel it immediately
+    await c.mutation("messages:cancelScheduled", { jobId });
+
+    // Wait 3 seconds — the message should NOT have been created
+    await sleep(3000);
+
+    const { result: messages } = await c.query("messages:list", { channel: ch });
+    expect(messages).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ctx.runAction() — action-to-action calls
+// ---------------------------------------------------------------------------
+
+describe("ctx.runAction", () => {
+  it("action can call another action via runAction", async () => {
+    const c = await freshClient();
+    const ch = `run-action-${Date.now()}`;
+
+    // sendAndCount calls sendViaAction, which calls runMutation + runQuery
+    const result = await c.action("messages:sendAndCount", {
+      body: "nested action",
+      author: "test",
+      channel: ch,
+    });
+
+    expect(result.calledFrom).toBe("sendAndCount");
+    expect(result.innerResult.sent).toBe(true);
+    expect(result.innerResult.count).toBe(1);
+
+    // Verify the message was created
+    const { result: messages } = await c.query("messages:list", { channel: ch });
+    expect(messages).toHaveLength(1);
+    expect(messages[0].body).toBe("nested action");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v.record() validator
+// ---------------------------------------------------------------------------
+
+describe("v.record", () => {
+  it("accepts valid record args", async () => {
+    const c = await freshClient();
+    const ch = `record-test-${Date.now()}`;
+
+    const result = await c.mutation("messages:sendWithMetadata", {
+      body: "with metadata",
+      author: "test",
+      channel: ch,
+      metadata: { color: "red", size: "large" },
+    });
+
+    expect(result.metadataKeys).toEqual(["color", "size"]);
+
+    // Verify message was created
+    const { result: messages } = await c.query("messages:list", { channel: ch });
+    expect(messages).toHaveLength(1);
+  });
+
+  it("rejects invalid record values", async () => {
+    const c = await freshClient();
+    const ch = `record-invalid-${Date.now()}`;
+
+    const err = await c.mutationError("messages:sendWithMetadata", {
+      body: "bad",
+      author: "test",
+      channel: ch,
+      metadata: { color: 123 },
+    } as any);
+
+    expect(err.code).toBe("execution_error");
+    expect(err.message).toContain("Expected string");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Return value validators
+// ---------------------------------------------------------------------------
+
+describe("return value validators", () => {
+  it("returns validated value from query with returns validator", async () => {
+    const c = await freshClient();
+    const ch = `returns-test-${Date.now()}`;
+
+    // countByChannel has returns: v.number()
+    const { result: count } = await c.query("messages:countByChannel", { channel: ch });
+    expect(typeof count).toBe("number");
+    expect(count).toBe(0);
+
+    // Add a message and re-query
+    await c.mutation("messages:send", { body: "test", author: "a", channel: ch });
+    // Need a fresh query since the first one is a subscription
+    const { result: count2 } = await c.query("messages:countByChannel", { channel: ch });
+    expect(count2).toBe(1);
+  });
+});

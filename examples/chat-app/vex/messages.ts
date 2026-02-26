@@ -92,6 +92,23 @@ export const sendViaInternal = action({
   },
 });
 
+// Internal mutation used by cron job — deletes messages in a specific channel
+export const cleanupOld = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const old = await ctx.db
+      .query("messages")
+      .withIndex("by_channel", (q) => q.eq("channel", "cron-test"))
+      .collect();
+    let deleted = 0;
+    for (const msg of old) {
+      await ctx.db.delete(msg._id);
+      deleted++;
+    }
+    return deleted;
+  },
+});
+
 export const scheduleSend = mutation({
   args: {
     body: v.string(),
@@ -106,5 +123,59 @@ export const scheduleSend = mutation({
       channel: args.channel,
     });
     return jobId;
+  },
+});
+
+export const cancelScheduled = mutation({
+  args: {
+    jobId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.scheduler.cancel(args.jobId);
+  },
+});
+
+// Query with return value validator
+export const countByChannel = query({
+  args: { channel: v.string() },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_channel", (q) => q.eq("channel", args.channel))
+      .collect();
+    return messages.length;
+  },
+});
+
+// Mutation that accepts a v.record() arg
+export const sendWithMetadata = mutation({
+  args: {
+    body: v.string(),
+    author: v.string(),
+    channel: v.string(),
+    metadata: v.record(v.string(), v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("messages", {
+      body: args.body,
+      author: args.author,
+      channel: args.channel,
+    });
+    return { metadataKeys: Object.keys(args.metadata) };
+  },
+});
+
+// Action that calls another action via ctx.runAction
+export const sendAndCount = action({
+  args: {
+    body: v.string(),
+    author: v.string(),
+    channel: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Call sendViaAction (which itself calls runMutation + runQuery)
+    const inner = await ctx.runAction("messages:sendViaAction", args);
+    return { innerResult: inner, calledFrom: "sendAndCount" };
   },
 });

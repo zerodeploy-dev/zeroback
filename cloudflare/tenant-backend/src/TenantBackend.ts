@@ -9,13 +9,16 @@ import { TransactionStore } from "./transaction/TransactionStore";
 import { SubscriptionManager } from "./subscriptions/SubscriptionManager";
 import { ConnectionManager } from "./websocket/ConnectionManager";
 import type { ClientMessage, ServerMessage } from "./websocket/Protocol";
-import { functions as bundledFunctions, schema as bundledSchema, httpRouter as bundledHttpRouter } from "./_functions.generated";
+import { functions as bundledFunctions, schema as bundledSchema, httpRouter as bundledHttpRouter, cronJobsDef as bundledCrons } from "./_functions.generated";
+import type { CronSchedule, CronJobDef } from "@vex/server";
+import { getNextRunTime } from "@vex/server";
 
 type FunctionDef = {
   type: "query" | "mutation" | "action";
   isInternal: boolean;
   handler: (ctx: any, args: any) => Promise<any>;
   argsValidator?: Record<string, { json: any }>;
+  returnsValidator?: { json: any };
 };
 
 export class TenantBackend extends DurableObject {
@@ -58,6 +61,9 @@ export class TenantBackend extends DurableObject {
 
     // Restore WebSocket connections after hibernation
     this.restoreConnectionsFromHibernation();
+
+    // Register cron jobs
+    this.initializeCronJobs();
   }
 
   /** Re-register WebSocket connections that survived DO hibernation. */
@@ -73,6 +79,71 @@ export class TenantBackend extends DurableObject {
         // Subscriptions were lost — ask client to re-subscribe
         ws.send('{"type":"reset"}');
       }
+    }
+  }
+
+  /** Sync cron job definitions from code into SQLite and set the next alarm. */
+  private initializeCronJobs(): void {
+    if (!bundledCrons || !bundledCrons.jobs || bundledCrons.jobs.length === 0) return;
+
+    const now = Date.now();
+    const definedNames = new Set<string>();
+
+    for (const job of bundledCrons.jobs as CronJobDef[]) {
+      definedNames.add(job.name);
+
+      // Check if this cron already exists
+      const existing = this.sql.exec(
+        `SELECT name, schedule FROM cron_jobs WHERE name = ?`, job.name
+      ).toArray() as { name: string; schedule: string }[];
+
+      const scheduleJSON = JSON.stringify(job.schedule);
+
+      if (existing.length === 0) {
+        // New cron — compute first run time
+        const nextRun = getNextRunTime(job.schedule, now);
+        this.sql.exec(
+          `INSERT INTO cron_jobs (name, fn_name, args, schedule, next_run_at) VALUES (?, ?, ?, ?, ?)`,
+          job.name, job.fnName, JSON.stringify(job.args), scheduleJSON, nextRun
+        );
+      } else if (existing[0].schedule !== scheduleJSON) {
+        // Schedule changed — recompute next run time
+        const nextRun = getNextRunTime(job.schedule, now);
+        this.sql.exec(
+          `UPDATE cron_jobs SET fn_name = ?, args = ?, schedule = ?, next_run_at = ? WHERE name = ?`,
+          job.fnName, JSON.stringify(job.args), scheduleJSON, nextRun, job.name
+        );
+      }
+    }
+
+    // Remove crons no longer defined in code
+    const allCrons = this.sql.exec(`SELECT name FROM cron_jobs`).toArray() as { name: string }[];
+    for (const row of allCrons) {
+      if (!definedNames.has(row.name)) {
+        this.sql.exec(`DELETE FROM cron_jobs WHERE name = ?`, row.name);
+      }
+    }
+
+    // Ensure alarm is set for the earliest due time (crons + scheduled jobs)
+    this.ensureNextAlarm();
+  }
+
+  /** Set the DO alarm to the earliest pending scheduled job or cron job. */
+  private ensureNextAlarm(): void {
+    const scheduledNext = this.sql.exec(
+      `SELECT MIN(run_at) as next FROM scheduled_jobs WHERE status = 'pending'`
+    ).toArray() as { next: number | null }[];
+
+    const cronNext = this.sql.exec(
+      `SELECT MIN(next_run_at) as next FROM cron_jobs`
+    ).toArray() as { next: number | null }[];
+
+    const times: number[] = [];
+    if (scheduledNext[0]?.next != null) times.push(scheduledNext[0].next);
+    if (cronNext[0]?.next != null) times.push(cronNext[0].next);
+
+    if (times.length > 0) {
+      this.ctx.storage.setAlarm(Math.min(...times));
     }
   }
 
@@ -100,6 +171,15 @@ export class TenantBackend extends DurableObject {
         status TEXT NOT NULL DEFAULT 'pending'
       );
       CREATE INDEX IF NOT EXISTS scheduled_jobs_run_at ON scheduled_jobs (run_at) WHERE status = 'pending';
+      CREATE TABLE IF NOT EXISTS cron_jobs (
+        name TEXT PRIMARY KEY,
+        fn_name TEXT NOT NULL,
+        args TEXT NOT NULL,
+        schedule TEXT NOT NULL,
+        next_run_at REAL NOT NULL,
+        last_run_at REAL
+      );
+      CREATE INDEX IF NOT EXISTS cron_jobs_next_run ON cron_jobs (next_run_at);
     `);
     // Migrate: if old schema had PK (table_name, document_id, ts), deduplicate rows.
     // This is a one-time migration that keeps only the latest ts per document.
@@ -417,6 +497,7 @@ export class TenantBackend extends DurableObject {
       // Actions don't get direct db access — they use runQuery/runMutation
       const ctx = this.createActionCtx();
       const result = await fn.handler(ctx, args);
+      this.validateReturnValue(fnName, fn, result);
       return { result, readSet: [], queryDescriptors: [] };
     }
 
@@ -426,6 +507,7 @@ export class TenantBackend extends DurableObject {
       : new DatabaseWriter(ops);
 
     const result = await fn.handler({ db, scheduler: this.createScheduler() }, args);
+    this.validateReturnValue(fnName, fn, result);
 
     const tx = this.transactions.get(txId);
     return {
@@ -433,6 +515,15 @@ export class TenantBackend extends DurableObject {
       readSet: tx ? [...tx.readSet] : [],
       queryDescriptors: tx ? [...tx.queryDescriptors] : [],
     };
+  }
+
+  private validateReturnValue(fnName: string, fn: FunctionDef, result: unknown): void {
+    if (!fn.returnsValidator) return;
+    try {
+      validate(result, fn.returnsValidator.json);
+    } catch (e) {
+      throw new Error(`Return value validation failed for "${fnName}": ${e instanceof Error ? e.message : e}`);
+    }
   }
 
   // -- WebSocket handlers --
@@ -722,6 +813,12 @@ export class TenantBackend extends DurableObject {
           }
         }
       },
+      runAction: async (fnName: string, args?: unknown) => {
+        const fn = this.functions[fnName];
+        if (!fn || fn.type !== "action") throw new Error(`Action not found: ${fnName}`);
+        const actionCtx = this.createActionCtx();
+        return await fn.handler(actionCtx, args ?? {});
+      },
       scheduler: this.createScheduler(),
     };
   }
@@ -737,6 +834,12 @@ export class TenantBackend extends DurableObject {
       runAt: async (timestamp: number, fnName: string, args?: unknown): Promise<string> => {
         return this.scheduleJob(timestamp, fnName, args ?? {});
       },
+      cancel: async (id: string): Promise<void> => {
+        this.sql.exec(
+          `DELETE FROM scheduled_jobs WHERE id = ? AND status = 'pending'`,
+          id
+        );
+      },
     };
   }
 
@@ -747,20 +850,37 @@ export class TenantBackend extends DurableObject {
       id, runAt, fnName, JSON.stringify(args)
     );
 
-    // Set or update alarm to the earliest pending job
-    const earliest = this.sql.exec(
-      `SELECT MIN(run_at) as next FROM scheduled_jobs WHERE status = 'pending'`
-    ).toArray() as { next: number | null }[];
-    if (earliest[0]?.next != null) {
-      await this.ctx.storage.setAlarm(earliest[0].next);
-    }
-
+    this.ensureNextAlarm();
     return id;
   }
 
-  /** Cloudflare DO alarm handler — executes due scheduled jobs. */
+  /** Execute a function by name and type (used by both scheduler and cron). */
+  private async executeScheduledFunction(fnName: string, args: unknown): Promise<void> {
+    const fn = this.functions[fnName];
+    if (!fn) throw new Error(`Function not found: ${fnName}`);
+
+    if (fn.type === "action") {
+      const ctx = this.createActionCtx();
+      await fn.handler(ctx, args);
+    } else if (fn.type === "mutation") {
+      const ctx = this.createActionCtx();
+      await ctx.runMutation(fnName, args);
+    } else if (fn.type === "query") {
+      const txId = crypto.randomUUID();
+      this.transactions.begin(txId, this.latestTs, "query");
+      try {
+        await this.invokeFunction(fnName, args, txId);
+      } finally {
+        this.transactions.remove(txId);
+      }
+    }
+  }
+
+  /** Cloudflare DO alarm handler — executes due scheduled jobs and cron jobs. */
   async alarm(): Promise<void> {
     const now = Date.now();
+
+    // 1. Process due scheduled jobs
     const dueJobs = this.sql.exec(
       `SELECT id, fn_name, args FROM scheduled_jobs WHERE status = 'pending' AND run_at <= ? ORDER BY run_at`,
       now
@@ -769,27 +889,7 @@ export class TenantBackend extends DurableObject {
     for (const job of dueJobs) {
       this.sql.exec(`UPDATE scheduled_jobs SET status = 'running' WHERE id = ?`, job.id);
       try {
-        const fn = this.functions[job.fn_name];
-        if (!fn) throw new Error(`Scheduled function not found: ${job.fn_name}`);
-        const args = JSON.parse(job.args);
-
-        if (fn.type === "action") {
-          const ctx = this.createActionCtx();
-          await fn.handler(ctx, args);
-        } else if (fn.type === "mutation") {
-          // Run via action context's runMutation for full OCC + subscription invalidation
-          const ctx = this.createActionCtx();
-          await ctx.runMutation(job.fn_name, args);
-        } else if (fn.type === "query") {
-          const txId = crypto.randomUUID();
-          this.transactions.begin(txId, this.latestTs, "query");
-          try {
-            await this.invokeFunction(job.fn_name, args, txId);
-          } finally {
-            this.transactions.remove(txId);
-          }
-        }
-
+        await this.executeScheduledFunction(job.fn_name, JSON.parse(job.args));
         this.sql.exec(`UPDATE scheduled_jobs SET status = 'completed' WHERE id = ?`, job.id);
       } catch (e) {
         console.error(`Scheduled job ${job.id} (${job.fn_name}) failed:`, e);
@@ -797,16 +897,33 @@ export class TenantBackend extends DurableObject {
       }
     }
 
-    // Clean up old completed/failed jobs
+    // Clean up completed/failed scheduled jobs
     this.sql.exec(`DELETE FROM scheduled_jobs WHERE status IN ('completed', 'failed')`);
 
-    // Set next alarm if there are more pending jobs
-    const next = this.sql.exec(
-      `SELECT MIN(run_at) as next FROM scheduled_jobs WHERE status = 'pending'`
-    ).toArray() as { next: number | null }[];
-    if (next[0]?.next != null) {
-      await this.ctx.storage.setAlarm(next[0].next);
+    // 2. Process due cron jobs
+    const dueCrons = this.sql.exec(
+      `SELECT name, fn_name, args, schedule FROM cron_jobs WHERE next_run_at <= ?`,
+      now
+    ).toArray() as { name: string; fn_name: string; args: string; schedule: string }[];
+
+    for (const cron of dueCrons) {
+      try {
+        await this.executeScheduledFunction(cron.fn_name, JSON.parse(cron.args));
+      } catch (e) {
+        console.error(`Cron job "${cron.name}" (${cron.fn_name}) failed:`, e);
+      }
+
+      // Compute next run time regardless of success/failure
+      const schedule = JSON.parse(cron.schedule) as CronSchedule;
+      const nextRun = getNextRunTime(schedule, now);
+      this.sql.exec(
+        `UPDATE cron_jobs SET last_run_at = ?, next_run_at = ? WHERE name = ?`,
+        now, nextRun, cron.name
+      );
     }
+
+    // 3. Set the next alarm
+    this.ensureNextAlarm();
   }
 
   // -- Index queries --

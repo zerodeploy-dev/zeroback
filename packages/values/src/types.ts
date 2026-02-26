@@ -9,7 +9,8 @@ export type ValidatorKind =
   | "union"
   | "literal"
   | "any"
-  | "optional";
+  | "optional"
+  | "record";
 
 export type ValidatorJSON =
   | { type: "string" }
@@ -22,7 +23,8 @@ export type ValidatorJSON =
   | { type: "union"; value: ValidatorJSON[] }
   | { type: "literal"; value: string | number | boolean }
   | { type: "any" }
-  | { type: "optional"; value: ValidatorJSON };
+  | { type: "optional"; value: ValidatorJSON }
+  | { type: "record"; keys: ValidatorJSON; values: ValidatorJSON };
 
 export type PropertyValidators = Record<string, Validator<any>>;
 

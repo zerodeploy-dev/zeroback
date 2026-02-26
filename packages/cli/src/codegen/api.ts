@@ -77,6 +77,7 @@ function validatorTypeToTs(json: any): string {
     case "array": return `${validatorTypeToTs(json.value)}[]`;
     case "union": return (json.value || []).map((v: any) => validatorTypeToTs(v)).join(" | ");
     case "optional": return `${validatorTypeToTs(json.value)} | undefined`;
+    case "record": return `Record<${validatorTypeToTs(json.keys)}, ${validatorTypeToTs(json.values)}>`;
     default: return "unknown";
   }
 }
