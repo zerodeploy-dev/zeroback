@@ -46,6 +46,17 @@ export class TenantBackend extends DurableObject {
     this.sql = ctx.storage.sql;
     this.schemaInfo = bundledSchema as SchemaJSON;
 
+    // Inject default by_creation_time and by_id indexes on every table
+    for (const tableInfo of Object.values(this.schemaInfo.tables)) {
+      if (!tableInfo.indexes) tableInfo.indexes = [];
+      if (!tableInfo.indexes.some((i) => i.name === "by_creation_time")) {
+        tableInfo.indexes.push({ name: "by_creation_time", fields: ["_creationTime"] });
+      }
+      if (!tableInfo.indexes.some((i) => i.name === "by_id")) {
+        tableInfo.indexes.push({ name: "by_id", fields: ["_id"] });
+      }
+    }
+
     this.initializeTables();
     this.initializeIndexTables();
 

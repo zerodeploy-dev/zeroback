@@ -185,6 +185,33 @@ export const sendWithScore = mutation({
   },
 });
 
+// Query using default by_creation_time index
+export const recentMessages = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_creation_time")
+      .order("desc")
+      .take(args.limit ?? 10);
+  },
+});
+
+// Query using default by_id index
+export const getById = query({
+  args: {
+    id: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_id", (q) => q.eq("_id", args.id))
+      .first();
+  },
+});
+
 // Action that calls another action via ctx.runAction
 export const sendAndCount = action({
   args: {

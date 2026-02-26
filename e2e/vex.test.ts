@@ -736,6 +736,56 @@ describe("return value validators", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Default Indexes (by_creation_time, by_id)
+// ---------------------------------------------------------------------------
+
+describe("default indexes", () => {
+  it("by_creation_time returns documents ordered by creation time", async () => {
+    const c = await freshClient();
+    const ch = `default-idx-${Date.now()}`;
+
+    await c.mutation("messages:send", { body: "first", author: "a", channel: ch });
+    await c.mutation("messages:send", { body: "second", author: "b", channel: ch });
+    await c.mutation("messages:send", { body: "third", author: "c", channel: ch });
+
+    // recentMessages uses by_creation_time index with order("desc")
+    const { result } = await c.query("messages:recentMessages", { limit: 100 });
+
+    // Should include our messages (and possibly others) in desc creation order
+    const ours = result.filter((m: any) => m.channel === ch);
+    expect(ours).toHaveLength(3);
+    expect(ours[0].body).toBe("third");
+    expect(ours[1].body).toBe("second");
+    expect(ours[2].body).toBe("first");
+
+    // Verify _creationTime is monotonically decreasing
+    expect(ours[0]._creationTime).toBeGreaterThanOrEqual(ours[1]._creationTime);
+    expect(ours[1]._creationTime).toBeGreaterThanOrEqual(ours[2]._creationTime);
+  });
+
+  it("by_id index allows lookup by _id", async () => {
+    const c = await freshClient();
+    const ch = `byid-${Date.now()}`;
+
+    await c.mutation("messages:send", { body: "find me", author: "a", channel: ch });
+    const { result: messages } = await c.query("messages:list", { channel: ch });
+    const id = messages[0]._id;
+
+    // getById uses by_id index with eq("_id", id)
+    const { result: found } = await c.query("messages:getById", { id });
+    expect(found).not.toBeNull();
+    expect(found._id).toBe(id);
+    expect(found.body).toBe("find me");
+  });
+
+  it("by_id returns null for nonexistent id", async () => {
+    const c = await freshClient();
+    const { result: found } = await c.query("messages:getById", { id: "nonexistent_12345" });
+    expect(found).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Optimistic Updates (via ConvexClient)
 // ---------------------------------------------------------------------------
 

@@ -499,7 +499,7 @@ npx tsc --build packages/values packages/server packages/cli
 | Cursor-based pagination (`.paginate()`) | Implemented |
 | Full-text search (`.withSearchIndex()`) | Not yet |
 | Vector search (`ctx.vectorSearch()`) | Not yet |
-| Default `by_creation_time` / `by_id` indexes | Not yet |
+| Default `by_creation_time` / `by_id` indexes | Implemented |
 
 ### Real-Time
 
