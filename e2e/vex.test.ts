@@ -1,5 +1,10 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { VexTestClient, sleep } from "./harness";
+import WS from "ws";
+// Polyfill WebSocket for Node so ConvexClient works in tests
+(globalThis as any).WebSocket = WS;
+import { ConvexClient, QueryStore } from "../packages/client/src/index";
+import type { LocalStore } from "../packages/client/src/index";
 
 let client: VexTestClient;
 
@@ -727,5 +732,201 @@ describe("return value validators", () => {
     // Need a fresh query since the first one is a subscription
     const { result: count2 } = await c.query("messages:countByChannel", { channel: ch });
     expect(count2).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Optimistic Updates (via ConvexClient)
+// ---------------------------------------------------------------------------
+
+describe("optimistic updates", () => {
+  let convexClient: ConvexClient;
+
+  afterEach(() => {
+    convexClient?.close();
+  });
+
+  it("applies optimistic update immediately and reverts to server truth", async () => {
+    convexClient = new ConvexClient("ws://localhost:8788/ws");
+
+    // Wait for connection
+    await new Promise<void>((resolve) => {
+      const unsub = convexClient.onConnectionChange((state) => {
+        if (state === "connected") { unsub(); resolve(); }
+      });
+      if (convexClient.connectionState === "connected") resolve();
+    });
+
+    const ch = `opt-update-${Date.now()}`;
+    const queryKey = QueryStore.makeKey("messages:list", { channel: ch });
+
+    // Subscribe to the query
+    convexClient.subscribe("messages:list", { channel: ch });
+
+    // Wait for initial result
+    await new Promise<void>((resolve) => {
+      const unsub = convexClient.watchQuery(queryKey, () => {
+        const result = convexClient.getQueryResult(queryKey);
+        if (result !== undefined) { unsub(); resolve(); }
+      });
+    });
+
+    const before = convexClient.getQueryResult(queryKey) as any[];
+    expect(before).toEqual([]);
+
+    // Perform mutation with optimistic update
+    const mutationPromise = convexClient.mutation(
+      "messages:send",
+      { body: "optimistic msg", author: "alice", channel: ch },
+      {
+        optimisticUpdate: (store: LocalStore) => {
+          const current = store.getQuery("messages:list", { channel: ch }) as any[];
+          store.setQuery("messages:list", { channel: ch }, [
+            ...current,
+            { _id: "temp", _creationTime: Date.now(), body: "optimistic msg", author: "alice", channel: ch },
+          ]);
+        },
+      },
+    );
+
+    // Immediately after calling mutation, optimistic result should be visible
+    const optimistic = convexClient.getQueryResult(queryKey) as any[];
+    expect(optimistic).toHaveLength(1);
+    expect(optimistic[0].body).toBe("optimistic msg");
+    expect(optimistic[0]._id).toBe("temp");
+
+    // Wait for mutation to complete
+    await mutationPromise;
+
+    // After mutation resolves, optimistic layer is removed.
+    // Wait for server push to update the base cache.
+    await new Promise<void>((resolve) => {
+      const check = () => {
+        const result = convexClient.getQueryResult(queryKey) as any[];
+        if (result && result.length > 0 && result[0]._id !== "temp") {
+          resolve();
+        }
+      };
+      // Check immediately and on updates
+      check();
+      const unsub = convexClient.watchQuery(queryKey, () => {
+        check();
+        if ((convexClient.getQueryResult(queryKey) as any[])?.[0]?._id !== "temp") {
+          unsub();
+        }
+      });
+      // Safety timeout
+      setTimeout(() => { unsub(); resolve(); }, 5000);
+    });
+
+    // Server truth should have the real message with a real _id
+    const serverResult = convexClient.getQueryResult(queryKey) as any[];
+    expect(serverResult).toHaveLength(1);
+    expect(serverResult[0].body).toBe("optimistic msg");
+    expect(serverResult[0]._id).not.toBe("temp");
+  });
+
+  it("reverts optimistic update on mutation failure", async () => {
+    convexClient = new ConvexClient("ws://localhost:8788/ws");
+
+    await new Promise<void>((resolve) => {
+      const unsub = convexClient.onConnectionChange((state) => {
+        if (state === "connected") { unsub(); resolve(); }
+      });
+      if (convexClient.connectionState === "connected") resolve();
+    });
+
+    const ch = `opt-revert-${Date.now()}`;
+    const queryKey = QueryStore.makeKey("messages:list", { channel: ch });
+
+    convexClient.subscribe("messages:list", { channel: ch });
+
+    // Wait for initial result
+    await new Promise<void>((resolve) => {
+      const unsub = convexClient.watchQuery(queryKey, () => {
+        if (convexClient.getQueryResult(queryKey) !== undefined) { unsub(); resolve(); }
+      });
+    });
+
+    expect(convexClient.getQueryResult(queryKey)).toEqual([]);
+
+    // Mutation that will fail (missing required args)
+    const mutationPromise = convexClient.mutation(
+      "messages:send",
+      { body: "fail" } as any, // missing author and channel
+      {
+        optimisticUpdate: (store: LocalStore) => {
+          store.setQuery("messages:list", { channel: ch }, [
+            { _id: "temp", body: "should revert" },
+          ]);
+        },
+      },
+    ).catch(() => {}); // swallow expected error
+
+    // Optimistic update is visible immediately
+    const optimistic = convexClient.getQueryResult(queryKey) as any[];
+    expect(optimistic).toHaveLength(1);
+    expect(optimistic[0].body).toBe("should revert");
+
+    // Wait for mutation to fail
+    await mutationPromise;
+
+    // After failure, optimistic layer is removed — reverts to empty
+    const reverted = convexClient.getQueryResult(queryKey) as any[];
+    expect(reverted).toEqual([]);
+  });
+
+  it("only notifies listeners for affected query keys", async () => {
+    convexClient = new ConvexClient("ws://localhost:8788/ws");
+
+    await new Promise<void>((resolve) => {
+      const unsub = convexClient.onConnectionChange((state) => {
+        if (state === "connected") { unsub(); resolve(); }
+      });
+      if (convexClient.connectionState === "connected") resolve();
+    });
+
+    const chA = `opt-a-${Date.now()}`;
+    const chB = `opt-b-${Date.now()}`;
+    const keyA = QueryStore.makeKey("messages:list", { channel: chA });
+    const keyB = QueryStore.makeKey("messages:list", { channel: chB });
+
+    convexClient.subscribe("messages:list", { channel: chA });
+    convexClient.subscribe("messages:list", { channel: chB });
+
+    // Wait for both subscriptions
+    await new Promise<void>((resolve) => {
+      let gotA = false, gotB = false;
+      const check = () => { if (gotA && gotB) resolve(); };
+      const unsubA = convexClient.watchQuery(keyA, () => {
+        if (convexClient.getQueryResult(keyA) !== undefined) { gotA = true; unsubA(); check(); }
+      });
+      const unsubB = convexClient.watchQuery(keyB, () => {
+        if (convexClient.getQueryResult(keyB) !== undefined) { gotB = true; unsubB(); check(); }
+      });
+    });
+
+    let notifyCountB = 0;
+    const unsubB = convexClient.watchQuery(keyB, () => { notifyCountB++; });
+
+    // Optimistic update only touches channel A
+    await convexClient.mutation(
+      "messages:send",
+      { body: "hi", author: "test", channel: chA },
+      {
+        optimisticUpdate: (store: LocalStore) => {
+          const current = store.getQuery("messages:list", { channel: chA }) as any[];
+          store.setQuery("messages:list", { channel: chA }, [
+            ...current,
+            { _id: "temp", body: "hi" },
+          ]);
+        },
+      },
+    );
+
+    unsubB();
+
+    // Channel B listener should NOT have been notified by the optimistic update
+    expect(notifyCountB).toBe(0);
   });
 });

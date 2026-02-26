@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useContext, createContext, useSyncExternalStore, useRef } from "react";
-import { ConvexClient } from "@vex/client";
-import type { ConnectionState } from "@vex/client";
+import { ConvexClient, QueryStore } from "@vex/client";
+import type { ConnectionState, LocalStore } from "@vex/client";
 import type { FunctionReference } from "@vex/server";
 
 const ConvexContext = createContext<ConvexClient | null>(null);
@@ -31,33 +31,47 @@ export function useQuery<Ref extends FunctionReference<"query", any, any>>(
   args?: Ref["_args"]
 ): Ref["_returns"] | undefined {
   const client = useConvexClient();
-  const [result, setResult] = useState<Ref["_returns"] | undefined>(undefined);
+  const argsStr = JSON.stringify(args ?? {});
+  const queryKey = QueryStore.makeKey(ref._name, args ?? {});
 
+  // Manage WS subscription lifecycle
   useEffect(() => {
-    setResult(undefined);
+    const unsubscribe = client.subscribe(ref._name, args ?? {});
+    return unsubscribe;
+  }, [client, ref._name, argsStr]);
 
-    const callback = (data: unknown) => {
-      setResult(data as Ref["_returns"]);
-    };
+  // Read from centralized store with granular re-renders.
+  // Only this component re-renders when this specific query key changes.
+  const subscribe = useCallback(
+    (cb: () => void) => client.watchQuery(queryKey, cb),
+    [client, queryKey],
+  );
+  const getSnapshot = useCallback(
+    () => client.getQueryResult(queryKey) as Ref["_returns"] | undefined,
+    [client, queryKey],
+  );
 
-    const unsubscribe = client.subscribe(ref._name, args ?? {}, callback);
-
-    return () => {
-      unsubscribe();
-    };
-  }, [client, ref._name, JSON.stringify(args)]);
-
-  return result;
+  return useSyncExternalStore(subscribe, getSnapshot);
 }
 
 export function useMutation<Ref extends FunctionReference<"mutation", any, any>>(
-  ref: Ref
+  ref: Ref,
+  opts?: {
+    optimisticUpdate?: (store: LocalStore, args: Ref["_args"]) => void;
+  },
 ): (args: Ref["_args"]) => Promise<Ref["_returns"]> {
   const client = useConvexClient();
+  const optimisticUpdateRef = useRef(opts?.optimisticUpdate);
+  optimisticUpdateRef.current = opts?.optimisticUpdate;
 
   return useCallback(
     async (args: Ref["_args"]): Promise<Ref["_returns"]> => {
-      return await client.mutation(ref._name, args) as Ref["_returns"];
+      const ouFn = optimisticUpdateRef.current;
+      return await client.mutation(
+        ref._name,
+        args,
+        ouFn ? { optimisticUpdate: (store) => ouFn(store, args) } : undefined,
+      ) as Ref["_returns"];
     },
     [client, ref._name]
   );

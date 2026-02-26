@@ -1,5 +1,7 @@
 import { SubscriptionRegistry } from "./SubscriptionRegistry";
 import { Backoff } from "./Backoff";
+import { QueryStore } from "./QueryStore";
+import type { LocalStore, QueryKey } from "./QueryStore";
 import type { ClientMessage, ServerMessage } from "./Protocol";
 
 export type ConnectionState = "connecting" | "connected" | "disconnected";
@@ -19,6 +21,9 @@ export class ConvexClient {
 
   private _connectionState: ConnectionState = "disconnected";
   private connectionListeners = new Set<(state: ConnectionState) => void>();
+
+  /** Centralized query result cache with optimistic update support. */
+  readonly queryStore = new QueryStore();
 
   constructor(url: string) {
     this.url = url;
@@ -124,8 +129,8 @@ export class ConvexClient {
     }
   }
 
-  subscribe(fnName: string, args: unknown, callback: (data: unknown) => void): () => void {
-    const subId = this.subscriptions.add(fnName, args, callback);
+  subscribe(fnName: string, args: unknown, callback?: (data: unknown) => void): () => void {
+    const subId = this.subscriptions.add(fnName, args, callback ?? (() => {}));
     this.send({ type: "query", id: subId, fn: fnName, args });
     return () => {
       this.subscriptions.remove(subId);
@@ -133,12 +138,40 @@ export class ConvexClient {
     };
   }
 
-  async mutation(fnName: string, args: unknown): Promise<unknown> {
+  /** Subscribe to changes for a specific query key in the centralized store. */
+  watchQuery(key: QueryKey, listener: () => void): () => void {
+    return this.queryStore.subscribe(key, listener);
+  }
+
+  /** Get the current (merged base + optimistic) result for a query key. */
+  getQueryResult(key: QueryKey): unknown | undefined {
+    return this.queryStore.getResult(key);
+  }
+
+  async mutation(
+    fnName: string,
+    args: unknown,
+    opts?: { optimisticUpdate?: (store: LocalStore) => void },
+  ): Promise<unknown> {
     const id = crypto.randomUUID();
-    return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
-      this.send({ type: "mutation", id, fn: fnName, args });
-    });
+
+    // Apply optimistic update before sending
+    if (opts?.optimisticUpdate) {
+      this.queryStore.addLayer(id, opts.optimisticUpdate);
+    }
+
+    try {
+      const result = await new Promise((resolve, reject) => {
+        this.pendingRequests.set(id, { resolve, reject });
+        this.send({ type: "mutation", id, fn: fnName, args });
+      });
+      return result;
+    } finally {
+      // Remove optimistic layer when mutation completes (success or failure)
+      if (opts?.optimisticUpdate) {
+        this.queryStore.removeLayer(id);
+      }
+    }
   }
 
   async action(fnName: string, args: unknown): Promise<unknown> {
@@ -152,12 +185,25 @@ export class ConvexClient {
   private handleMessage(msg: ServerMessage): void {
     switch (msg.type) {
       case "result":
-      case "update":
+      case "update": {
+        // Update centralized store
+        const sub = this.subscriptions.get(msg.id);
+        if (sub) {
+          const key = QueryStore.makeKey(sub.fnName, sub.args);
+          this.queryStore.setServerResult(key, msg.result);
+        }
+        // Also call subscription callback (for usePaginatedQuery and direct subscribers)
         this.subscriptions.notify(msg.id, msg.result);
         break;
+      }
 
       case "updates":
         for (const item of msg.items) {
+          const sub = this.subscriptions.get(item.id);
+          if (sub) {
+            const key = QueryStore.makeKey(sub.fnName, sub.args);
+            this.queryStore.setServerResult(key, item.result);
+          }
           this.subscriptions.notify(item.id, item.result);
         }
         break;

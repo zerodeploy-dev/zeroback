@@ -568,7 +568,7 @@ npx tsc --build packages/values packages/server packages/cli
 | Connection state tracking (`connecting`, `connected`, `disconnected`) | Implemented |
 | Message queuing while disconnected | Implemented |
 | Auto re-subscribe on reconnect / server reset | Implemented |
-| Optimistic updates | Not yet |
+| Optimistic updates | Implemented |
 | Sequential mutation queue (ordered execution) | Not yet |
 | Auth token management (`setAuth`) | Not yet |
 
