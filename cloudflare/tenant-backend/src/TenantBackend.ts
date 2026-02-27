@@ -513,6 +513,13 @@ export class TenantBackend extends DurableObject {
 
   private static readonly MAX_OCC_RETRIES = 5;
 
+  private static occBackoff(attempt: number): Promise<void> {
+    const baseMs = 10;
+    const capMs = 500;
+    const delay = Math.random() * Math.min(baseMs * 2 ** attempt, capMs);
+    return new Promise((r) => setTimeout(r, delay));
+  }
+
   private async handleMutation(connectionId: string, msg: { id: string; fn: string; args: unknown }): Promise<void> {
     const ws = this.connections.getById(connectionId);
     if (!ws) return;
@@ -539,7 +546,10 @@ export class TenantBackend extends DurableObject {
           const hasConflicts = this.checkConflicts(readSet, mutationTx!.beginTs);
           if (hasConflicts) {
             this.transactions.remove(txId);
-            if (attempt < TenantBackend.MAX_OCC_RETRIES) continue; // Retry
+            if (attempt < TenantBackend.MAX_OCC_RETRIES) {
+              await TenantBackend.occBackoff(attempt);
+              continue;
+            }
             ws.send(
               JSON.stringify({
                 type: "error",
@@ -696,7 +706,10 @@ export class TenantBackend extends DurableObject {
 
             if (readSet.length > 0 && this.checkConflicts(readSet, mutationTx!.beginTs)) {
               this.transactions.remove(txId);
-              if (attempt < TenantBackend.MAX_OCC_RETRIES) continue;
+              if (attempt < TenantBackend.MAX_OCC_RETRIES) {
+                await TenantBackend.occBackoff(attempt);
+                continue;
+              }
               throw new Error("Transaction conflict — max retries exceeded");
             }
 
