@@ -38,6 +38,11 @@ export class SubscriptionManager {
     this.subs.delete(id);
   }
 
+  clearAll(): void {
+    this.subs.clear();
+    this.tableIndex.clear();
+  }
+
   removeAll(ws: WebSocket): void {
     for (const [id, sub] of this.subs.entries()) {
       if (sub.ws === ws) {

@@ -5,6 +5,8 @@ import { validate } from "@vex/values";
 import { DOSQLiteReader } from "./db/DOSQLiteReader";
 import { DOSQLiteWriter } from "./db/DOSQLiteWriter";
 import { applyFilter, applyLimit, evaluateFilter, compileFilterToSQL } from "./db/FilterEngine";
+import { generateTableDDL, buildTableColumns, sqlRowToDoc, migrateSchema } from "./db/SchemaMapper";
+import type { TableColumnInfo } from "./db/SchemaMapper";
 import { TransactionStore } from "./transaction/TransactionStore";
 import { SubscriptionManager } from "./subscriptions/SubscriptionManager";
 import { ConnectionManager } from "./websocket/ConnectionManager";
@@ -21,6 +23,9 @@ type FunctionDef = {
   returnsValidator?: { json: any };
 };
 
+/** Max bound parameters per SQL statement on Cloudflare DO SQLite. */
+const MAX_PARAMS = 100;
+
 export class TenantBackend extends DurableObject {
   private latestTs: number = 0;
   private transactions: TransactionStore;
@@ -31,12 +36,7 @@ export class TenantBackend extends DurableObject {
   private sql;
   private reader: DOSQLiteReader;
   private writer: DOSQLiteWriter;
-
-  /** Prune transaction_log every N mutations. */
-  private static readonly PRUNE_INTERVAL = 100;
-  /** Keep the last N transaction timestamps in the log. */
-  private static readonly PRUNE_KEEP_COUNT = 1000;
-  private mutationsSincePrune = 0;
+  private tableColumns: Map<string, TableColumnInfo>;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -57,11 +57,11 @@ export class TenantBackend extends DurableObject {
       }
     }
 
+    this.tableColumns = buildTableColumns(this.schemaInfo);
     this.initializeTables();
-    this.initializeIndexTables();
 
-    this.reader = new DOSQLiteReader(this.sql);
-    this.writer = new DOSQLiteWriter(this.sql);
+    this.reader = new DOSQLiteReader(this.sql, this.tableColumns);
+    this.writer = new DOSQLiteWriter(this.sql, this.tableColumns);
     this.loadLatestTs();
 
     // Update SQLite query planner statistics
@@ -159,21 +159,8 @@ export class TenantBackend extends DurableObject {
   }
 
   private initializeTables(): void {
+    // System tables
     this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS transaction_log (
-        ts INTEGER NOT NULL,
-        table_name TEXT NOT NULL,
-        document_id TEXT NOT NULL,
-        data TEXT,
-        inserted_at INTEGER NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS document_index (
-        table_name TEXT NOT NULL,
-        document_id TEXT NOT NULL,
-        ts INTEGER NOT NULL,
-        data TEXT,
-        PRIMARY KEY (table_name, document_id)
-      );
       CREATE TABLE IF NOT EXISTS scheduled_jobs (
         id TEXT PRIMARY KEY,
         run_at REAL NOT NULL,
@@ -192,94 +179,17 @@ export class TenantBackend extends DurableObject {
       );
       CREATE INDEX IF NOT EXISTS cron_jobs_next_run ON cron_jobs (next_run_at);
     `);
-    // Migrate: if old schema had PK (table_name, document_id, ts), deduplicate rows.
-    // This is a one-time migration that keeps only the latest ts per document.
-    this.migrateDocumentIndex();
-  }
 
-  private migrateDocumentIndex(): void {
-    // Check if duplicate rows exist (old schema with ts in PK)
-    const dupes = this.sql.exec(
-      `SELECT COUNT(*) as cnt FROM (
-        SELECT document_id FROM document_index GROUP BY table_name, document_id HAVING COUNT(*) > 1
-      )`
-    ).toArray() as { cnt: number }[];
-    if ((dupes[0]?.cnt ?? 0) === 0) return;
-
-    // Keep only the latest version per (table_name, document_id)
-    this.sql.exec(`
-      DELETE FROM document_index WHERE rowid NOT IN (
-        SELECT rowid FROM (
-          SELECT rowid, ROW_NUMBER() OVER (PARTITION BY table_name, document_id ORDER BY ts DESC) AS rn
-          FROM document_index
-        ) WHERE rn = 1
-      )
-    `);
-  }
-
-  private initializeIndexTables(): void {
-    for (const [tableName, tableInfo] of Object.entries(this.schemaInfo.tables)) {
-      for (const index of tableInfo.indexes || []) {
-        const idxTable = `idx_${tableName}_${index.name}`;
-        const colDefs = index.fields.map((_, i) => `c${i}`).join(", ");
-        const indexCols = [...index.fields.map((_, i) => `c${i}`), "_creationTime"].join(", ");
-
-        // Migrate: old schema stored full document copy in 'data' column.
-        // New schema only stores indexed columns — documents are JOINed on read.
-        if (this.indexTableNeedsMigration(idxTable)) {
-          this.sql.exec(`DROP TABLE IF EXISTS "${idxTable}"`);
-        }
-
-        this.sql.exec(`
-          CREATE TABLE IF NOT EXISTS "${idxTable}" (
-            document_id TEXT PRIMARY KEY,
-            ${colDefs},
-            _creationTime REAL
-          );
-        `);
-
-        this.sql.exec(`
-          CREATE INDEX IF NOT EXISTS "${idxTable}_sort" ON "${idxTable}" (${indexCols});
-        `);
-
-        // Rebuild index from document_index after migration (or fresh create with existing data)
-        const count = (this.sql.exec(`SELECT COUNT(*) as cnt FROM "${idxTable}"`).toArray() as { cnt: number }[])[0]?.cnt ?? 0;
-        if (count === 0) {
-          this.rebuildIndex(tableName, index);
+    // User tables from schema — migrate if needed
+    try {
+      migrateSchema(this.sql, this.schemaInfo);
+    } catch (e) {
+      console.error("[migration] failed, falling back to CREATE IF NOT EXISTS:", e);
+      for (const [tableName, tableInfo] of Object.entries(this.schemaInfo.tables)) {
+        for (const stmt of generateTableDDL(tableName, tableInfo)) {
+          this.sql.exec(stmt);
         }
       }
-    }
-  }
-
-  private indexTableNeedsMigration(idxTable: string): boolean {
-    const info = this.sql.exec(`PRAGMA table_info("${idxTable}")`).toArray() as { name: string }[];
-    if (info.length === 0) return false; // Table doesn't exist yet
-    return info.some((c) => c.name === "data");
-  }
-
-  private rebuildIndex(tableName: string, index: { name: string; fields: string[] }): void {
-    const idxTable = `idx_${tableName}_${index.name}`;
-    const docs = this.sql.exec(
-      `SELECT document_id, data FROM document_index WHERE table_name = ?`, tableName
-    ).toArray() as { document_id: string; data: string }[];
-
-    if (docs.length === 0) return;
-
-    const colNames = ["document_id", ...index.fields.map((_, i) => `c${i}`), "_creationTime"];
-    const rowPlaceholder = `(${colNames.map(() => "?").join(", ")})`;
-    const chunkSize = Math.floor(100 / colNames.length);
-
-    for (let i = 0; i < docs.length; i += chunkSize) {
-      const chunk = docs.slice(i, i + chunkSize);
-      const values = chunk.map(() => rowPlaceholder).join(", ");
-      const params = chunk.flatMap((row) => {
-        const doc = JSON.parse(row.data);
-        return [row.document_id, ...index.fields.map((f) => doc[f]), doc._creationTime ?? 0];
-      });
-      this.sql.exec(
-        `INSERT OR REPLACE INTO "${idxTable}" (${colNames.join(", ")}) VALUES ${values}`,
-        ...params
-      );
     }
   }
 
@@ -302,6 +212,10 @@ export class TenantBackend extends DurableObject {
 
     if (path === "/health") {
       return new Response("OK");
+    }
+
+    if (path === "/__dev/reset" && req.method === "POST") {
+      return this.handleDevReset();
     }
 
     // HTTP actions — user-defined routes
@@ -329,6 +243,29 @@ export class TenantBackend extends DurableObject {
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
+  }
+
+  private handleDevReset(): Response {
+    // Delete all rows from user tables
+    for (const tableName of Object.keys(this.schemaInfo.tables)) {
+      this.sql.exec(`DELETE FROM "${tableName}"`);
+    }
+
+    // Reset timestamp
+    this.latestTs = 0;
+    this.ctx.storage.put("latestTs", 0);
+
+    // Clear subscriptions
+    this.subscriptions.clearAll();
+
+    // Notify all connected clients to re-subscribe
+    for (const ws of this.ctx.getWebSockets()) {
+      try {
+        ws.send('{"type":"reset"}');
+      } catch {}
+    }
+
+    return new Response("OK");
   }
 
   private handleWebSocketUpgrade(req: Request): Response {
@@ -395,38 +332,22 @@ export class TenantBackend extends DurableObject {
         const tx = this.transactions.get(txId);
         if (!tx) throw new Error("Invalid transaction");
 
-        let rows: unknown[];
-        let docEntries: { documentId: string; data: unknown; ts: number }[];
-
+        // Build combined filter for query descriptor (index ranges + user filter)
+        let descriptorFilter = filter;
         if (indexQuery) {
-          // Use index table for efficient querying
-          // Only push LIMIT to SQL when there's no additional JS filter
-          const sqlLimit = filter ? null : limit;
-          const indexResults = this.queryByIndex(table, indexQuery, orderDirection, sqlLimit);
-          rows = indexResults.map((r) => r.data);
-          rows = applyFilter(rows, filter);
-          rows = applyLimit(rows, limit);
-
-          docEntries = indexResults.map((r) => ({ documentId: r.documentId, data: r.data, ts: tx.beginTs }));
-
-          // Build combined filter for query descriptor (index ranges + user filter)
           const indexFilter = indexRangesToFilter(indexQuery.ranges);
-          const combinedFilter = filter && indexFilter
+          descriptorFilter = filter && indexFilter
             ? { op: "and" as const, exprs: [indexFilter, filter] }
             : (indexFilter || filter);
-          this.transactions.addQueryDescriptor(txId, { table, filter: combinedFilter });
-        } else {
-          // Push filter/order/limit down to SQL
-          const docs = this.queryFullScan(table, tx.beginTs, filter, orderField, orderDirection, limit);
-          rows = docs.map((d) => d.data);
-          docEntries = docs;
-          this.transactions.addQueryDescriptor(txId, { table, filter });
         }
+        this.transactions.addQueryDescriptor(txId, { table, filter: descriptorFilter });
 
-        for (const doc of docEntries) {
+        const docs = this.queryTable(table, tx.beginTs, filter, indexQuery, orderField, orderDirection, limit);
+
+        for (const doc of docs) {
           this.transactions.addRead(txId, { table, documentId: doc.documentId, ts: doc.ts });
         }
-        return rows;
+        return docs.map((d) => d.data);
       },
 
       get: async (table, id) => {
@@ -472,7 +393,12 @@ export class TenantBackend extends DurableObject {
       },
 
       replace: async (table, id, data) => {
-        this.transactions.addWrite(txId, { table, documentId: id, data });
+        const tx = this.transactions.get(txId);
+        if (!tx) throw new Error("Invalid transaction");
+        const existing = await this.reader.getDocument(table, id, tx.beginTs);
+        if (!existing) throw new Error(`Document ${id} not found`);
+        const fullDoc = { ...(data as any), _id: id, _creationTime: (existing.data as any)._creationTime };
+        this.transactions.addWrite(txId, { table, documentId: id, data: fullDoc });
       },
 
       delete: async (table, id) => {
@@ -642,7 +568,6 @@ export class TenantBackend extends DurableObject {
           const commitTs = ++this.latestTs;
           await this.saveLatestTs();
           await this.writer.commitWrites(writeSet, commitTs);
-          this.updateIndexTables(writeSet);
         }
 
         // 3. Send result
@@ -670,15 +595,6 @@ export class TenantBackend extends DurableObject {
             });
           } catch (subError) {
             console.error("Subscription invalidation error:", subError);
-          }
-        }
-
-        // 5. Periodically prune old transaction log entries
-        if (++this.mutationsSincePrune >= TenantBackend.PRUNE_INTERVAL) {
-          this.mutationsSincePrune = 0;
-          const pruneTs = this.latestTs - TenantBackend.PRUNE_KEEP_COUNT;
-          if (pruneTs > 0) {
-            this.writer.pruneTransactionLog(pruneTs);
           }
         }
 
@@ -799,7 +715,6 @@ export class TenantBackend extends DurableObject {
               const commitTs = ++this.latestTs;
               await this.saveLatestTs();
               await this.writer.commitWrites(writeSet, commitTs);
-              this.updateIndexTables(writeSet);
             }
 
             this.transactions.remove(txId);
@@ -937,101 +852,73 @@ export class TenantBackend extends DurableObject {
     this.ensureNextAlarm();
   }
 
-  // -- Index queries --
+  // -- Unified query --
 
-  private queryByIndex(
-    table: string,
-    indexQuery: IndexQueryJSON,
-    orderDirection: "asc" | "desc",
-    limit: number | null = null
-  ): { documentId: string; data: unknown }[] {
-    const tableSchema = this.schemaInfo.tables[table];
-    if (!tableSchema) return [];
-
-    const index = tableSchema.indexes.find((i) => i.name === indexQuery.indexName);
-    if (!index) throw new Error(`Index "${indexQuery.indexName}" not found on table "${table}"`);
-
-    const idxTable = `idx_${table}_${indexQuery.indexName}`;
-    const conditions: string[] = [];
-    const params: unknown[] = [table]; // For the JOIN condition
-
-    for (const range of indexQuery.ranges) {
-      const fieldIdx = index.fields.indexOf(range.field);
-      if (fieldIdx === -1) throw new Error(`Field "${range.field}" not in index "${indexQuery.indexName}"`);
-      const col = `i.c${fieldIdx}`;
-      switch (range.op) {
-        case "eq": conditions.push(`${col} = ?`); break;
-        case "gt": conditions.push(`${col} > ?`); break;
-        case "gte": conditions.push(`${col} >= ?`); break;
-        case "lt": conditions.push(`${col} < ?`); break;
-        case "lte": conditions.push(`${col} <= ?`); break;
-      }
-      params.push(range.value);
-    }
-
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const order = orderDirection === "desc" ? "DESC" : "ASC";
-
-    // JOIN with document_index to get the full document (no longer stored in index table)
-    let sql = `SELECT i.document_id, d.data FROM "${idxTable}" i
-      JOIN document_index d ON d.table_name = ? AND d.document_id = i.document_id
-      ${where} ORDER BY i._creationTime ${order}`;
-
-    if (limit != null) {
-      sql += ` LIMIT ?`;
-      params.push(limit);
-    }
-
-    const results = this.sql.exec(sql, ...params).toArray() as { document_id: string; data: string }[];
-
-    return results.map((r) => ({
-      documentId: r.document_id,
-      data: JSON.parse(r.data),
-    }));
-  }
-
-  // -- Full-scan queries with SQL pushdown --
-
-  private queryFullScan(
+  private queryTable(
     table: string,
     asOfTs: number,
     filter: FilterExpressionJSON | null,
+    indexQuery: IndexQueryJSON | null,
     orderField: string | null,
     orderDirection: "asc" | "desc",
     limit: number | null
   ): { documentId: string; data: unknown; ts: number }[] {
-    const compiled = filter ? compileFilterToSQL(filter) : null;
+    const info = this.tableColumns.get(table);
+    if (!info) return [];
+
+    // Build set of JSON columns for filter compilation
+    const jsonColumns = new Set<string>();
+    for (const [name, col] of info.columns) {
+      if (col.isJsonColumn) jsonColumns.add(name);
+    }
+
+    const conditions: string[] = [`_ts <= ?`];
+    const params: unknown[] = [asOfTs];
+
+    // Index range conditions
+    if (indexQuery) {
+      for (const range of indexQuery.ranges) {
+        const sqlOps: Record<string, string> = {
+          eq: "=", gt: ">", gte: ">=", lt: "<", lte: "<=",
+        };
+        conditions.push(`"${range.field}" ${sqlOps[range.op]} ?`);
+        params.push(range.value);
+      }
+    }
+
+    // Try to compile filter to SQL
+    const compiled = filter ? compileFilterToSQL(filter, jsonColumns) : null;
     const filterPushed = !filter || compiled !== null;
-    const params: unknown[] = [table, asOfTs];
 
-    // PK is (table_name, document_id) — one row per doc, no dedup needed
-    let sql = `SELECT document_id, ts, data FROM document_index
-      WHERE table_name = ? AND ts <= ?`;
-
-    // Push filter to SQL
     if (compiled) {
-      sql += ` AND ${compiled.sql}`;
+      conditions.push(compiled.sql);
       params.push(...compiled.params);
     }
 
+    const where = conditions.join(" AND ");
+
     // ORDER BY
+    let orderClause: string;
     if (orderField) {
-      sql += ` ORDER BY json_extract(data, ?) ${orderDirection === "desc" ? "DESC" : "ASC"}`;
-      params.push(`$.${orderField}`);
+      orderClause = `ORDER BY "${orderField}" ${orderDirection === "desc" ? "DESC" : "ASC"}`;
+    } else {
+      orderClause = `ORDER BY _creationTime ${orderDirection === "desc" ? "DESC" : "ASC"}`;
     }
 
-    // LIMIT (only when filter was pushed or no filter)
+    // LIMIT (only when filter was fully pushed to SQL)
+    let limitClause = "";
     if (limit != null && filterPushed) {
-      sql += ` LIMIT ?`;
+      limitClause = ` LIMIT ?`;
       params.push(limit);
     }
 
-    const results = this.sql.exec(sql, ...params).toArray() as { document_id: string; ts: number; data: string }[];
+    const sql = `SELECT * FROM "${table}" WHERE ${where} ${orderClause}${limitClause}`;
+    const results = this.sql.exec(sql, ...params).toArray() as Record<string, unknown>[];
 
-    let docs = results.map((r) => ({
-      documentId: r.document_id,
-      data: JSON.parse(r.data) as unknown,
-      ts: r.ts,
+    let docs = results.map((row) => ({
+      documentId: row._id as string,
+      data: sqlRowToDoc(row, info),
+      ts: row._ts as number,
     }));
 
     // JS fallback if filter couldn't be compiled to SQL
@@ -1043,70 +930,6 @@ export class TenantBackend extends DurableObject {
     return docs;
   }
 
-  // -- Index table maintenance --
-
-  private updateIndexTables(writeSet: { table: string; documentId: string; data: unknown | null }[]): void {
-    // Group operations by index table for batching
-    const ops = new Map<string, {
-      fields: string[];
-      deletes: string[];
-      upserts: { documentId: string; vals: unknown[]; creationTime: number }[];
-    }>();
-
-    for (const entry of writeSet) {
-      const tableSchema = this.schemaInfo.tables[entry.table];
-      if (!tableSchema?.indexes) continue;
-
-      for (const index of tableSchema.indexes) {
-        const idxTable = `idx_${entry.table}_${index.name}`;
-        let op = ops.get(idxTable);
-        if (!op) {
-          op = { fields: index.fields, deletes: [], upserts: [] };
-          ops.set(idxTable, op);
-        }
-
-        if (entry.data === null) {
-          op.deletes.push(entry.documentId);
-        } else {
-          const doc = entry.data as Record<string, unknown>;
-          op.upserts.push({
-            documentId: entry.documentId,
-            vals: index.fields.map((f) => doc[f]),
-            creationTime: (doc._creationTime as number) ?? Date.now(),
-          });
-        }
-      }
-    }
-
-    // Execute one statement per index table (instead of one per document)
-    for (const [idxTable, { fields, deletes, upserts }] of ops) {
-      if (deletes.length > 0) {
-        const placeholders = deletes.map(() => "?").join(", ");
-        this.sql.exec(
-          `DELETE FROM "${idxTable}" WHERE document_id IN (${placeholders})`,
-          ...deletes
-        );
-      }
-
-      if (upserts.length > 0) {
-        const colNames = ["document_id", ...fields.map((_, i) => `c${i}`), "_creationTime"];
-        const colList = colNames.join(", ");
-        const rowPlaceholder = `(${colNames.map(() => "?").join(", ")})`;
-        const chunkSize = Math.floor(100 / colNames.length);
-
-        for (let i = 0; i < upserts.length; i += chunkSize) {
-          const chunk = upserts.slice(i, i + chunkSize);
-          const values = chunk.map(() => rowPlaceholder).join(", ");
-          const params = chunk.flatMap((u) => [u.documentId, ...u.vals, u.creationTime]);
-          this.sql.exec(
-            `INSERT OR REPLACE INTO "${idxTable}" (${colList}) VALUES ${values}`,
-            ...params
-          );
-        }
-      }
-    }
-  }
-
   // -- OCC --
 
   private checkConflicts(
@@ -1115,17 +938,29 @@ export class TenantBackend extends DurableObject {
   ): boolean {
     if (readSet.length === 0) return false;
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
-
+    // Group reads by table
+    const byTable = new Map<string, string[]>();
     for (const entry of readSet) {
-      conditions.push(`(table_name = ? AND document_id = ? AND ts > ?)`);
-      params.push(entry.table, entry.documentId, beginTs);
+      let ids = byTable.get(entry.table);
+      if (!ids) { ids = []; byTable.set(entry.table, ids); }
+      ids.push(entry.documentId);
     }
 
-    const query = `SELECT COUNT(*) as count FROM document_index WHERE ${conditions.join(" OR ")}`;
-    const results = this.sql.exec(query, ...params).toArray() as { count: number }[];
-    return (results[0]?.count ?? 0) > 0;
+    for (const [table, ids] of byTable) {
+      // Chunk to stay under param limit (1 param for beginTs + N ids)
+      const chunkSize = MAX_PARAMS - 1;
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const placeholders = chunk.map(() => "?").join(", ");
+        const results = this.sql.exec(
+          `SELECT 1 FROM "${table}" WHERE _ts > ? AND _id IN (${placeholders}) LIMIT 1`,
+          beginTs, ...chunk
+        ).toArray();
+        if (results.length > 0) return true;
+      }
+    }
+
+    return false;
   }
 
 }

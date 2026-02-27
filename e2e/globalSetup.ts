@@ -1,11 +1,9 @@
 import { spawn, execSync, type ChildProcess } from "child_process";
 import * as path from "path";
-import * as fs from "fs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const WRANGLER_STATE = path.join(ROOT, ".wrangler/state");
 const PORT = 8788;
-const VEX_DIR = path.resolve(ROOT, "examples/chat-app/vex");
+const VEX_DIR = path.resolve(ROOT, "examples/task-manager/vex");
 
 let proc: ChildProcess | null = null;
 
@@ -31,12 +29,13 @@ async function waitForHealth(timeoutMs = 30_000) {
   throw new Error(`vex dev did not become healthy within ${timeoutMs}ms`);
 }
 
+async function resetData() {
+  const res = await fetch(`http://localhost:${PORT}/__dev/reset`, { method: "POST" });
+  if (!res.ok) throw new Error(`/__dev/reset failed: ${res.status}`);
+}
+
 export async function setup() {
   killPort();
-
-  if (fs.existsSync(WRANGLER_STATE)) {
-    fs.rmSync(WRANGLER_STATE, { recursive: true, force: true });
-  }
 
   const cliEntry = path.join(ROOT, "packages/cli/src/index.ts");
   proc = spawn("npx", ["tsx", cliEntry, "dev", VEX_DIR], {
@@ -46,6 +45,7 @@ export async function setup() {
   });
 
   await waitForHealth();
+  await resetData();
 }
 
 export async function teardown() {
