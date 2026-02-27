@@ -13,6 +13,7 @@ Convex introduced a great developer experience: define your backend as plain Typ
 - **Database indexes** — declare indexes in your schema, query them with `.withIndex()` for efficient lookups
 - **Pagination** — built-in cursor-based pagination with `.paginate()`
 - **Single Durable Object** — all state, transactions, and WebSocket connections in one place for strong consistency
+- **Offline support** — opt-in IndexedDB persistence for instant cached renders, offline reads, and mutation replay
 
 ## Quick Start
 
@@ -104,7 +105,46 @@ function App() {
 }
 ```
 
-### 5. Start development
+### 5. Enable offline support (optional)
+
+Vex can persist query results to IndexedDB so your app renders instantly from cache on page load, works offline, and replays mutations when reconnected.
+
+```ts
+const client = new ConvexClient("ws://localhost:8788/ws", {
+  persistence: true,
+  schemaVersion: "v1",    // bump on breaking schema changes
+});
+await client.init(); // hydrate from cache, then connect
+```
+
+Use `useQueryWithStatus` for staleness awareness:
+
+```tsx
+import { useQueryWithStatus } from "@vex/react";
+
+function TaskList() {
+  const { data: tasks, isStale, isLoading } = useQueryWithStatus(api.tasks.list, { projectId });
+
+  if (isLoading) return <p>Loading...</p>;
+  return (
+    <div>
+      {isStale && <span>Showing cached data...</span>}
+      {tasks.map((t) => <p key={t._id}>{t.title}</p>)}
+    </div>
+  );
+}
+```
+
+How it works:
+- **First load** — normal loading, data cached to IndexedDB on arrival
+- **Subsequent loads** — data renders instantly from cache (`isStale=true`), then updates when the server confirms (`isStale=false`)
+- **Offline** — cached data stays visible, mutations queue locally, and replay automatically on reconnect
+- **Schema versioning** — change `schemaVersion` to clear stale caches after breaking schema changes
+- **Cache eviction** — entries older than 7 days are discarded (configurable via `maxCacheAge`)
+
+Without persistence (the default), everything works exactly as before — no changes needed.
+
+### 6. Start development
 
 ```bash
 vex dev
@@ -155,8 +195,8 @@ This will:
 | Package | Description |
 |---------|-------------|
 | `@vex/server` | Define schemas, queries, mutations. Database reader/writer, query builder, filter DSL |
-| `@vex/client` | WebSocket client with auto-reconnect, subscription management, mutation queue |
-| `@vex/react` | `useQuery`, `useMutation`, `ConvexProvider` hooks for React |
+| `@vex/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence |
+| `@vex/react` | `useQuery`, `useQueryWithStatus`, `useMutation`, `ConvexProvider` hooks for React |
 | `@vex/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
 | `@vex/cli` | `vex dev` command — analyze, codegen, bundle, watch, start wrangler |
 
@@ -195,6 +235,7 @@ your-project/
 | **Pagination** | Yes | Yes (cursor-based) |
 | **Database** | Custom | SQLite (Durable Objects) |
 | **Subscriptions** | Server-push | Server-push (WebSocket) |
+| **Offline/cache** | No | Yes (IndexedDB persistence) |
 | **Edge runtime** | Convex runtime | Cloudflare Workers |
 | **Pricing** | Per-function call | Cloudflare Workers pricing |
 | **Open source** | No | Yes |

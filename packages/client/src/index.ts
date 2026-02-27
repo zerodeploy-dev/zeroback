@@ -1,7 +1,10 @@
 export { ConvexClient } from "./ConvexClient.js";
-export type { ConnectionState } from "./ConvexClient.js";
+export type { ConnectionState, ConvexClientOptions } from "./ConvexClient.js";
 export { SubscriptionRegistry } from "./SubscriptionRegistry.js";
 export { Backoff } from "./Backoff.js";
 export { QueryStore } from "./QueryStore.js";
 export type { LocalStore } from "./QueryStore.js";
 export type { ClientMessage, ServerMessage } from "./Protocol.js";
+export type { PersistenceAdapter, CachedEntry } from "./persistence/PersistenceAdapter.js";
+export { IDBPersistence } from "./persistence/IDBPersistence.js";
+export { MutationQueue } from "./persistence/MutationQueue.js";

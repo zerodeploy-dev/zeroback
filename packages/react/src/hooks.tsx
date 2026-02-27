@@ -54,6 +54,19 @@ export function useQuery<Ref extends FunctionReference<"query", any, any>>(
   return useSyncExternalStore(subscribe, getSnapshot);
 }
 
+export function useQueryWithStatus<Ref extends FunctionReference<"query", any, any>>(
+  ref: Ref,
+  args?: Ref["_args"]
+): { data: Ref["_returns"] | undefined; isStale: boolean; isLoading: boolean } {
+  const client = useConvexClient();
+  const data = useQuery(ref, args);
+  const queryKey = QueryStore.makeKey(ref._name, args ?? {});
+  const isLoading = data === undefined;
+  const isStale = !isLoading && !client.hasServerResult(queryKey);
+
+  return { data, isStale, isLoading };
+}
+
 export function useMutation<Ref extends FunctionReference<"mutation", any, any>>(
   ref: Ref,
   opts?: {

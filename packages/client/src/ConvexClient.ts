@@ -3,8 +3,17 @@ import { Backoff } from "./Backoff";
 import { QueryStore } from "./QueryStore";
 import type { LocalStore, QueryKey } from "./QueryStore";
 import type { ClientMessage, ServerMessage } from "./Protocol";
+import type { PersistenceAdapter } from "./persistence/PersistenceAdapter.js";
+import { IDBPersistence } from "./persistence/IDBPersistence.js";
+import { MutationQueue } from "./persistence/MutationQueue.js";
 
 export type ConnectionState = "connecting" | "connected" | "disconnected";
+
+export interface ConvexClientOptions {
+  persistence?: boolean | PersistenceAdapter;
+  maxCacheAge?: number;
+  schemaVersion?: string;
+}
 
 export class ConvexClient {
   private ws: WebSocket | null = null;
@@ -28,10 +37,56 @@ export class ConvexClient {
   /** Sequential mutation queue — ensures mutations execute one at a time in order. */
   private mutationQueue: Promise<void> = Promise.resolve();
 
-  constructor(url: string) {
+  private persistedMutationQueue: MutationQueue | null = null;
+  private options: ConvexClientOptions;
+
+  constructor(url: string, options?: ConvexClientOptions) {
     this.url = url;
+    this.options = options ?? {};
     this.subscriptions = new SubscriptionRegistry();
+
+    if (this.options.persistence) {
+      const adapter =
+        typeof this.options.persistence === "object"
+          ? this.options.persistence
+          : new IDBPersistence(url, {
+              maxCacheAge: this.options.maxCacheAge,
+              schemaVersion: this.options.schemaVersion,
+            });
+      this.queryStore.setPersistence(adapter);
+      this.persistedMutationQueue = new MutationQueue(url);
+      // When persistence is enabled, defer connect() to init()
+    } else {
+      this.connect();
+    }
+  }
+
+  /**
+   * Initialize the client with persistence.
+   * Hydrates cached data from IndexedDB, connects the WebSocket, and replays
+   * any persisted offline mutations. Only needed when persistence is enabled.
+   */
+  async init(): Promise<void> {
+    await this.queryStore.hydrate();
     this.connect();
+    await this.replayPersistedMutations();
+  }
+
+  private async replayPersistedMutations(): Promise<void> {
+    if (!this.persistedMutationQueue) return;
+    const pending = await this.persistedMutationQueue.getAll();
+    for (const m of pending) {
+      try {
+        await this.mutation(m.fnName, m.args);
+      } catch {
+        // Mutation failed on replay — discard it
+      }
+      await this.persistedMutationQueue.remove(m.id);
+    }
+  }
+
+  hasServerResult(key: QueryKey): boolean {
+    return this.queryStore.hasServerConfirmation(key);
   }
 
   get connectionState(): ConnectionState {
@@ -163,13 +218,21 @@ export class ConvexClient {
       this.queryStore.addLayer(id, opts.optimisticUpdate);
     }
 
+    // Persist mutation for offline replay (fire-and-forget)
+    if (this.persistedMutationQueue) {
+      this.persistedMutationQueue.add({ id, fnName, args, timestamp: Date.now() }).catch(() => {});
+    }
+
     // Chain onto the mutation queue so mutations execute sequentially
     const result = this.mutationQueue.then(async () => {
       try {
-        return await new Promise((resolve, reject) => {
+        const res = await new Promise((resolve, reject) => {
           this.pendingRequests.set(id, { resolve, reject });
           this.send({ type: "mutation", id, fn: fnName, args });
         });
+        // Mutation succeeded — remove from persisted queue
+        this.persistedMutationQueue?.remove(id).catch(() => {});
+        return res;
       } finally {
         if (opts?.optimisticUpdate) {
           this.queryStore.removeLayer(id);
@@ -239,6 +302,7 @@ export class ConvexClient {
 
       case "reset":
         // Server lost subscription state (e.g. hibernation wake) — re-subscribe
+        this.queryStore.clearServerConfirmations();
         this.resubscribeAll();
         break;
     }

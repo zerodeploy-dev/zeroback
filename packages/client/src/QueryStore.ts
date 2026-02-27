@@ -1,3 +1,5 @@
+import type { PersistenceAdapter, CachedEntry } from "./persistence/PersistenceAdapter.js";
+
 export type QueryKey = string;
 
 export interface LocalStore {
@@ -15,6 +17,8 @@ export class QueryStore {
   private mergedCache = new Map<QueryKey, unknown>();
   private layers: OptimisticLayer[] = [];
   private listeners = new Map<QueryKey, Set<() => void>>();
+  private persistence: PersistenceAdapter | null = null;
+  private serverConfirmed = new Set<QueryKey>();
 
   static makeKey(fnName: string, args: unknown): string {
     return fnName + "|" + JSON.stringify(args ?? {});
@@ -24,9 +28,32 @@ export class QueryStore {
     return typeof ref === "string" ? ref : ref._name;
   }
 
+  setPersistence(adapter: PersistenceAdapter): void {
+    this.persistence = adapter;
+  }
+
+  async hydrate(): Promise<void> {
+    if (!this.persistence) return;
+    const entries = await this.persistence.getAll();
+    for (const [key, entry] of entries) {
+      this.baseCache.set(key, entry.result);
+      this.recomputeAndNotify(key);
+    }
+  }
+
   setServerResult(key: QueryKey, result: unknown): void {
     this.baseCache.set(key, result);
+    this.serverConfirmed.add(key);
     this.recomputeAndNotify(key);
+    this.persistence?.set(key, { result, timestamp: Date.now() }).catch(() => {});
+  }
+
+  hasServerConfirmation(key: QueryKey): boolean {
+    return this.serverConfirmed.has(key);
+  }
+
+  clearServerConfirmations(): void {
+    this.serverConfirmed.clear();
   }
 
   addLayer(mutationId: string, updateFn: (store: LocalStore) => void): void {
