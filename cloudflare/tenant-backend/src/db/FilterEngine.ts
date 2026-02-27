@@ -95,20 +95,27 @@ export function applyLimit<T>(rows: T[], n: number | null): T[] {
 }
 
 // ---------------------------------------------------------------------------
-// Filter → SQL compilation
+// Filter → SQL compilation (direct column references)
 // ---------------------------------------------------------------------------
+
+/** Safe column name pattern — reject anything that could cause SQL injection. */
+const SAFE_COLUMN_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 /**
  * Compile a FilterExpressionJSON to a SQL WHERE clause fragment with
- * parameterized values. Returns null if the filter can't be compiled
- * (caller should fall back to JS evaluation).
+ * parameterized values. Uses direct column references instead of json_extract().
+ *
+ * Falls back to null (JS evaluation) for:
+ * - Nested paths (e.g. "address.city")
+ * - JSON columns (object/array/union/record/any)
+ * - Unsafe column names
  */
 export function compileFilterToSQL(
   filter: FilterExpressionJSON,
-  dataCol: string = "data"
+  jsonColumns?: Set<string>
 ): { sql: string; params: unknown[] } | null {
   try {
-    return compileFilterNode(filter, dataCol);
+    return compileFilterNode(filter, jsonColumns);
   } catch {
     return null;
   }
@@ -116,7 +123,7 @@ export function compileFilterToSQL(
 
 function compileFilterNode(
   node: FilterExpressionJSON,
-  dataCol: string
+  jsonColumns?: Set<string>
 ): { sql: string; params: unknown[] } {
   switch (node.op) {
     case "eq":
@@ -128,8 +135,8 @@ function compileFilterNode(
       const sqlOps: Record<string, string> = {
         eq: "=", neq: "!=", lt: "<", lte: "<=", gt: ">", gte: ">=",
       };
-      const left = compileSQLExpr(node.a, dataCol);
-      const right = compileSQLExpr(node.b, dataCol);
+      const left = compileSQLExpr(node.a, jsonColumns);
+      const right = compileSQLExpr(node.b, jsonColumns);
       return {
         sql: `(${left.sql} ${sqlOps[node.op]} ${right.sql})`,
         params: [...left.params, ...right.params],
@@ -137,7 +144,7 @@ function compileFilterNode(
     }
     case "and": {
       if (node.exprs.length === 0) return { sql: "1", params: [] };
-      const parts = node.exprs.map((e) => compileFilterNode(e, dataCol));
+      const parts = node.exprs.map((e) => compileFilterNode(e, jsonColumns));
       return {
         sql: `(${parts.map((p) => p.sql).join(" AND ")})`,
         params: parts.flatMap((p) => p.params),
@@ -145,14 +152,14 @@ function compileFilterNode(
     }
     case "or": {
       if (node.exprs.length === 0) return { sql: "0", params: [] };
-      const parts = node.exprs.map((e) => compileFilterNode(e, dataCol));
+      const parts = node.exprs.map((e) => compileFilterNode(e, jsonColumns));
       return {
         sql: `(${parts.map((p) => p.sql).join(" OR ")})`,
         params: parts.flatMap((p) => p.params),
       };
     }
     case "not": {
-      const inner = compileFilterNode(node.expr, dataCol);
+      const inner = compileFilterNode(node.expr, jsonColumns);
       return { sql: `(NOT ${inner.sql})`, params: inner.params };
     }
     default:
@@ -162,10 +169,24 @@ function compileFilterNode(
 
 function compileSQLExpr(
   expr: ExprJSON,
-  dataCol: string
+  jsonColumns?: Set<string>
 ): { sql: string; params: unknown[] } {
   if (expr.op === "field") {
-    return { sql: `json_extract(${dataCol}, ?)`, params: [`$.${expr.path}`] };
+    // Bail to JS for nested paths or JSON columns
+    if (expr.path.includes(".")) {
+      throw new Error("unsupported: nested path");
+    }
+    if (jsonColumns?.has(expr.path)) {
+      throw new Error("unsupported: JSON column");
+    }
+    if (!SAFE_COLUMN_NAME.test(expr.path)) {
+      throw new Error("unsupported: unsafe column name");
+    }
+    return { sql: `"${expr.path}"`, params: [] };
+  }
+  // Boolean literal conversion for SQLite INTEGER storage
+  if (typeof expr.value === "boolean") {
+    return { sql: "?", params: [expr.value ? 1 : 0] };
   }
   return { sql: "?", params: [expr.value] };
 }

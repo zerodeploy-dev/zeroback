@@ -139,7 +139,10 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
       // Skip pages we don't have a cursor for yet (except page 0)
       if (i > 0 && cursor === undefined) break;
 
-      const pageArgs = { ...JSON.parse(argsKey), cursor, numItems: numItemsPerPage[i] };
+      const pageArgs: Record<string, unknown> = { ...JSON.parse(argsKey), numItems: numItemsPerPage[i] };
+      if (cursor !== null && cursor !== undefined) {
+        pageArgs.cursor = cursor;
+      }
       const pageIndex = i;
 
       const unsub = client.subscribe(ref._name, pageArgs, (data: unknown) => {

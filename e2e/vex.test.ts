@@ -19,9 +19,20 @@ async function freshClient(): Promise<VexTestClient> {
   return c;
 }
 
+const TASK_DEFAULTS = { status: "todo", priority: "medium" };
+
+function taskArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    title: overrides.title ?? "test task",
+    status: overrides.status ?? "todo",
+    priority: overrides.priority ?? "medium",
+    projectId: overrides.projectId ?? `proj-${Date.now()}`,
+    ...overrides,
+  } as Record<string, unknown>;
+}
+
 /**
  * Wait briefly and assert no subscription update arrives.
- * Does NOT create a hanging timer — uses a short polling loop.
  */
 async function expectNoUpdate(c: VexTestClient, subId: string, waitMs = 1000): Promise<void> {
   let gotUpdate = false;
@@ -37,18 +48,14 @@ async function expectNoUpdate(c: VexTestClient, subId: string, waitMs = 1000): P
 describe("mutations", () => {
   it("should insert a document and return void", async () => {
     const c = await freshClient();
-    const result = await c.mutation("messages:send", {
-      body: "hello",
-      author: "alice",
-      channel: "general",
-    });
+    const result = await c.mutation("tasks:create", taskArgs());
     expect(result).toBeUndefined();
   });
 
   it("should reject mutation with missing required args", async () => {
     const c = await freshClient();
-    const err = await c.mutationError("messages:send", {
-      body: "hello",
+    const err = await c.mutationError("tasks:create", {
+      title: "hello",
     });
     expect(err.code).toBe("execution_error");
     expect(err.message).toMatch(/Missing required field/);
@@ -56,10 +63,10 @@ describe("mutations", () => {
 
   it("should reject mutation with wrong arg type", async () => {
     const c = await freshClient();
-    const err = await c.mutationError("messages:send", {
-      body: 123,
-      author: "alice",
-      channel: "general",
+    const err = await c.mutationError("tasks:create", {
+      title: 123,
+      ...TASK_DEFAULTS,
+      projectId: "p",
     });
     expect(err.code).toBe("execution_error");
     expect(err.message).toMatch(/Expected string/);
@@ -72,55 +79,60 @@ describe("mutations", () => {
 describe("queries", () => {
   it("should return inserted documents via index query", async () => {
     const c = await freshClient();
-    await c.mutation("messages:send", { body: "q-test-1", author: "bob", channel: "test-q" });
-    await c.mutation("messages:send", { body: "q-test-2", author: "bob", channel: "test-q" });
+    const proj = `q-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "task-1", projectId: proj }));
+    await c.mutation("tasks:create", taskArgs({ title: "task-2", projectId: proj }));
 
-    const { result } = await c.query("messages:list", { channel: "test-q" });
+    const { result } = await c.query("tasks:listByProject", { projectId: proj });
     expect(result).toHaveLength(2);
-    expect(result.map((m: any) => m.body).sort()).toEqual(["q-test-1", "q-test-2"]);
+    expect(result.map((t: any) => t.title).sort()).toEqual(["task-1", "task-2"]);
   });
 
-  it("should filter by channel via index — different channels return different results", async () => {
+  it("should filter by project via index — different projects return different results", async () => {
     const c = await freshClient();
-    await c.mutation("messages:send", { body: "a1", author: "a", channel: "ch-a" });
-    await c.mutation("messages:send", { body: "b1", author: "b", channel: "ch-b" });
-    await c.mutation("messages:send", { body: "a2", author: "a", channel: "ch-a" });
+    const projA = `qa-${Date.now()}`;
+    const projB = `qb-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "a1", projectId: projA }));
+    await c.mutation("tasks:create", taskArgs({ title: "b1", projectId: projB }));
+    await c.mutation("tasks:create", taskArgs({ title: "a2", projectId: projA }));
 
-    const { result: chA } = await c.query("messages:list", { channel: "ch-a" });
-    const { result: chB } = await c.query("messages:list", { channel: "ch-b" });
+    const { result: rA } = await c.query("tasks:listByProject", { projectId: projA });
+    const { result: rB } = await c.query("tasks:listByProject", { projectId: projB });
 
-    expect(chA.every((m: any) => m.channel === "ch-a")).toBe(true);
-    expect(chB.every((m: any) => m.channel === "ch-b")).toBe(true);
-    expect(chA).toHaveLength(2);
-    expect(chB).toHaveLength(1);
+    expect(rA.every((t: any) => t.projectId === projA)).toBe(true);
+    expect(rB.every((t: any) => t.projectId === projB)).toBe(true);
+    expect(rA).toHaveLength(2);
+    expect(rB).toHaveLength(1);
   });
 
-  it("should return empty array for nonexistent channel", async () => {
+  it("should return empty array for nonexistent project", async () => {
     const c = await freshClient();
-    const { result } = await c.query("messages:list", { channel: "does-not-exist-xyz" });
+    const { result } = await c.query("tasks:listByProject", { projectId: "does-not-exist-xyz" });
     expect(result).toEqual([]);
   });
 
   it("should include _id and _creationTime on returned documents", async () => {
     const c = await freshClient();
-    await c.mutation("messages:send", { body: "meta-test", author: "x", channel: "meta-ch" });
-    const { result } = await c.query("messages:list", { channel: "meta-ch" });
+    const proj = `meta-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "meta-test", projectId: proj }));
+    const { result } = await c.query("tasks:listByProject", { projectId: proj });
     expect(result).toHaveLength(1);
     const doc = result[0];
-    expect(doc._id).toMatch(/^messages\//);
+    expect(doc._id).toMatch(/^tasks\//);
     expect(typeof doc._creationTime).toBe("number");
     expect(doc._creationTime).toBeGreaterThan(0);
   });
 
   it("should respect order(desc) — newest first", async () => {
     const c = await freshClient();
-    await c.mutation("messages:send", { body: "first", author: "a", channel: "order-ch" });
+    const proj = `order-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "first", projectId: proj }));
     await sleep(10);
-    await c.mutation("messages:send", { body: "second", author: "a", channel: "order-ch" });
+    await c.mutation("tasks:create", taskArgs({ title: "second", projectId: proj }));
 
-    const { result } = await c.query("messages:list", { channel: "order-ch" });
-    expect(result[0].body).toBe("second");
-    expect(result[1].body).toBe("first");
+    const { result } = await c.query("tasks:listByProject", { projectId: proj });
+    expect(result[0].title).toBe("second");
+    expect(result[1].title).toBe("first");
   });
 
   it("should return error for unknown function", async () => {
@@ -137,28 +149,28 @@ describe("queries", () => {
 describe("pagination", () => {
   it("should paginate through results", async () => {
     const c = await freshClient();
-    const ch = "pag-ch-" + Date.now();
+    const proj = `pag-${Date.now()}`;
 
     for (let i = 0; i < 5; i++) {
-      await c.mutation("messages:send", { body: `pag-${i}`, author: "a", channel: ch });
+      await c.mutation("tasks:create", taskArgs({ title: `pag-${i}`, projectId: proj }));
     }
 
     // Page 1
-    const { result: page1 } = await c.query("messages:listPaginated", { channel: ch, numItems: 2 });
+    const { result: page1 } = await c.query("tasks:listPaginated", { projectId: proj, numItems: 2 });
     expect(page1.page).toHaveLength(2);
     expect(page1.isDone).toBe(false);
     expect(page1.continueCursor).toBeTruthy();
 
     // Page 2
-    const { result: page2 } = await c.query("messages:listPaginated", {
-      channel: ch, numItems: 2, cursor: page1.continueCursor,
+    const { result: page2 } = await c.query("tasks:listPaginated", {
+      projectId: proj, numItems: 2, cursor: page1.continueCursor,
     });
     expect(page2.page).toHaveLength(2);
     expect(page2.isDone).toBe(false);
 
     // Page 3 — last
-    const { result: page3 } = await c.query("messages:listPaginated", {
-      channel: ch, numItems: 2, cursor: page2.continueCursor,
+    const { result: page3 } = await c.query("tasks:listPaginated", {
+      projectId: proj, numItems: 2, cursor: page2.continueCursor,
     });
     expect(page3.page).toHaveLength(1);
     expect(page3.isDone).toBe(true);
@@ -167,11 +179,11 @@ describe("pagination", () => {
 
   it("should return all results when numItems exceeds total", async () => {
     const c = await freshClient();
-    const ch = "pag-all-" + Date.now();
-    await c.mutation("messages:send", { body: "one", author: "a", channel: ch });
-    await c.mutation("messages:send", { body: "two", author: "a", channel: ch });
+    const proj = `pag-all-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "one", projectId: proj }));
+    await c.mutation("tasks:create", taskArgs({ title: "two", projectId: proj }));
 
-    const { result } = await c.query("messages:listPaginated", { channel: ch, numItems: 100 });
+    const { result } = await c.query("tasks:listPaginated", { projectId: proj, numItems: 100 });
     expect(result.page).toHaveLength(2);
     expect(result.isDone).toBe(true);
     expect(result.continueCursor).toBeNull();
@@ -182,68 +194,68 @@ describe("pagination", () => {
 // Real-time subscriptions
 // ---------------------------------------------------------------------------
 describe("subscriptions", () => {
-  it("should push update when a new message is inserted into the subscribed channel", async () => {
+  it("should push update when a new task is inserted into the subscribed project", async () => {
     const c = await freshClient();
-    const ch = "sub-ch-" + Date.now();
+    const proj = `sub-${Date.now()}`;
 
-    const { id: subId, result: initial } = await c.query("messages:list", { channel: ch });
+    const { id: subId, result: initial } = await c.query("tasks:listByProject", { projectId: proj });
     expect(initial).toEqual([]);
 
     const updatePromise = c.waitForUpdate(subId);
-    await c.mutation("messages:send", { body: "live!", author: "z", channel: ch });
+    await c.mutation("tasks:create", taskArgs({ title: "live!", projectId: proj }));
 
     const updated = await updatePromise;
     expect(updated).toHaveLength(1);
-    expect(updated[0].body).toBe("live!");
+    expect(updated[0].title).toBe("live!");
   });
 
-  it("should NOT push update for a different channel", async () => {
+  it("should NOT push update for a different project", async () => {
     const c = await freshClient();
-    const ch1 = "sub-iso-1-" + Date.now();
-    const ch2 = "sub-iso-2-" + Date.now();
+    const proj1 = `sub-iso-1-${Date.now()}`;
+    const proj2 = `sub-iso-2-${Date.now()}`;
 
-    const { id: subId } = await c.query("messages:list", { channel: ch1 });
+    const { id: subId } = await c.query("tasks:listByProject", { projectId: proj1 });
 
-    // Insert into a different channel
-    await c.mutation("messages:send", { body: "wrong-channel", author: "z", channel: ch2 });
+    // Insert into a different project
+    await c.mutation("tasks:create", taskArgs({ title: "wrong-project", projectId: proj2 }));
 
     await expectNoUpdate(c, subId);
   });
 
   it("should push multiple sequential updates", async () => {
     const c = await freshClient();
-    const ch = "sub-multi-" + Date.now();
+    const proj = `sub-multi-${Date.now()}`;
 
-    const { id: subId } = await c.query("messages:list", { channel: ch });
+    const { id: subId } = await c.query("tasks:listByProject", { projectId: proj });
 
     const p1 = c.waitForUpdate(subId);
-    await c.mutation("messages:send", { body: "msg-1", author: "a", channel: ch });
+    await c.mutation("tasks:create", taskArgs({ title: "task-1", projectId: proj }));
     const r1 = await p1;
     expect(r1).toHaveLength(1);
 
     const p2 = c.waitForUpdate(subId);
-    await c.mutation("messages:send", { body: "msg-2", author: "b", channel: ch });
+    await c.mutation("tasks:create", taskArgs({ title: "task-2", projectId: proj }));
     const r2 = await p2;
     expect(r2).toHaveLength(2);
   });
 
   it("should stop receiving updates after unsubscribe", async () => {
     const c = await freshClient();
-    const ch = "sub-unsub-" + Date.now();
+    const proj = `sub-unsub-${Date.now()}`;
 
-    const { id: subId } = await c.query("messages:list", { channel: ch });
+    const { id: subId } = await c.query("tasks:listByProject", { projectId: proj });
 
     // Verify subscription works
     const p1 = c.waitForUpdate(subId);
-    await c.mutation("messages:send", { body: "before", author: "a", channel: ch });
+    await c.mutation("tasks:create", taskArgs({ title: "before", projectId: proj }));
     await p1;
 
     // Unsubscribe
     c.unsubscribe(subId);
     await sleep(200);
 
-    // Insert another message — should NOT trigger update
-    await c.mutation("messages:send", { body: "after", author: "a", channel: ch });
+    // Insert another task — should NOT trigger update
+    await c.mutation("tasks:create", taskArgs({ title: "after", projectId: proj }));
     await expectNoUpdate(c, subId);
   });
 });
@@ -263,17 +275,16 @@ describe("multiple clients", () => {
     client2 = new VexTestClient();
     await client2.connect();
 
-    const ch = "multi-ch-" + Date.now();
+    const proj = `multi-${Date.now()}`;
 
-    const { id: subId } = await client2.query("messages:list", { channel: ch });
+    const { id: subId } = await client2.query("tasks:listByProject", { projectId: proj });
 
     const updatePromise = client2.waitForUpdate(subId);
-    await c1.mutation("messages:send", { body: "from-c1", author: "c1", channel: ch });
+    await c1.mutation("tasks:create", taskArgs({ title: "from-c1", projectId: proj }));
 
     const updated = await updatePromise;
     expect(updated).toHaveLength(1);
-    expect(updated[0].body).toBe("from-c1");
-    expect(updated[0].author).toBe("c1");
+    expect(updated[0].title).toBe("from-c1");
   });
 
   it("both clients can query independently", async () => {
@@ -281,11 +292,11 @@ describe("multiple clients", () => {
     client2 = new VexTestClient();
     await client2.connect();
 
-    const ch = "multi-q-" + Date.now();
-    await c1.mutation("messages:send", { body: "shared", author: "a", channel: ch });
+    const proj = `multi-q-${Date.now()}`;
+    await c1.mutation("tasks:create", taskArgs({ title: "shared", projectId: proj }));
 
-    const { result: r1 } = await c1.query("messages:list", { channel: ch });
-    const { result: r2 } = await client2.query("messages:list", { channel: ch });
+    const { result: r1 } = await c1.query("tasks:listByProject", { projectId: proj });
+    const { result: r2 } = await client2.query("tasks:listByProject", { projectId: proj });
 
     expect(r1).toHaveLength(1);
     expect(r2).toHaveLength(1);
@@ -299,41 +310,41 @@ describe("multiple clients", () => {
 describe("arg validation", () => {
   it("should reject number where string expected", async () => {
     const c = await freshClient();
-    const err = await c.mutationError("messages:send", {
-      body: 42,
-      author: "a",
-      channel: "val-ch",
+    const err = await c.mutationError("tasks:create", {
+      title: 42,
+      ...TASK_DEFAULTS,
+      projectId: "val",
     });
     expect(err.message).toMatch(/Expected string/);
   });
 
   it("should reject boolean where string expected", async () => {
     const c = await freshClient();
-    const err = await c.mutationError("messages:send", {
-      body: true,
-      author: "a",
-      channel: "val-ch",
+    const err = await c.mutationError("tasks:create", {
+      title: true,
+      ...TASK_DEFAULTS,
+      projectId: "val",
     });
     expect(err.message).toMatch(/Expected string/);
   });
 
   it("should reject null where string expected", async () => {
     const c = await freshClient();
-    const err = await c.mutationError("messages:send", {
-      body: null,
-      author: "a",
-      channel: "val-ch",
+    const err = await c.mutationError("tasks:create", {
+      title: null,
+      ...TASK_DEFAULTS,
+      projectId: "val",
     });
     expect(err.message).toMatch(/Expected string/);
   });
 
   it("should accept optional args as undefined", async () => {
     const c = await freshClient();
-    const ch = "opt-ch-" + Date.now();
-    await c.mutation("messages:send", { body: "x", author: "a", channel: ch });
+    const proj = `opt-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ projectId: proj }));
 
     // listPaginated has optional cursor and numItems
-    const { result } = await c.query("messages:listPaginated", { channel: ch });
+    const { result } = await c.query("tasks:listPaginated", { projectId: proj });
     expect(result.page).toHaveLength(1);
   });
 });
@@ -344,43 +355,43 @@ describe("arg validation", () => {
 describe("document structure", () => {
   it("each document should have a unique _id", async () => {
     const c = await freshClient();
-    const ch = "unique-id-" + Date.now();
-    await c.mutation("messages:send", { body: "a", author: "a", channel: ch });
-    await c.mutation("messages:send", { body: "b", author: "a", channel: ch });
+    const proj = `unique-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "a", projectId: proj }));
+    await c.mutation("tasks:create", taskArgs({ title: "b", projectId: proj }));
 
-    const { result } = await c.query("messages:list", { channel: ch });
-    const ids = result.map((m: any) => m._id);
+    const { result } = await c.query("tasks:listByProject", { projectId: proj });
+    const ids = result.map((t: any) => t._id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("_id should be prefixed with table name", async () => {
     const c = await freshClient();
-    const ch = "prefix-" + Date.now();
-    await c.mutation("messages:send", { body: "x", author: "a", channel: ch });
+    const proj = `prefix-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "x", projectId: proj }));
 
-    const { result } = await c.query("messages:list", { channel: ch });
-    expect(result[0]._id).toMatch(/^messages\//);
+    const { result } = await c.query("tasks:listByProject", { projectId: proj });
+    expect(result[0]._id).toMatch(/^tasks\//);
   });
 
   it("_creationTime should be monotonically increasing", async () => {
     const c = await freshClient();
-    const ch = "mono-" + Date.now();
-    await c.mutation("messages:send", { body: "first", author: "a", channel: ch });
+    const proj = `mono-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "first", projectId: proj }));
     await sleep(5);
-    await c.mutation("messages:send", { body: "second", author: "a", channel: ch });
+    await c.mutation("tasks:create", taskArgs({ title: "second", projectId: proj }));
 
-    const { result } = await c.query("messages:list", { channel: ch });
+    const { result } = await c.query("tasks:listByProject", { projectId: proj });
     // order("desc") so newest first
     expect(result[0]._creationTime).toBeGreaterThanOrEqual(result[1]._creationTime);
   });
 
   it("documents should preserve all user-supplied fields", async () => {
     const c = await freshClient();
-    const ch = "fields-" + Date.now();
-    await c.mutation("messages:send", { body: "hello world", author: "bob", channel: ch });
+    const proj = `fields-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "my task", projectId: proj }));
 
-    const { result } = await c.query("messages:list", { channel: ch });
-    expect(result[0]).toMatchObject({ body: "hello world", author: "bob", channel: ch });
+    const { result } = await c.query("tasks:listByProject", { projectId: proj });
+    expect(result[0]).toMatchObject({ title: "my task", status: "todo", priority: "medium", projectId: proj });
   });
 });
 
@@ -390,39 +401,39 @@ describe("document structure", () => {
 describe("actions", () => {
   it("should run an action that calls runMutation and runQuery", async () => {
     const c = await freshClient();
-    const ch = "action-ch-" + Date.now();
-    const result = await c.action("messages:sendViaAction", {
-      body: "from action",
-      author: "bot",
-      channel: ch,
+    const proj = `action-${Date.now()}`;
+    const result = await c.action("tasks:createViaAction", {
+      title: "from action",
+      ...TASK_DEFAULTS,
+      projectId: proj,
     });
-    expect(result.sent).toBe(true);
+    expect(result.created).toBe(true);
     expect(result.count).toBeGreaterThanOrEqual(1);
 
-    // Verify the message was actually written
-    const { result: messages } = await c.query("messages:list", { channel: ch });
-    expect(messages).toHaveLength(1);
-    expect(messages[0].body).toBe("from action");
+    // Verify the task was actually written
+    const { result: tasks } = await c.query("tasks:listByProject", { projectId: proj });
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toBe("from action");
   });
 
   it("action mutations should trigger subscription updates", async () => {
     const c = await freshClient();
-    const ch = "action-sub-" + Date.now();
+    const proj = `action-sub-${Date.now()}`;
 
     // Subscribe first
-    const { id: subId } = await c.query("messages:list", { channel: ch });
+    const { id: subId } = await c.query("tasks:listByProject", { projectId: proj });
 
-    // Send via action
+    // Create via action
     const updatePromise = c.waitForUpdate(subId);
-    await c.action("messages:sendViaAction", {
-      body: "action update",
-      author: "bot",
-      channel: ch,
+    await c.action("tasks:createViaAction", {
+      title: "action update",
+      ...TASK_DEFAULTS,
+      projectId: proj,
     });
 
     const updated = await updatePromise;
     expect(updated).toHaveLength(1);
-    expect(updated[0].body).toBe("action update");
+    expect(updated[0].title).toBe("action update");
   });
 });
 
@@ -432,17 +443,17 @@ describe("actions", () => {
 describe("scheduler", () => {
   it("should schedule a mutation to run after a delay", async () => {
     const c = await freshClient();
-    const ch = "sched-ch-" + Date.now();
+    const proj = `sched-${Date.now()}`;
 
     // Subscribe before scheduling
-    const { id: subId, result: initial } = await c.query("messages:list", { channel: ch });
+    const { id: subId, result: initial } = await c.query("tasks:listByProject", { projectId: proj });
     expect(initial).toHaveLength(0);
 
-    // Schedule a message to be sent after 100ms
-    const jobId = await c.mutation("messages:scheduleSend", {
-      body: "scheduled msg",
-      author: "scheduler",
-      channel: ch,
+    // Schedule a task to be created after 100ms
+    const jobId = await c.mutation("tasks:scheduleCreate", {
+      title: "scheduled task",
+      ...TASK_DEFAULTS,
+      projectId: proj,
       delayMs: 100,
     });
     expect(typeof jobId).toBe("string");
@@ -450,7 +461,7 @@ describe("scheduler", () => {
     // Wait for the subscription update (triggered when scheduled job runs)
     const updated = await c.waitForUpdate(subId, 5000);
     expect(updated).toHaveLength(1);
-    expect(updated[0].body).toBe("scheduled msg");
+    expect(updated[0].title).toBe("scheduled task");
   });
 });
 
@@ -474,79 +485,77 @@ describe("http", () => {
 // HTTP actions
 // ---------------------------------------------------------------------------
 describe("http actions", () => {
-  it("POST /api/messages should insert a message via HTTP action", async () => {
-    const ch = "http-action-" + Date.now();
-    const res = await fetch("http://localhost:8788/api/messages", {
+  it("POST /api/tasks should insert a task via HTTP action", async () => {
+    const proj = `http-action-${Date.now()}`;
+    const res = await fetch("http://localhost:8788/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: "via http", author: "curl", channel: ch }),
+      body: JSON.stringify({ title: "via http", ...TASK_DEFAULTS, projectId: proj }),
     });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
 
-    // Verify the message was actually persisted by querying via WS
+    // Verify the task was actually persisted by querying via WS
     const c = await freshClient();
-    const { result } = await c.query("messages:list", { channel: ch });
+    const { result } = await c.query("tasks:listByProject", { projectId: proj });
     expect(result).toHaveLength(1);
-    expect(result[0].body).toBe("via http");
-    expect(result[0].author).toBe("curl");
+    expect(result[0].title).toBe("via http");
   });
 
-  it("GET /api/messages should return messages via HTTP action", async () => {
-    const ch = "http-get-" + Date.now();
+  it("GET /api/tasks should return tasks via HTTP action", async () => {
+    const proj = `http-get-${Date.now()}`;
 
     // Insert via WS first
     const c = await freshClient();
-    await c.mutation("messages:send", { body: "msg1", author: "a", channel: ch });
-    await c.mutation("messages:send", { body: "msg2", author: "b", channel: ch });
+    await c.mutation("tasks:create", taskArgs({ title: "t1", projectId: proj }));
+    await c.mutation("tasks:create", taskArgs({ title: "t2", projectId: proj }));
 
     // Read via HTTP
-    const res = await fetch(`http://localhost:8788/api/messages?channel=${ch}`);
+    const res = await fetch(`http://localhost:8788/api/tasks?projectId=${proj}`);
     expect(res.status).toBe(200);
-    const messages = await res.json();
-    expect(messages).toHaveLength(2);
+    const tasks = await res.json();
+    expect(tasks).toHaveLength(2);
   });
 
   it("HTTP action mutations should trigger WS subscription updates", async () => {
-    const ch = "http-sub-" + Date.now();
+    const proj = `http-sub-${Date.now()}`;
     const c = await freshClient();
 
     // Subscribe via WS
-    const { id: subId } = await c.query("messages:list", { channel: ch });
+    const { id: subId } = await c.query("tasks:listByProject", { projectId: proj });
 
     // Insert via HTTP action
     const updatePromise = c.waitForUpdate(subId);
-    await fetch("http://localhost:8788/api/messages", {
+    await fetch("http://localhost:8788/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: "http push", author: "api", channel: ch }),
+      body: JSON.stringify({ title: "http push", ...TASK_DEFAULTS, projectId: proj }),
     });
 
     const updated = await updatePromise;
     expect(updated).toHaveLength(1);
-    expect(updated[0].body).toBe("http push");
+    expect(updated[0].title).toBe("http push");
   });
 });
 
 // ---------------------------------------------------------------------------
 // Internal Functions
 // ---------------------------------------------------------------------------
-
 describe("internal functions", () => {
   it("rejects client calls to internalQuery", async () => {
     const c = await freshClient();
-    const err = await c.queryError("messages:countMessages", { channel: "general" });
+    const err = await c.queryError("tasks:countInternal", { projectId: "general" });
     expect(err.code).toBe("forbidden");
     expect(err.message).toContain("internal");
   });
 
   it("rejects client calls to internalMutation", async () => {
     const c = await freshClient();
-    const err = await c.mutationError("messages:internalSend", {
-      body: "test",
-      author: "hacker",
-      channel: "general",
+    const err = await c.mutationError("tasks:createInternal", {
+      title: "test",
+      ...TASK_DEFAULTS,
+      projectId: "general",
     });
     expect(err.code).toBe("forbidden");
     expect(err.message).toContain("internal");
@@ -554,67 +563,66 @@ describe("internal functions", () => {
 
   it("allows server-side code to call internal functions via action", async () => {
     const c = await freshClient();
-    const ch = `internal-test-${Date.now()}`;
+    const proj = `internal-${Date.now()}`;
 
-    // sendViaInternal is a public action that calls internalSend + countMessages
-    const result = await c.action("messages:sendViaInternal", {
-      body: "from action",
-      author: "server",
-      channel: ch,
+    // createViaInternal is a public action that calls createInternal + countInternal
+    const result = await c.action("tasks:createViaInternal", {
+      title: "from action",
+      ...TASK_DEFAULTS,
+      projectId: proj,
     });
 
-    expect(result.sent).toBe(true);
+    expect(result.created).toBe(true);
     expect(result.count).toBe(1);
 
-    // Verify the message was actually created
-    const { result: messages } = await c.query("messages:list", { channel: ch });
-    expect(messages).toHaveLength(1);
-    expect(messages[0].body).toBe("from action");
+    // Verify the task was actually created
+    const { result: tasks } = await c.query("tasks:listByProject", { projectId: proj });
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toBe("from action");
   });
 
   it("internal mutations trigger subscription updates", async () => {
     const c = await freshClient();
-    const ch = `internal-sub-${Date.now()}`;
+    const proj = `internal-sub-${Date.now()}`;
 
-    // Subscribe to the channel
-    const { id: subId } = await c.query("messages:list", { channel: ch });
+    // Subscribe to the project
+    const { id: subId } = await c.query("tasks:listByProject", { projectId: proj });
 
     // Use the public action which calls the internal mutation
     const updatePromise = c.waitForUpdate(subId);
-    await c.action("messages:sendViaInternal", {
-      body: "internal push",
-      author: "server",
-      channel: ch,
+    await c.action("tasks:createViaInternal", {
+      title: "internal push",
+      ...TASK_DEFAULTS,
+      projectId: proj,
     });
 
     const updated = await updatePromise;
     expect(updated).toHaveLength(1);
-    expect(updated[0].body).toBe("internal push");
+    expect(updated[0].title).toBe("internal push");
   });
 });
 
 // ---------------------------------------------------------------------------
 // Cron Jobs
 // ---------------------------------------------------------------------------
-
 describe("cron jobs", () => {
   it("cron job executes on schedule and triggers subscription update", async () => {
     const c = await freshClient();
-    const ch = "cron-test";
+    const proj = "cron-cleanup";
 
-    // Insert a message into the cron-test channel
-    await c.mutation("messages:send", { body: "will be cleaned", author: "test", channel: ch });
+    // Insert a task into the cron-cleanup project
+    await c.mutation("tasks:create", taskArgs({ title: "will be cleaned", projectId: proj }));
 
     // Verify it exists
-    const { id: subId, result: before } = await c.query("messages:list", { channel: ch });
+    const { id: subId, result: before } = await c.query("tasks:listByProject", { projectId: proj });
     const countBefore = before.length;
     expect(countBefore).toBeGreaterThanOrEqual(1);
 
-    // The cron job runs every 5 seconds and deletes messages in "cron-test" channel.
+    // The cron job runs every 5 seconds and deletes tasks in "cron-cleanup" project.
     // Wait for the cron to fire and delete them.
     const updated = await c.waitForUpdate(subId, 10_000);
 
-    // After cron runs, messages should be empty
+    // After cron runs, tasks should be empty
     expect(updated.length).toBeLessThan(countBefore);
   });
 });
@@ -622,89 +630,86 @@ describe("cron jobs", () => {
 // ---------------------------------------------------------------------------
 // Scheduler Cancel
 // ---------------------------------------------------------------------------
-
 describe("scheduler.cancel", () => {
   it("cancels a scheduled job before it runs", async () => {
     const c = await freshClient();
-    const ch = `cancel-test-${Date.now()}`;
+    const proj = `cancel-${Date.now()}`;
 
-    // Schedule a message to be sent in 2 seconds
-    const jobId = await c.mutation("messages:scheduleSend", {
-      body: "should not appear",
-      author: "scheduler",
-      channel: ch,
+    // Schedule a task to be created in 2 seconds
+    const jobId = await c.mutation("tasks:scheduleCreate", {
+      title: "should not appear",
+      ...TASK_DEFAULTS,
+      projectId: proj,
       delayMs: 2000,
     });
 
     // Cancel it immediately
-    await c.mutation("messages:cancelScheduled", { jobId });
+    await c.mutation("tasks:cancelScheduled", { jobId });
 
-    // Wait 3 seconds — the message should NOT have been created
+    // Wait 3 seconds — the task should NOT have been created
     await sleep(3000);
 
-    const { result: messages } = await c.query("messages:list", { channel: ch });
-    expect(messages).toHaveLength(0);
+    const { result: tasks } = await c.query("tasks:listByProject", { projectId: proj });
+    expect(tasks).toHaveLength(0);
   });
 });
 
 // ---------------------------------------------------------------------------
 // ctx.runAction() — action-to-action calls
 // ---------------------------------------------------------------------------
-
 describe("ctx.runAction", () => {
   it("action can call another action via runAction", async () => {
     const c = await freshClient();
-    const ch = `run-action-${Date.now()}`;
+    const proj = `run-action-${Date.now()}`;
 
-    // sendAndCount calls sendViaAction, which calls runMutation + runQuery
-    const result = await c.action("messages:sendAndCount", {
-      body: "nested action",
-      author: "test",
-      channel: ch,
+    // createAndCount calls createViaAction, which calls runMutation + runQuery
+    const result = await c.action("tasks:createAndCount", {
+      title: "nested action",
+      ...TASK_DEFAULTS,
+      projectId: proj,
     });
 
-    expect(result.calledFrom).toBe("sendAndCount");
-    expect(result.innerResult.sent).toBe(true);
+    expect(result.calledFrom).toBe("createAndCount");
+    expect(result.innerResult.created).toBe(true);
     expect(result.innerResult.count).toBe(1);
 
-    // Verify the message was created
-    const { result: messages } = await c.query("messages:list", { channel: ch });
-    expect(messages).toHaveLength(1);
-    expect(messages[0].body).toBe("nested action");
+    // Verify the task was created
+    const { result: tasks } = await c.query("tasks:listByProject", { projectId: proj });
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toBe("nested action");
   });
 });
 
 // ---------------------------------------------------------------------------
 // v.record() validator
 // ---------------------------------------------------------------------------
-
 describe("v.record", () => {
   it("accepts valid record args", async () => {
     const c = await freshClient();
-    const ch = `record-test-${Date.now()}`;
+    const proj = `record-${Date.now()}`;
 
-    const result = await c.mutation("messages:sendWithMetadata", {
-      body: "with metadata",
-      author: "test",
-      channel: ch,
+    const result = await c.mutation("tasks:createWithMetadata", {
+      title: "with metadata",
+      ...TASK_DEFAULTS,
+      projectId: proj,
       metadata: { color: "red", size: "large" },
     });
 
     expect(result.metadataKeys).toEqual(["color", "size"]);
 
-    // Verify message was created
-    const { result: messages } = await c.query("messages:list", { channel: ch });
-    expect(messages).toHaveLength(1);
+    // Verify task was created
+    const { result: tasks } = await c.query("tasks:listByProject", { projectId: proj });
+    expect(tasks).toHaveLength(1);
   });
 
   it("rejects invalid record values", async () => {
     const c = await freshClient();
-    const ch = `record-invalid-${Date.now()}`;
+    const proj = `record-inv-${Date.now()}`;
 
-    const err = await c.mutationError("messages:sendWithMetadata", {
-      body: "bad",
-      author: "test",
-      channel: ch,
+    const err = await c.mutationError("tasks:createWithMetadata", {
+      title: "bad",
+      ...TASK_DEFAULTS,
+      projectId: proj,
       metadata: { color: 123 },
     } as any);
 
@@ -716,21 +721,19 @@ describe("v.record", () => {
 // ---------------------------------------------------------------------------
 // Return value validators
 // ---------------------------------------------------------------------------
-
 describe("return value validators", () => {
   it("returns validated value from query with returns validator", async () => {
     const c = await freshClient();
-    const ch = `returns-test-${Date.now()}`;
+    const proj = `returns-${Date.now()}`;
 
-    // countByChannel has returns: v.number()
-    const { result: count } = await c.query("messages:countByChannel", { channel: ch });
+    // countByProject has returns: v.number()
+    const { result: count } = await c.query("tasks:countByProject", { projectId: proj });
     expect(typeof count).toBe("number");
     expect(count).toBe(0);
 
-    // Add a message and re-query
-    await c.mutation("messages:send", { body: "test", author: "a", channel: ch });
-    // Need a fresh query since the first one is a subscription
-    const { result: count2 } = await c.query("messages:countByChannel", { channel: ch });
+    // Add a task and re-query
+    await c.mutation("tasks:create", taskArgs({ projectId: proj }));
+    const { result: count2 } = await c.query("tasks:countByProject", { projectId: proj });
     expect(count2).toBe(1);
   });
 });
@@ -738,45 +741,45 @@ describe("return value validators", () => {
 // ---------------------------------------------------------------------------
 // Nested Directory Functions
 // ---------------------------------------------------------------------------
-
 describe("nested directory functions", () => {
-  it("calls a function in a nested directory (utils/stats:messageCount)", async () => {
+  it("calls a function in a nested directory (utils/stats:taskStats)", async () => {
     const c = await freshClient();
-    const ch = `nested-${Date.now()}`;
+    const proj = `nested-${Date.now()}`;
 
-    // Insert some messages
-    await c.mutation("messages:send", { body: "a", author: "test", channel: ch });
-    await c.mutation("messages:send", { body: "b", author: "test", channel: ch });
+    // Insert some tasks
+    await c.mutation("tasks:create", taskArgs({ title: "a", projectId: proj, status: "todo" }));
+    await c.mutation("tasks:create", taskArgs({ title: "b", projectId: proj, status: "done" }));
 
     // Call the nested function
-    const { result } = await c.query("utils/stats:messageCount", { channel: ch });
-    expect(result.channel).toBe(ch);
-    expect(result.count).toBe(2);
+    const { result } = await c.query("utils/stats:taskStats", { projectId: proj });
+    expect(result.projectId).toBe(proj);
+    expect(result.total).toBe(2);
+    expect(result.todo).toBe(1);
+    expect(result.done).toBe(1);
   });
 });
 
 // ---------------------------------------------------------------------------
 // Default Indexes (by_creation_time, by_id)
 // ---------------------------------------------------------------------------
-
 describe("default indexes", () => {
   it("by_creation_time returns documents ordered by creation time", async () => {
     const c = await freshClient();
-    const ch = `default-idx-${Date.now()}`;
+    const proj = `default-idx-${Date.now()}`;
 
-    await c.mutation("messages:send", { body: "first", author: "a", channel: ch });
-    await c.mutation("messages:send", { body: "second", author: "b", channel: ch });
-    await c.mutation("messages:send", { body: "third", author: "c", channel: ch });
+    await c.mutation("tasks:create", taskArgs({ title: "first", projectId: proj }));
+    await c.mutation("tasks:create", taskArgs({ title: "second", projectId: proj }));
+    await c.mutation("tasks:create", taskArgs({ title: "third", projectId: proj }));
 
-    // recentMessages uses by_creation_time index with order("desc")
-    const { result } = await c.query("messages:recentMessages", { limit: 100 });
+    // recent uses by_creation_time index with order("desc")
+    const { result } = await c.query("tasks:recent", { limit: 100 });
 
-    // Should include our messages (and possibly others) in desc creation order
-    const ours = result.filter((m: any) => m.channel === ch);
+    // Should include our tasks (and possibly others) in desc creation order
+    const ours = result.filter((t: any) => t.projectId === proj);
     expect(ours).toHaveLength(3);
-    expect(ours[0].body).toBe("third");
-    expect(ours[1].body).toBe("second");
-    expect(ours[2].body).toBe("first");
+    expect(ours[0].title).toBe("third");
+    expect(ours[1].title).toBe("second");
+    expect(ours[2].title).toBe("first");
 
     // Verify _creationTime is monotonically decreasing
     expect(ours[0]._creationTime).toBeGreaterThanOrEqual(ours[1]._creationTime);
@@ -785,22 +788,22 @@ describe("default indexes", () => {
 
   it("by_id index allows lookup by _id", async () => {
     const c = await freshClient();
-    const ch = `byid-${Date.now()}`;
+    const proj = `byid-${Date.now()}`;
 
-    await c.mutation("messages:send", { body: "find me", author: "a", channel: ch });
-    const { result: messages } = await c.query("messages:list", { channel: ch });
-    const id = messages[0]._id;
+    await c.mutation("tasks:create", taskArgs({ title: "find me", projectId: proj }));
+    const { result: tasks } = await c.query("tasks:listByProject", { projectId: proj });
+    const id = tasks[0]._id;
 
     // getById uses by_id index with eq("_id", id)
-    const { result: found } = await c.query("messages:getById", { id });
+    const { result: found } = await c.query("tasks:getById", { id });
     expect(found).not.toBeNull();
     expect(found._id).toBe(id);
-    expect(found.body).toBe("find me");
+    expect(found.title).toBe("find me");
   });
 
   it("by_id returns null for nonexistent id", async () => {
     const c = await freshClient();
-    const { result: found } = await c.query("messages:getById", { id: "nonexistent_12345" });
+    const { result: found } = await c.query("tasks:getById", { id: "nonexistent_12345" });
     expect(found).toBeNull();
   });
 });
@@ -808,7 +811,6 @@ describe("default indexes", () => {
 // ---------------------------------------------------------------------------
 // Optimistic Updates (via ConvexClient)
 // ---------------------------------------------------------------------------
-
 describe("optimistic updates", () => {
   let convexClient: ConvexClient;
 
@@ -827,11 +829,11 @@ describe("optimistic updates", () => {
       if (convexClient.connectionState === "connected") resolve();
     });
 
-    const ch = `opt-update-${Date.now()}`;
-    const queryKey = QueryStore.makeKey("messages:list", { channel: ch });
+    const proj = `opt-update-${Date.now()}`;
+    const queryKey = QueryStore.makeKey("tasks:listByProject", { projectId: proj });
 
     // Subscribe to the query
-    convexClient.subscribe("messages:list", { channel: ch });
+    convexClient.subscribe("tasks:listByProject", { projectId: proj });
 
     // Wait for initial result
     await new Promise<void>((resolve) => {
@@ -846,14 +848,14 @@ describe("optimistic updates", () => {
 
     // Perform mutation with optimistic update
     const mutationPromise = convexClient.mutation(
-      "messages:send",
-      { body: "optimistic msg", author: "alice", channel: ch },
+      "tasks:create",
+      { title: "optimistic task", status: "todo", priority: "medium", projectId: proj },
       {
         optimisticUpdate: (store: LocalStore) => {
-          const current = store.getQuery("messages:list", { channel: ch }) as any[];
-          store.setQuery("messages:list", { channel: ch }, [
+          const current = store.getQuery("tasks:listByProject", { projectId: proj }) as any[];
+          store.setQuery("tasks:listByProject", { projectId: proj }, [
             ...current,
-            { _id: "temp", _creationTime: Date.now(), body: "optimistic msg", author: "alice", channel: ch },
+            { _id: "temp", _creationTime: Date.now(), title: "optimistic task", status: "todo", priority: "medium", projectId: proj },
           ]);
         },
       },
@@ -862,7 +864,7 @@ describe("optimistic updates", () => {
     // Immediately after calling mutation, optimistic result should be visible
     const optimistic = convexClient.getQueryResult(queryKey) as any[];
     expect(optimistic).toHaveLength(1);
-    expect(optimistic[0].body).toBe("optimistic msg");
+    expect(optimistic[0].title).toBe("optimistic task");
     expect(optimistic[0]._id).toBe("temp");
 
     // Wait for mutation to complete
@@ -877,7 +879,6 @@ describe("optimistic updates", () => {
           resolve();
         }
       };
-      // Check immediately and on updates
       check();
       const unsub = convexClient.watchQuery(queryKey, () => {
         check();
@@ -885,14 +886,13 @@ describe("optimistic updates", () => {
           unsub();
         }
       });
-      // Safety timeout
       setTimeout(() => { unsub(); resolve(); }, 5000);
     });
 
-    // Server truth should have the real message with a real _id
+    // Server truth should have the real task with a real _id
     const serverResult = convexClient.getQueryResult(queryKey) as any[];
     expect(serverResult).toHaveLength(1);
-    expect(serverResult[0].body).toBe("optimistic msg");
+    expect(serverResult[0].title).toBe("optimistic task");
     expect(serverResult[0]._id).not.toBe("temp");
   });
 
@@ -906,10 +906,10 @@ describe("optimistic updates", () => {
       if (convexClient.connectionState === "connected") resolve();
     });
 
-    const ch = `opt-revert-${Date.now()}`;
-    const queryKey = QueryStore.makeKey("messages:list", { channel: ch });
+    const proj = `opt-revert-${Date.now()}`;
+    const queryKey = QueryStore.makeKey("tasks:listByProject", { projectId: proj });
 
-    convexClient.subscribe("messages:list", { channel: ch });
+    convexClient.subscribe("tasks:listByProject", { projectId: proj });
 
     // Wait for initial result
     await new Promise<void>((resolve) => {
@@ -922,12 +922,12 @@ describe("optimistic updates", () => {
 
     // Mutation that will fail (missing required args)
     const mutationPromise = convexClient.mutation(
-      "messages:send",
-      { body: "fail" } as any, // missing author and channel
+      "tasks:create",
+      { title: "fail" } as any, // missing status, priority, projectId
       {
         optimisticUpdate: (store: LocalStore) => {
-          store.setQuery("messages:list", { channel: ch }, [
-            { _id: "temp", body: "should revert" },
+          store.setQuery("tasks:listByProject", { projectId: proj }, [
+            { _id: "temp", title: "should revert" },
           ]);
         },
       },
@@ -936,7 +936,7 @@ describe("optimistic updates", () => {
     // Optimistic update is visible immediately
     const optimistic = convexClient.getQueryResult(queryKey) as any[];
     expect(optimistic).toHaveLength(1);
-    expect(optimistic[0].body).toBe("should revert");
+    expect(optimistic[0].title).toBe("should revert");
 
     // Wait for mutation to fail
     await mutationPromise;
@@ -956,13 +956,13 @@ describe("optimistic updates", () => {
       if (convexClient.connectionState === "connected") resolve();
     });
 
-    const chA = `opt-a-${Date.now()}`;
-    const chB = `opt-b-${Date.now()}`;
-    const keyA = QueryStore.makeKey("messages:list", { channel: chA });
-    const keyB = QueryStore.makeKey("messages:list", { channel: chB });
+    const projA = `opt-a-${Date.now()}`;
+    const projB = `opt-b-${Date.now()}`;
+    const keyA = QueryStore.makeKey("tasks:listByProject", { projectId: projA });
+    const keyB = QueryStore.makeKey("tasks:listByProject", { projectId: projB });
 
-    convexClient.subscribe("messages:list", { channel: chA });
-    convexClient.subscribe("messages:list", { channel: chB });
+    convexClient.subscribe("tasks:listByProject", { projectId: projA });
+    convexClient.subscribe("tasks:listByProject", { projectId: projB });
 
     // Wait for both subscriptions
     await new Promise<void>((resolve) => {
@@ -979,16 +979,16 @@ describe("optimistic updates", () => {
     let notifyCountB = 0;
     const unsubB = convexClient.watchQuery(keyB, () => { notifyCountB++; });
 
-    // Optimistic update only touches channel A
+    // Optimistic update only touches project A
     await convexClient.mutation(
-      "messages:send",
-      { body: "hi", author: "test", channel: chA },
+      "tasks:create",
+      { title: "hi", status: "todo", priority: "medium", projectId: projA },
       {
         optimisticUpdate: (store: LocalStore) => {
-          const current = store.getQuery("messages:list", { channel: chA }) as any[];
-          store.setQuery("messages:list", { channel: chA }, [
+          const current = store.getQuery("tasks:listByProject", { projectId: projA }) as any[];
+          store.setQuery("tasks:listByProject", { projectId: projA }, [
             ...current,
-            { _id: "temp", body: "hi" },
+            { _id: "temp", title: "hi" },
           ]);
         },
       },
@@ -996,7 +996,7 @@ describe("optimistic updates", () => {
 
     unsubB();
 
-    // Channel B listener should NOT have been notified by the optimistic update
+    // Project B listener should NOT have been notified by the optimistic update
     expect(notifyCountB).toBe(0);
   });
 });

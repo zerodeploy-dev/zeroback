@@ -1,15 +1,16 @@
-export interface DocumentRow {
-  table_name: string;
-  document_id: string;
-  ts: number;
-  data: string;
-}
+import type { TableColumnInfo } from "./SchemaMapper";
+import { sqlRowToDoc } from "./SchemaMapper";
+
+/** Max bound parameters per SQL statement on Cloudflare DO SQLite. */
+const MAX_PARAMS = 100;
 
 export class DOSQLiteReader {
   private sql: any;
+  private tableColumns: Map<string, TableColumnInfo>;
 
-  constructor(sql: any) {
+  constructor(sql: any, tableColumns: Map<string, TableColumnInfo>) {
     this.sql = sql;
+    this.tableColumns = tableColumns;
   }
 
   async getDocument(
@@ -17,22 +18,20 @@ export class DOSQLiteReader {
     documentId: string,
     asOfTs: number
   ): Promise<{ data: unknown; ts: number } | null> {
-    // PK is (table_name, document_id) — at most one row per doc
+    const info = this.tableColumns.get(table);
+    if (!info) return null;
+
     const results = this.sql.exec(
-      `SELECT ts, data FROM document_index
-       WHERE table_name = ? AND document_id = ? AND ts <= ?`,
-      table, documentId, asOfTs
-    ).toArray() as { ts: number; data: string }[];
+      `SELECT * FROM "${table}" WHERE _id = ? AND _ts <= ?`,
+      documentId, asOfTs
+    ).toArray() as Record<string, unknown>[];
 
-    const result = results[0];
-
-    if (!result || !result.data) {
-      return null;
-    }
+    const row = results[0];
+    if (!row) return null;
 
     return {
-      data: JSON.parse(result.data),
-      ts: result.ts,
+      data: sqlRowToDoc(row, info),
+      ts: row._ts as number,
     };
   }
 
@@ -45,21 +44,25 @@ export class DOSQLiteReader {
     const out = new Map<string, { data: unknown; ts: number }>();
     if (documentIds.length === 0) return out;
 
-    // Chunk to stay under 100 param limit (2 fixed params + N ids)
-    const chunkSize = 98; // 100 - 2 (table + asOfTs)
+    const info = this.tableColumns.get(table);
+    if (!info) return out;
+
+    // Chunk to stay under 100 param limit (1 param for _ts + N ids)
+    const chunkSize = MAX_PARAMS - 1;
     for (let i = 0; i < documentIds.length; i += chunkSize) {
       const chunk = documentIds.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => "?").join(", ");
       const results = this.sql.exec(
-        `SELECT document_id, ts, data FROM document_index
-         WHERE table_name = ? AND ts <= ? AND document_id IN (${placeholders})`,
-        table, asOfTs, ...chunk
-      ).toArray() as { document_id: string; ts: number; data: string }[];
+        `SELECT * FROM "${table}" WHERE _ts <= ? AND _id IN (${placeholders})`,
+        asOfTs, ...chunk
+      ).toArray() as Record<string, unknown>[];
 
-      for (const r of results) {
-        if (r.data) {
-          out.set(r.document_id, { data: JSON.parse(r.data), ts: r.ts });
-        }
+      for (const row of results) {
+        const id = row._id as string;
+        out.set(id, {
+          data: sqlRowToDoc(row, info),
+          ts: row._ts as number,
+        });
       }
     }
 

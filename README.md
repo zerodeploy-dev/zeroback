@@ -430,11 +430,11 @@ bun install
 vex dev
 
 # In another terminal, start the frontend
-cd examples/chat-app
+cd examples/task-manager
 bun run dev
 ```
 
-Open http://localhost:5173 to see the example chat app.
+Open http://localhost:5173 to see the example task manager app.
 
 ### Running Tests
 
