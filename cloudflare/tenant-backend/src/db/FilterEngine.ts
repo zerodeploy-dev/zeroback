@@ -103,11 +103,15 @@ const SAFE_COLUMN_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 /**
  * Compile a FilterExpressionJSON to a SQL WHERE clause fragment with
- * parameterized values. Uses direct column references instead of json_extract().
+ * parameterized values.
+ *
+ * - Scalar columns use direct column references.
+ * - JSON columns use `json_extract(col, '$')` for top-level access.
+ * - Nested paths use `json_extract(col, '$.path')` with parameterized paths.
+ * - Array/object literals are wrapped with `json()` to match json_extract output.
  *
  * Falls back to null (JS evaluation) for:
- * - Nested paths (e.g. "address.city")
- * - JSON columns (object/array/union/record/any)
+ * - Nested paths on non-JSON columns
  * - Unsafe column names
  */
 export function compileFilterToSQL(
@@ -172,13 +176,28 @@ function compileSQLExpr(
   jsonColumns?: Set<string>
 ): { sql: string; params: unknown[] } {
   if (expr.op === "field") {
-    // Bail to JS for nested paths or JSON columns
     if (expr.path.includes(".")) {
-      throw new Error("unsupported: nested path");
+      // Nested path: "address.city" → json_extract("address", '$.city')
+      const [column, ...rest] = expr.path.split(".");
+      if (!SAFE_COLUMN_NAME.test(column)) {
+        throw new Error("unsupported: unsafe column name");
+      }
+      if (!rest.every((p) => SAFE_COLUMN_NAME.test(p))) {
+        throw new Error("unsupported: unsafe nested path segment");
+      }
+      if (!jsonColumns?.has(column)) {
+        throw new Error("unsupported: nested path on non-JSON column");
+      }
+      return { sql: `json_extract("${column}", ?)`, params: ["$." + rest.join(".")] };
     }
     if (jsonColumns?.has(expr.path)) {
-      throw new Error("unsupported: JSON column");
+      // JSON column top-level access via json_extract
+      if (!SAFE_COLUMN_NAME.test(expr.path)) {
+        throw new Error("unsupported: unsafe column name");
+      }
+      return { sql: `json_extract("${expr.path}", '$')`, params: [] };
     }
+    // Scalar column (existing behavior)
     if (!SAFE_COLUMN_NAME.test(expr.path)) {
       throw new Error("unsupported: unsafe column name");
     }
@@ -187,6 +206,10 @@ function compileSQLExpr(
   // Boolean literal conversion for SQLite INTEGER storage
   if (typeof expr.value === "boolean") {
     return { sql: "?", params: [expr.value ? 1 : 0] };
+  }
+  // Array/object literals: wrap with json() to match json_extract output type
+  if (typeof expr.value === "object" && expr.value !== null) {
+    return { sql: "json(?)", params: [JSON.stringify(expr.value)] };
   }
   return { sql: "?", params: [expr.value] };
 }
