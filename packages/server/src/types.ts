@@ -1,7 +1,14 @@
 import type { Validator, ValidatorJSON, PropertyValidators, ObjectType, Id } from "@vex/values";
 
+export type KeysetCursorInfo = {
+  sortValue: unknown;
+  lastId: string;
+  sortField: string;
+  direction: "asc" | "desc";
+};
+
 export interface DbOps {
-  query(table: string, filter: FilterExpressionJSON | null, orderField: string | null, orderDirection: "asc" | "desc", limit: number | null, indexQuery?: IndexQueryJSON | null): Promise<any[]>;
+  query(table: string, filter: FilterExpressionJSON | null, orderField: string | null, orderDirection: "asc" | "desc", limit: number | null, indexQuery?: IndexQueryJSON | null, keysetCursor?: KeysetCursorInfo | null): Promise<any[]>;
   get(table: string, id: string): Promise<any>;
   getMany(table: string, ids: string[]): Promise<Map<string, any>>;
   insert(table: string, id: string, data: any): Promise<void>;

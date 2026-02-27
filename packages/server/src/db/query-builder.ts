@@ -1,4 +1,4 @@
-import type { FilterExpressionJSON, IndexQueryJSON } from "../types.js";
+import type { FilterExpressionJSON, IndexQueryJSON, KeysetCursorInfo } from "../types.js";
 import type { DatabaseReader } from "./reader.js";
 import { FilterBuilder, FilterExpression } from "./filter.js";
 
@@ -113,8 +113,8 @@ export class QueryBuilder<Doc> {
   }
 
   async paginate(opts: { cursor: string | null; numItems: number }): Promise<PaginationResult<Doc>> {
-    const offset = opts.cursor ? decodeCursor(opts.cursor) : 0;
     const numItems = opts.numItems;
+    const keysetCursor = opts.cursor ? decodeKeysetCursor(opts.cursor) : null;
 
     // Fetch one extra to determine if there are more results
     const allResults = await this.reader.queryRaw(
@@ -122,30 +122,47 @@ export class QueryBuilder<Doc> {
       this.filterExpr,
       this.orderField,
       this.orderDirection,
-      offset + numItems + 1,
-      this.indexQueryValue
+      numItems + 1,
+      this.indexQueryValue,
+      keysetCursor
     );
 
-    const page = allResults.slice(offset, offset + numItems) as Doc[];
-    const hasMore = allResults.length > offset + numItems;
+    const hasMore = allResults.length > numItems;
+    const page = hasMore ? allResults.slice(0, numItems) as Doc[] : allResults as Doc[];
+
+    let continueCursor: string | null = null;
+    if (hasMore && page.length > 0) {
+      const lastDoc = page[page.length - 1] as any;
+      const sortField = this.orderField ?? "_creationTime";
+      continueCursor = encodeKeysetCursor({
+        sortValue: lastDoc[sortField],
+        lastId: lastDoc._id,
+        sortField,
+        direction: this.orderDirection,
+      });
+    }
 
     return {
       page,
-      continueCursor: hasMore ? encodeCursor(offset + numItems) : null,
+      continueCursor,
       isDone: !hasMore,
     };
   }
 }
 
-function encodeCursor(offset: number): string {
-  return btoa(JSON.stringify({ o: offset }));
+type KeysetCursorV2 = { k: 2; v: unknown; id: string; f: string; d: "asc" | "desc" };
+
+function encodeKeysetCursor(info: KeysetCursorInfo): string {
+  return btoa(JSON.stringify({ k: 2, v: info.sortValue, id: info.lastId, f: info.sortField, d: info.direction }));
 }
 
-function decodeCursor(cursor: string): number {
+function decodeKeysetCursor(cursor: string): KeysetCursorInfo | null {
   try {
     const parsed = JSON.parse(atob(cursor));
-    return parsed.o ?? 0;
+    if (parsed.k !== 2) return null; // v1 offset cursor — treat as restart
+    const c = parsed as KeysetCursorV2;
+    return { sortValue: c.v, lastId: c.id, sortField: c.f, direction: c.d };
   } catch {
-    return 0;
+    return null;
   }
 }

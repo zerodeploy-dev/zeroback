@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON } from "@vex/server";
+import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo } from "@vex/server";
 import { DatabaseReader, DatabaseWriter } from "@vex/server";
 import { validate } from "@vex/values";
 import { DOSQLiteReader } from "./db/DOSQLiteReader";
@@ -328,7 +328,7 @@ export class TenantBackend extends DurableObject {
 
   private createDbOps(txId: string): DbOps {
     return {
-      query: async (table, filter, orderField, orderDirection, limit, indexQuery) => {
+      query: async (table, filter, orderField, orderDirection, limit, indexQuery, keysetCursor) => {
         const tx = this.transactions.get(txId);
         if (!tx) throw new Error("Invalid transaction");
 
@@ -342,7 +342,7 @@ export class TenantBackend extends DurableObject {
         }
         this.transactions.addQueryDescriptor(txId, { table, filter: descriptorFilter });
 
-        const docs = this.queryTable(table, tx.beginTs, filter, indexQuery, orderField, orderDirection, limit);
+        const docs = this.queryTable(table, tx.beginTs, filter, indexQuery, orderField, orderDirection, limit, keysetCursor);
 
         for (const doc of docs) {
           this.transactions.addRead(txId, { table, documentId: doc.documentId, ts: doc.ts });
@@ -861,7 +861,8 @@ export class TenantBackend extends DurableObject {
     indexQuery: IndexQueryJSON | null,
     orderField: string | null,
     orderDirection: "asc" | "desc",
-    limit: number | null
+    limit: number | null,
+    keysetCursor?: KeysetCursorInfo | null
   ): { documentId: string; data: unknown; ts: number }[] {
     const info = this.tableColumns.get(table);
     if (!info) return [];
@@ -895,15 +896,21 @@ export class TenantBackend extends DurableObject {
       params.push(...compiled.params);
     }
 
+    // Keyset cursor WHERE clause — seek past the last seen row
+    if (keysetCursor) {
+      const sf = keysetCursor.sortField;
+      const cmp = keysetCursor.direction === "desc" ? "<" : ">";
+      // (sortField <cmp> ? OR (sortField = ? AND _id <cmp> ?))
+      conditions.push(`("${sf}" ${cmp} ? OR ("${sf}" = ? AND _id ${cmp} ?))`);
+      params.push(keysetCursor.sortValue, keysetCursor.sortValue, keysetCursor.lastId);
+    }
+
     const where = conditions.join(" AND ");
 
-    // ORDER BY
-    let orderClause: string;
-    if (orderField) {
-      orderClause = `ORDER BY "${orderField}" ${orderDirection === "desc" ? "DESC" : "ASC"}`;
-    } else {
-      orderClause = `ORDER BY _creationTime ${orderDirection === "desc" ? "DESC" : "ASC"}`;
-    }
+    // ORDER BY — always include _id as tiebreaker for deterministic ordering
+    const effectiveSortField = orderField ?? "_creationTime";
+    const dir = orderDirection === "desc" ? "DESC" : "ASC";
+    const orderClause = `ORDER BY "${effectiveSortField}" ${dir}, _id ${dir}`;
 
     // LIMIT (only when filter was fully pushed to SQL)
     let limitClause = "";

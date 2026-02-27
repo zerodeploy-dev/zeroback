@@ -177,6 +177,37 @@ describe("pagination", () => {
     expect(page3.continueCursor).toBeNull();
   });
 
+  it("should paginate with page size 1 without duplicates or gaps (keyset tiebreaker)", async () => {
+    const c = await freshClient();
+    const proj = `pag-keyset-${Date.now()}`;
+
+    for (let i = 0; i < 5; i++) {
+      await c.mutation("tasks:create", taskArgs({ title: `k-${i}`, projectId: proj }));
+    }
+
+    const allTitles: string[] = [];
+    let cursor: string | undefined = undefined;
+    let pages = 0;
+
+    while (pages < 10) { // safety limit
+      const args: Record<string, unknown> = { projectId: proj, numItems: 1 };
+      if (cursor !== undefined) args.cursor = cursor;
+      const { result } = await c.query("tasks:listPaginated", args);
+      for (const doc of result.page) {
+        allTitles.push(doc.title);
+      }
+      pages++;
+      if (result.isDone) break;
+      cursor = result.continueCursor ?? undefined;
+    }
+
+    expect(allTitles).toHaveLength(5);
+    // No duplicates
+    expect(new Set(allTitles).size).toBe(5);
+    // All items present (order is desc, so k-4 first)
+    expect(allTitles.sort()).toEqual(["k-0", "k-1", "k-2", "k-3", "k-4"]);
+  });
+
   it("should return all results when numItems exceeds total", async () => {
     const c = await freshClient();
     const proj = `pag-all-${Date.now()}`;
