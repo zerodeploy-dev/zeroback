@@ -24,7 +24,9 @@
       "@vex/react": ["./packages/react/src"],
       "@vex/react/*": ["./packages/react/src/*"],
       "@vex/cli": ["./packages/cli/src"],
-      "@vex/cli/*": ["./packages/cli/src/*"]
+      "@vex/cli/*": ["./packages/cli/src/*"],
+      "@vex/solid": ["./packages/solid/src"],
+      "@vex/solid/*": ["./packages/solid/src/*"]
     }
   },
   "exclude": ["node_modules", "**/dist"]

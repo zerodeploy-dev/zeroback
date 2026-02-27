@@ -1,0 +1,28 @@
+{
+  "name": "@vex/solid",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@vex/client": "workspace:*",
+    "@vex/server": "workspace:*"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.8.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "solid-js": "^1.8.0",
+    "typescript": "^5.6.0"
+  }
+}
