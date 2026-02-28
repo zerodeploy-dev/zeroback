@@ -5,7 +5,7 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "cloudflare/*",
+    "runtime",
     "examples/*"
   ],
   "scripts": {

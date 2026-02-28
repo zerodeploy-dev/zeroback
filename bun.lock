@@ -13,19 +13,6 @@
         "ws": "^8.19.0",
       },
     },
-    "cloudflare/tenant-backend": {
-      "name": "@vex/tenant-backend",
-      "version": "0.0.1",
-      "dependencies": {
-        "@vex/server": "workspace:*",
-        "@vex/values": "workspace:*",
-      },
-      "devDependencies": {
-        "@cloudflare/workers-types": "^4.20241022.0",
-        "typescript": "^5.6.0",
-        "wrangler": "^4.67.0",
-      },
-    },
     "examples/task-manager": {
       "name": "vex-task-manager",
       "version": "0.0.1",
@@ -119,6 +106,19 @@
       "version": "0.0.1",
       "devDependencies": {
         "typescript": "^5.6.0",
+      },
+    },
+    "runtime": {
+      "name": "@vex/runtime",
+      "version": "0.0.1",
+      "dependencies": {
+        "@vex/server": "workspace:*",
+        "@vex/values": "workspace:*",
+      },
+      "devDependencies": {
+        "@cloudflare/workers-types": "^4.20241022.0",
+        "typescript": "^5.6.0",
+        "wrangler": "^4.67.0",
       },
     },
   },
@@ -389,11 +389,11 @@
 
     "@vex/react": ["@vex/react@workspace:packages/react"],
 
+    "@vex/runtime": ["@vex/runtime@workspace:runtime"],
+
     "@vex/server": ["@vex/server@workspace:packages/server"],
 
     "@vex/solid": ["@vex/solid@workspace:packages/solid"],
-
-    "@vex/tenant-backend": ["@vex/tenant-backend@workspace:cloudflare/tenant-backend"],
 
     "@vex/values": ["@vex/values@workspace:packages/values"],
 

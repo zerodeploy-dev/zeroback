@@ -123,7 +123,7 @@
 | `vex dev` (watch, codegen, bundle, local server) | Implemented |
 | Nested directory function discovery | Implemented |
 | Generated `internal` API object | Implemented |
-| `vex deploy` (production deployment) | Not yet |
+| `vex deploy` (codegen + wrangler deploy) | Implemented |
 | `vex run` (invoke functions from CLI) | Not yet |
 | Dashboard web UI | Not yet |
 

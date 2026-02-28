@@ -159,6 +159,7 @@ Use `v` from `@vex/values` to define schemas and function args:
 v.string()                                // string
 v.number()                                // number
 v.boolean()                               // boolean
+v.null()                                  // null
 v.id("tableName")                         // document ID reference
 v.literal("active")                       // literal value
 v.object({ name: v.string() })            // nested object

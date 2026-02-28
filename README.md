@@ -157,6 +157,170 @@ This will:
 3. Start a local Cloudflare Worker with Durable Objects
 4. Watch for changes and rebuild automatically
 
+## Functions
+
+Vex has four function types. All are defined as named exports in your `vex/` directory.
+
+### Queries
+
+Queries are read-only functions. They receive `ctx.db` (a `DatabaseReader`) for reading data.
+
+```ts
+// vex/messages.ts
+import { query } from "./_generated/server";
+import { v } from "@vex/values";
+
+export const list = query({
+  args: { channel: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_channel", (q) => q.eq("channel", args.channel))
+      .order("desc")
+      .take(50);
+  },
+});
+```
+
+Queries are **reactive** — when used with `useQuery`, they automatically re-run and push updates when the underlying data changes.
+
+### Mutations
+
+Mutations can read and write data. They receive `ctx.db` (a `DatabaseWriter`) and `ctx.scheduler` for scheduling delayed work.
+
+```ts
+import { mutation } from "./_generated/server";
+import { v } from "@vex/values";
+
+export const send = mutation({
+  args: { body: v.string(), author: v.string(), channel: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("messages", args);
+  },
+});
+
+export const archive = mutation({
+  args: { id: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { archived: true });
+    // Schedule cleanup 24 hours later
+    await ctx.scheduler.runAfter(86400000, "messages:delete", { id: args.id });
+  },
+});
+```
+
+### Actions
+
+Actions can call other functions but don't have direct database access. Use them for external API calls or orchestrating multiple queries/mutations.
+
+```ts
+import { action } from "./_generated/server";
+import { v } from "@vex/values";
+
+export const createAndCount = action({
+  args: { title: v.string(), projectId: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.runMutation("tasks:create", {
+      title: args.title,
+      status: "todo",
+      priority: "medium",
+      projectId: args.projectId,
+    });
+    const tasks = await ctx.runQuery("tasks:listByProject", {
+      projectId: args.projectId,
+    });
+    return { count: tasks.length };
+  },
+});
+```
+
+`ActionCtx` provides: `ctx.runQuery()`, `ctx.runMutation()`, `ctx.runAction()`, and `ctx.scheduler`.
+
+### HTTP Actions
+
+Expose HTTP endpoints alongside your WebSocket API. Define routes in `vex/http.ts`:
+
+```ts
+// vex/http.ts
+import { httpRouter, httpAction } from "@vex/server";
+
+const http = httpRouter();
+
+http.route({
+  path: "/api/tasks",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get("projectId") ?? "";
+    const tasks = await ctx.runQuery("tasks:listByProject", { projectId });
+    return new Response(JSON.stringify(tasks), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+http.route({
+  path: "/api/tasks",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json() as any;
+    await ctx.runMutation("tasks:create", body);
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+export default http;
+```
+
+HTTP action handlers receive a full `ActionCtx` plus the incoming `Request`, and must return a `Response`.
+
+### Internal Functions
+
+Prefix any function type with `internal` to make it server-only (not callable from the client):
+
+```ts
+import { internalMutation, internalQuery } from "./_generated/server";
+
+export const cleanup = internalMutation({
+  args: { olderThan: v.number() },
+  handler: async (ctx, args) => {
+    // Only callable from other server functions or cron jobs
+  },
+});
+```
+
+Available variants: `internalQuery`, `internalMutation`, `internalAction`.
+
+### Cron Jobs
+
+Schedule recurring work in `vex/crons.ts`:
+
+```ts
+// vex/crons.ts
+import { cronJobs } from "@vex/server";
+
+const crons = cronJobs();
+
+crons.interval("cleanup old tasks", { hours: 1 }, "tasks:cleanupDone", {});
+crons.daily("daily report", { hourUTC: 9 }, "reports:generate", {});
+crons.cron("custom schedule", "*/15 * * * *", "stats:compute", {});
+
+export default crons;
+```
+
+Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cron` (cron expression).
+
+### Context Summary
+
+| Function Type | `ctx.db` | `ctx.scheduler` | `ctx.runQuery` | `ctx.runMutation` | `ctx.runAction` |
+|---------------|----------|-----------------|----------------|-------------------|-----------------|
+| Query         | read     |                 |                |                   |                 |
+| Mutation      | read/write | yes           |                |                   |                 |
+| Action        |          | yes             | yes            | yes               | yes             |
+| HTTP Action   |          | yes             | yes            | yes               | yes             |
+
 ## Architecture
 
 ```
@@ -170,7 +334,7 @@ This will:
 │  Cloudflare Worker                              │
 │  Routes requests to Durable Object              │
 │ ┌─────────────────────────────────────────────┐ │
-│ │  TenantBackend (Durable Object)             │ │
+│ │  VexDO (Durable Object)                     │ │
 │ │                                             │ │
 │ │  ┌──────────┐ ┌────────────┐ ┌───────────┐ │ │
 │ │  │ User     │ │ Transaction│ │Subscription│ │ │
@@ -196,9 +360,10 @@ This will:
 |---------|-------------|
 | `@vex/server` | Define schemas, queries, mutations. Database reader/writer, query builder, filter DSL |
 | `@vex/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence |
-| `@vex/react` | `useQuery`, `useQueryWithStatus`, `useMutation`, `ConvexProvider` hooks for React |
+| `@vex/react` | `ConvexProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
+| `@vex/solid` | Solid.js bindings: `VexProvider`, `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery` |
 | `@vex/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
-| `@vex/cli` | `vex dev` command — analyze, codegen, bundle, watch, start wrangler |
+| `@vex/cli` | `vex init`, `vex dev`, `vex deploy`, `vex codegen` — scaffold, develop, deploy |
 
 ## Documentation
 
@@ -279,11 +444,17 @@ Tests cover mutations, index queries, pagination, real-time subscriptions, multi
 
 ### Deployment
 
-The backend is a standard Cloudflare Workers project with Durable Objects. Deploy it to your own account:
+Deploy your Vex backend to Cloudflare with a single command:
 
 ```bash
-cd cloudflare/tenant-backend
-wrangler deploy
+vex deploy
+```
+
+This runs codegen and then `wrangler deploy`. You can pass flags through to wrangler:
+
+```bash
+vex deploy --dry-run                    # codegen only, skip deploy
+vex deploy -- --env production          # pass flags to wrangler
 ```
 
 Then point your client to the production URL:
@@ -295,7 +466,7 @@ const client = new ConvexClient("wss://your-worker.your-subdomain.workers.dev/ws
 ### Building Packages
 
 ```bash
-npx tsc --build packages/values packages/server packages/cli
+npx tsc --build
 ```
 
 ## Tech Stack

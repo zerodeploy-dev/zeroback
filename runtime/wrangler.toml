@@ -1,9 +1,9 @@
-name = "vex-tenant-backend"
+name = "vex-backend"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 
 [durable_objects]
-bindings = [{ name = "TENANT_BACKEND", class_name = "TenantBackend" }]
+bindings = [{ name = "VEX_DO", class_name = "VexDO" }]
 
 [observability]
 enabled = true
@@ -11,3 +11,7 @@ enabled = true
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TenantBackend"]
+
+[[migrations]]
+tag = "v2"
+renamed_classes = [{ from = "TenantBackend", to = "VexDO" }]

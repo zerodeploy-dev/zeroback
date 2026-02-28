@@ -86,7 +86,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
 }
 
 function startWrangler(workerDir: string, port: number): ChildProcess {
-  const child = spawn("bunx", ["wrangler", "dev", "--port", String(port), "--persist-to", "../../.wrangler/state"], {
+  const child = spawn("bunx", ["wrangler", "dev", "--port", String(port), "--persist-to", "../.wrangler/state"], {
     cwd: workerDir,
     stdio: "inherit",
     shell: true,
@@ -106,11 +106,11 @@ function startWrangler(workerDir: string, port: number): ChildProcess {
 }
 
 export function findWorkerDir(): string {
-  // Look for tenant-backend relative to common project structures
+  // Look for runtime dir relative to common project structures
   const candidates = [
-    "./cloudflare/tenant-backend",
-    "../cloudflare/tenant-backend",
-    "../../cloudflare/tenant-backend",
+    "./runtime",
+    "../runtime",
+    "../../runtime",
   ];
 
   for (const candidate of candidates) {
@@ -121,5 +121,5 @@ export function findWorkerDir(): string {
   }
 
   // Default
-  return path.resolve("./cloudflare/tenant-backend");
+  return path.resolve("./runtime");
 }

@@ -15,7 +15,7 @@ This is **query-level invalidation** — posting a message to `#random` won't tr
 
 ## Optimistic Concurrency Control
 
-Mutations use MVCC with timestamp ordering:
+Mutations use OCC with timestamp-based conflict detection:
 
 1. Begin transaction at current timestamp
 2. Execute mutation, tracking all reads and writes
@@ -25,12 +25,14 @@ Mutations use MVCC with timestamp ordering:
 
 ## Type-Safe Codegen
 
-Running `vex dev` generates three files in `vex/_generated/`:
+Running `vex dev` (or `vex deploy` / `vex codegen`) generates three files in `vex/_generated/`:
 
 | File | Purpose |
 |------|---------|
 | `api.ts` | Typed function references (`api.messages.list`, `api.messages.send`) |
 | `server.ts` | Typed `query()` and `mutation()` factories with your DataModel |
 | `dataModel.ts` | TypeScript types for all your tables |
+
+It also bundles all user functions and schema into `_functions.generated.ts` in the worker directory, which the Durable Object loads at runtime.
 
 Your editor gets full autocomplete for query args, mutation args, and return types.

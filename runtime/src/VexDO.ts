@@ -26,7 +26,7 @@ type FunctionDef = {
 /** Max bound parameters per SQL statement on Cloudflare DO SQLite. */
 const MAX_PARAMS = 100;
 
-export class TenantBackend extends DurableObject {
+export class VexDO extends DurableObject {
   private latestTs: number = 0;
   private transactions: TransactionStore;
   private subscriptions: SubscriptionManager;
@@ -530,7 +530,7 @@ export class TenantBackend extends DurableObject {
       return;
     }
 
-    for (let attempt = 0; attempt <= TenantBackend.MAX_OCC_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= VexDO.MAX_OCC_RETRIES; attempt++) {
       const txId = crypto.randomUUID();
       this.transactions.begin(txId, this.latestTs, "mutation");
 
@@ -546,8 +546,8 @@ export class TenantBackend extends DurableObject {
           const hasConflicts = this.checkConflicts(readSet, mutationTx!.beginTs);
           if (hasConflicts) {
             this.transactions.remove(txId);
-            if (attempt < TenantBackend.MAX_OCC_RETRIES) {
-              await TenantBackend.occBackoff(attempt);
+            if (attempt < VexDO.MAX_OCC_RETRIES) {
+              await VexDO.occBackoff(attempt);
               continue;
             }
             ws.send(
@@ -677,7 +677,7 @@ export class TenantBackend extends DurableObject {
 
   // -- Action context --
 
-  private createActionCtx(): { runQuery: (fnName: string, args?: unknown) => Promise<any>; runMutation: (fnName: string, args?: unknown) => Promise<any>; runAction: (fnName: string, args?: unknown) => Promise<any>; scheduler: ReturnType<typeof TenantBackend.prototype.createScheduler> } {
+  private createActionCtx(): { runQuery: (fnName: string, args?: unknown) => Promise<any>; runMutation: (fnName: string, args?: unknown) => Promise<any>; runAction: (fnName: string, args?: unknown) => Promise<any>; scheduler: ReturnType<typeof VexDO.prototype.createScheduler> } {
     return {
       runQuery: async (fnName: string, args?: unknown) => {
         const fn = this.functions[fnName];
@@ -695,7 +695,7 @@ export class TenantBackend extends DurableObject {
         const fn = this.functions[fnName];
         if (!fn || fn.type !== "mutation") throw new Error(`Mutation not found: ${fnName}`);
         // Run the mutation through the same path as handleMutation (with OCC retries)
-        for (let attempt = 0; attempt <= TenantBackend.MAX_OCC_RETRIES; attempt++) {
+        for (let attempt = 0; attempt <= VexDO.MAX_OCC_RETRIES; attempt++) {
           const txId = crypto.randomUUID();
           this.transactions.begin(txId, this.latestTs, "mutation");
           try {
@@ -706,8 +706,8 @@ export class TenantBackend extends DurableObject {
 
             if (readSet.length > 0 && this.checkConflicts(readSet, mutationTx!.beginTs)) {
               this.transactions.remove(txId);
-              if (attempt < TenantBackend.MAX_OCC_RETRIES) {
-                await TenantBackend.occBackoff(attempt);
+              if (attempt < VexDO.MAX_OCC_RETRIES) {
+                await VexDO.occBackoff(attempt);
                 continue;
               }
               throw new Error("Transaction conflict — max retries exceeded");
@@ -1001,5 +1001,5 @@ function indexRangesToFilter(
 }
 
 export interface Env {
-  TENANT_BACKEND: DurableObjectNamespace;
+  VEX_DO: DurableObjectNamespace;
 }

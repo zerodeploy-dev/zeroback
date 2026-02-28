@@ -13,7 +13,7 @@ export function findWranglerDir(workerDir: string): string | null {
   // Brownfield: wrangler.toml at project root (e.g., inbox)
   const cwd = process.cwd();
   if (existsSync(path.join(cwd, "wrangler.toml"))) return cwd;
-  // Greenfield: wrangler.toml in workerDir (e.g., cloudflare/tenant-backend/)
+  // Greenfield: wrangler.toml in workerDir (e.g., runtime/)
   if (existsSync(path.join(workerDir, "wrangler.toml"))) return workerDir;
   return null;
 }

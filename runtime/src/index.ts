@@ -1,6 +1,6 @@
-import { TenantBackend, Env } from "./TenantBackend";
+import { VexDO, Env } from "./VexDO";
 
-export { TenantBackend };
+export { VexDO };
 
 /**
  * Extract tenant slug from URL path.
@@ -38,8 +38,8 @@ export default {
       return new Response("OK");
     }
 
-    if (!env.TENANT_BACKEND) {
-      return new Response("TENANT_BACKEND binding not configured", { status: 500 });
+    if (!env.VEX_DO) {
+      return new Response("VEX_DO binding not configured", { status: 500 });
     }
 
     const tenant = extractTenant(url.pathname);
@@ -47,8 +47,8 @@ export default {
       return new Response("Not found", { status: 404 });
     }
 
-    const doId = env.TENANT_BACKEND.idFromName(tenant.slug);
-    const doStub = env.TENANT_BACKEND.get(doId);
+    const doId = env.VEX_DO.idFromName(tenant.slug);
+    const doStub = env.VEX_DO.get(doId);
 
     // Forward to DO with the tenant prefix stripped
     const forwardUrl = new URL(request.url);
