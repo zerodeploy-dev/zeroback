@@ -1,7 +1,8 @@
 import * as path from "path";
 import { spawn } from "child_process";
 import { existsSync } from "fs";
-import { buildAndGenerate, findWorkerDir } from "./dev.js";
+import { buildAndGenerate } from "./dev.js";
+import { prepareWorkerDir } from "./prepare.js";
 
 export interface DeployOptions {
   vexDir?: string;
@@ -9,18 +10,9 @@ export interface DeployOptions {
   wranglerArgs?: string[];
 }
 
-export function findWranglerDir(workerDir: string): string | null {
-  // Brownfield: wrangler.toml at project root (e.g., inbox)
-  const cwd = process.cwd();
-  if (existsSync(path.join(cwd, "wrangler.toml"))) return cwd;
-  // Greenfield: wrangler.toml in workerDir (e.g., runtime/)
-  if (existsSync(path.join(workerDir, "wrangler.toml"))) return workerDir;
-  return null;
-}
-
 export async function deploy(options: DeployOptions = {}): Promise<void> {
   const vexDir = path.resolve(options.vexDir || "./vex");
-  const workerDir = path.resolve(findWorkerDir());
+  const workerDir = prepareWorkerDir();
 
   console.log("▲ vex deploy\n");
 
@@ -43,13 +35,12 @@ export async function deploy(options: DeployOptions = {}): Promise<void> {
   }
 
   // Phase 2: Deploy via wrangler
-  const wranglerDir = findWranglerDir(workerDir);
-  if (!wranglerDir) {
-    console.error("  ✗ No wrangler.toml found.");
+  if (!existsSync(path.resolve("wrangler.toml"))) {
+    console.error("  ✗ No wrangler.toml found at project root.");
     process.exit(1);
   }
 
-  const exitCode = await runWrangler(wranglerDir, options.wranglerArgs || []);
+  const exitCode = await runWrangler(options.wranglerArgs || []);
   if (exitCode === 0) {
     console.log("\n  ✓ Deployed successfully\n");
   } else {
@@ -57,10 +48,9 @@ export async function deploy(options: DeployOptions = {}): Promise<void> {
   }
 }
 
-function runWrangler(cwd: string, args: string[]): Promise<number> {
+function runWrangler(args: string[]): Promise<number> {
   return new Promise((resolve) => {
     const child = spawn("bunx", ["wrangler", "deploy", ...args], {
-      cwd,
       stdio: "inherit",
       shell: true,
     });

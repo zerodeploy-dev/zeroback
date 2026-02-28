@@ -6,11 +6,11 @@ import { generateApi } from "../codegen/api.js";
 import { generateServer } from "../codegen/server.js";
 import { generateDataModel } from "../codegen/dataModel.js";
 import { bundle } from "../build/bundle.js";
-import { existsSync, mkdirSync, copyFileSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
+import { prepareWorkerDir } from "./prepare.js";
 
 export interface DevConfig {
   vexDir?: string;
-  workerDir?: string;
   port?: number;
 }
 
@@ -39,7 +39,7 @@ export async function buildAndGenerate(vexDir: string, workerDir: string): Promi
 
 export async function dev(config: DevConfig = {}): Promise<void> {
   const vexDir = path.resolve(config.vexDir || "./vex");
-  const workerDir = path.resolve(config.workerDir || findWorkerDir());
+  const workerDir = prepareWorkerDir();
   const port = config.port || 8788;
 
   console.log("▲ vex dev\n");
@@ -58,7 +58,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
 
   // Start wrangler
   console.log(`  ⠋ Starting wrangler on port ${port}...`);
-  const wrangler = startWrangler(workerDir, port);
+  const wrangler = startWrangler(port);
 
   // Watch for changes
   const watcher = chokidar.watch(vexDir, {
@@ -85,9 +85,8 @@ export async function dev(config: DevConfig = {}): Promise<void> {
   process.on("SIGTERM", cleanup);
 }
 
-function startWrangler(workerDir: string, port: number): ChildProcess {
-  const child = spawn("bunx", ["wrangler", "dev", "--port", String(port), "--persist-to", "../.wrangler/state"], {
-    cwd: workerDir,
+function startWrangler(port: number): ChildProcess {
+  const child = spawn("bunx", ["wrangler", "dev", "--port", String(port), "--persist-to", ".wrangler/state"], {
     stdio: "inherit",
     shell: true,
   });
@@ -103,23 +102,4 @@ function startWrangler(workerDir: string, port: number): ChildProcess {
   });
 
   return child;
-}
-
-export function findWorkerDir(): string {
-  // Look for runtime dir relative to common project structures
-  const candidates = [
-    "./runtime",
-    "../runtime",
-    "../../runtime",
-  ];
-
-  for (const candidate of candidates) {
-    const resolved = path.resolve(candidate);
-    if (existsSync(path.join(resolved, "wrangler.toml"))) {
-      return resolved;
-    }
-  }
-
-  // Default
-  return path.resolve("./runtime");
 }

@@ -363,7 +363,7 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 | `@vex/react` | `ConvexProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
 | `@vex/solid` | Solid.js bindings: `VexProvider`, `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery` |
 | `@vex/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
-| `@vex/cli` | `vex init`, `vex dev`, `vex deploy`, `vex codegen` — scaffold, develop, deploy |
+| `@vex/cli` | `vex init`, `vex dev`, `vex deploy`, `vex codegen` — scaffold, develop, deploy. Ships the Cloudflare Worker + Durable Object runtime in `packages/cli/runtime/src/` |
 
 ## Documentation
 
@@ -385,8 +385,17 @@ your-project/
 │       └── dataModel.ts      # TypeScript types for tables
 ├── src/                      # Your frontend code
 │   └── App.tsx
-└── package.json
+├── wrangler.toml             # Scaffolded by vex init, user can customize
+├── package.json
+└── .vex/                     # Gitignored, CLI-managed
+    └── src/                  # Runtime source + generated bundle
 ```
+
+The `.vex/src/` directory is created automatically by `vex dev`, `vex deploy`, and `vex codegen`. It contains:
+- The **Cloudflare Worker + Durable Object runtime** — copied from the CLI package (`packages/cli/runtime/src/`). This includes `VexDO.ts` (the main Durable Object that handles all state, transactions, subscriptions, and WebSocket connections), the SQLite database layer, subscription manager, and connection manager.
+- `_functions.generated.ts` — a generated bundle that imports your `vex/` functions and wires them into the runtime.
+
+The `wrangler.toml` at project root points to `.vex/src/index.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
 
 ## How Vex Compares to Convex
 

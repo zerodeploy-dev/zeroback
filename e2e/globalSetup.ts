@@ -1,9 +1,10 @@
 import { spawn, execSync, type ChildProcess } from "child_process";
+import { rmSync } from "fs";
 import * as path from "path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
+const EXAMPLE_DIR = path.resolve(ROOT, "examples/task-manager");
 const PORT = 8788;
-const VEX_DIR = path.resolve(ROOT, "examples/task-manager/vex");
 
 let proc: ChildProcess | null = null;
 
@@ -38,8 +39,8 @@ export async function setup() {
   killPort();
 
   const cliEntry = path.join(ROOT, "packages/cli/src/index.ts");
-  proc = spawn("npx", ["tsx", cliEntry, "dev", VEX_DIR], {
-    cwd: ROOT,
+  proc = spawn("npx", ["tsx", cliEntry, "dev"], {
+    cwd: EXAMPLE_DIR,
     stdio: "ignore",
     shell: true,
   });
@@ -56,4 +57,8 @@ export async function teardown() {
   await sleep(200);
   killPort();
   await sleep(200);
+
+  // Clean up generated files
+  rmSync(path.join(EXAMPLE_DIR, ".vex"), { recursive: true, force: true });
+  rmSync(path.join(EXAMPLE_DIR, ".wrangler"), { recursive: true, force: true });
 }

@@ -5,6 +5,10 @@
   "bin": {
     "vex": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "runtime"
+  ],
   "exports": {
     ".": "./dist/index.js",
     "./codegen": "./dist/codegen/utils.js",

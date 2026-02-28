@@ -1,5 +1,6 @@
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { writeFileSync, mkdirSync, existsSync, readFileSync, appendFileSync } from "fs";
 import * as path from "path";
+import { WRANGLER_TEMPLATE } from "./prepare.js";
 
 export async function init(projectDir: string = "."): Promise<void> {
   console.log("▲ vex init\n");
@@ -64,6 +65,25 @@ export const query = createQueryFactory<any>();
 export const mutation = createMutationFactory<any>();
 `
   );
+
+  // wrangler.toml at project root
+  const wranglerPath = path.join(resolved, "wrangler.toml");
+  if (!existsSync(wranglerPath)) {
+    writeFileSync(wranglerPath, WRANGLER_TEMPLATE);
+    console.log("  ✓ wrangler.toml");
+  }
+
+  // Add .vex/ to .gitignore
+  const gitignorePath = path.join(resolved, ".gitignore");
+  if (existsSync(gitignorePath)) {
+    const content = readFileSync(gitignorePath, "utf-8");
+    if (!content.includes(".vex/")) {
+      appendFileSync(gitignorePath, "\n.vex/\n");
+    }
+  } else {
+    writeFileSync(gitignorePath, "node_modules/\n.vex/\n.wrangler/\n");
+    console.log("  ✓ .gitignore");
+  }
 
   console.log("  ✓ vex/schema.ts");
   console.log("  ✓ vex/messages.ts");

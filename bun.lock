@@ -17,6 +17,7 @@
       "name": "vex-task-manager",
       "version": "0.0.1",
       "dependencies": {
+        "@vex/cli": "workspace:*",
         "@vex/client": "workspace:*",
         "@vex/react": "workspace:*",
         "@vex/server": "workspace:*",
@@ -106,19 +107,6 @@
       "version": "0.0.1",
       "devDependencies": {
         "typescript": "^5.6.0",
-      },
-    },
-    "runtime": {
-      "name": "@vex/runtime",
-      "version": "0.0.1",
-      "dependencies": {
-        "@vex/server": "workspace:*",
-        "@vex/values": "workspace:*",
-      },
-      "devDependencies": {
-        "@cloudflare/workers-types": "^4.20241022.0",
-        "typescript": "^5.6.0",
-        "wrangler": "^4.67.0",
       },
     },
   },
@@ -388,8 +376,6 @@
     "@vex/client": ["@vex/client@workspace:packages/client"],
 
     "@vex/react": ["@vex/react@workspace:packages/react"],
-
-    "@vex/runtime": ["@vex/runtime@workspace:runtime"],
 
     "@vex/server": ["@vex/server@workspace:packages/server"],
 

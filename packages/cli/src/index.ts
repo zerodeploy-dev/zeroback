@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { dev, buildAndGenerate, findWorkerDir } from "./commands/dev.js";
+import { dev, buildAndGenerate } from "./commands/dev.js";
 import { deploy } from "./commands/deploy.js";
 import { init } from "./commands/init.js";
+import { prepareWorkerDir } from "./commands/prepare.js";
 import * as path from "path";
 
 function parseDeployArgs(argv: string[]): {
@@ -54,7 +55,7 @@ switch (command) {
 
   case "codegen": {
     const vexDir = path.resolve(process.argv[3] || "./vex");
-    const workerDir = path.resolve(findWorkerDir());
+    const workerDir = prepareWorkerDir();
     buildAndGenerate(vexDir, workerDir).catch((e) => {
       console.error(e);
       process.exit(1);
