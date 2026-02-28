@@ -2,7 +2,8 @@ export type ClientMessage =
   | { type: "query"; id: string; fn: string; args: unknown }
   | { type: "mutation"; id: string; fn: string; args: unknown }
   | { type: "action"; id: string; fn: string; args: unknown }
-  | { type: "unsubscribe"; id: string };
+  | { type: "unsubscribe"; id: string }
+  | { type: "ping" };
 
 export type ServerMessage =
   | { type: "result"; id: string; result: unknown }
@@ -11,4 +12,5 @@ export type ServerMessage =
   | { type: "mutationResult"; id: string; result: unknown }
   | { type: "actionResult"; id: string; result: unknown }
   | { type: "error"; id?: string; code: string; message: string }
-  | { type: "reset" };
+  | { type: "reset" }
+  | { type: "pong" };

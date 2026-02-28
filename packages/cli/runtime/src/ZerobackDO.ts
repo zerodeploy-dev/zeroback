@@ -506,6 +506,14 @@ export class ZerobackDO extends DurableObject {
     const connId = this.connections.get(ws);
     if (!connId) return;
 
+    const msg = JSON.parse(message) as ClientMessage;
+
+    // Respond to pings immediately — no rate limiting, no DB access
+    if (msg.type === "ping") {
+      ws.send('{"type":"pong"}');
+      return;
+    }
+
     // Rate limiting
     if (!this.connections.checkRateLimit(connId)) {
       ws.send(JSON.stringify({
@@ -515,8 +523,6 @@ export class ZerobackDO extends DurableObject {
       } as ServerMessage));
       return;
     }
-
-    const msg = JSON.parse(message) as ClientMessage;
 
     switch (msg.type) {
       case "query":

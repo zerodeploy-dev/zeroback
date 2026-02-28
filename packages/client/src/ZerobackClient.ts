@@ -14,6 +14,10 @@ export interface ZerobackClientOptions {
   maxCacheAge?: number;
   schemaVersion?: string;
   backoff?: BackoffOptions;
+  /** Heartbeat ping interval in milliseconds. Set to 0 to disable. Default: 30000 (30s). */
+  heartbeatIntervalMs?: number;
+  /** Timeout for mutation/action requests in milliseconds. Default: 60000 (60s). */
+  requestTimeoutMs?: number;
 }
 
 export class ZerobackClient {
@@ -22,12 +26,18 @@ export class ZerobackClient {
   private pendingRequests = new Map<string, {
     resolve: (value: unknown) => void;
     reject: (reason: unknown) => void;
+    timer: ReturnType<typeof setTimeout>;
   }>();
   private url: string;
   private backoff: Backoff;
   private isConnecting = false;
   private messageQueue: ClientMessage[] = [];
   private closed = false;
+
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private lastPongAt = 0;
+  private heartbeatIntervalMs: number;
+  private requestTimeoutMs: number;
 
   private _connectionState: ConnectionState = "disconnected";
   private connectionListeners = new Set<(state: ConnectionState) => void>();
@@ -45,6 +55,8 @@ export class ZerobackClient {
     this.url = url;
     this.options = options ?? {};
     this.backoff = new Backoff(options?.backoff);
+    this.heartbeatIntervalMs = options?.heartbeatIntervalMs ?? 30_000;
+    this.requestTimeoutMs = options?.requestTimeoutMs ?? 60_000;
     this.subscriptions = new SubscriptionRegistry();
 
     if (this.options.persistence) {
@@ -129,6 +141,7 @@ export class ZerobackClient {
       this.isConnecting = false;
       this.backoff.reset();
       this.setConnectionState("connected");
+      this.startHeartbeat();
       this.resubscribeAll();
       this.flushMessageQueue();
     };
@@ -144,27 +157,50 @@ export class ZerobackClient {
 
     this.ws.onclose = () => {
       this.isConnecting = false;
+      this.stopHeartbeat();
       this.setConnectionState("disconnected");
       if (!this.closed) this.scheduleReconnect();
     };
 
     this.ws.onerror = () => {
       this.isConnecting = false;
+      this.stopHeartbeat();
     };
   }
 
   private scheduleReconnect(): void {
     if (this.closed || !this.backoff.shouldRetry()) {
-      // Reject all pending requests on permanent disconnect
-      for (const [id, pending] of this.pendingRequests) {
-        pending.reject(new Error("Connection lost"));
-        this.pendingRequests.delete(id);
-      }
+      this.rejectAllPending("Connection lost");
       return;
     }
 
     const delay = this.backoff.next();
     setTimeout(() => this.connect(), delay);
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    if (this.heartbeatIntervalMs <= 0) return;
+
+    this.lastPongAt = Date.now();
+    this.heartbeatInterval = setInterval(() => {
+      // If no pong received within 2x the interval, consider connection dead
+      if (Date.now() - this.lastPongAt > this.heartbeatIntervalMs * 2) {
+        this.stopHeartbeat();
+        this.ws?.close();
+        return;
+      }
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send('{"type":"ping"}');
+      }
+    }, this.heartbeatIntervalMs);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval !== null) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
   }
 
   /** Re-subscribe all active subscriptions after reconnect or server reset. */
@@ -178,6 +214,44 @@ export class ZerobackClient {
     while (this.messageQueue.length > 0) {
       const msg = this.messageQueue.shift()!;
       this.send(msg);
+    }
+  }
+
+  private addPendingRequest(
+    id: string,
+    resolve: (value: unknown) => void,
+    reject: (reason: unknown) => void,
+  ): void {
+    const timer = setTimeout(() => {
+      this.pendingRequests.delete(id);
+      reject(new Error("Request timed out"));
+    }, this.requestTimeoutMs);
+    this.pendingRequests.set(id, { resolve, reject, timer });
+  }
+
+  private resolvePending(id: string, value: unknown): void {
+    const pending = this.pendingRequests.get(id);
+    if (pending) {
+      clearTimeout(pending.timer);
+      pending.resolve(value);
+      this.pendingRequests.delete(id);
+    }
+  }
+
+  private rejectPending(id: string, reason: unknown): void {
+    const pending = this.pendingRequests.get(id);
+    if (pending) {
+      clearTimeout(pending.timer);
+      pending.reject(reason);
+      this.pendingRequests.delete(id);
+    }
+  }
+
+  private rejectAllPending(reason: string): void {
+    for (const [id, pending] of this.pendingRequests) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error(reason));
+      this.pendingRequests.delete(id);
     }
   }
 
@@ -229,7 +303,7 @@ export class ZerobackClient {
     const result = this.mutationQueue.then(async () => {
       try {
         const res = await new Promise((resolve, reject) => {
-          this.pendingRequests.set(id, { resolve, reject });
+          this.addPendingRequest(id, resolve, reject);
           this.send({ type: "mutation", id, fn: fnName, args });
         });
         // Mutation succeeded — remove from persisted queue
@@ -251,7 +325,7 @@ export class ZerobackClient {
   async action(fnName: string, args: unknown): Promise<unknown> {
     const id = crypto.randomUUID();
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
+      this.addPendingRequest(id, resolve, reject);
       this.send({ type: "action", id, fn: fnName, args });
     });
   }
@@ -283,23 +357,18 @@ export class ZerobackClient {
         break;
 
       case "mutationResult":
-      case "actionResult": {
-        const pending = this.pendingRequests.get(msg.id);
-        if (pending) {
-          pending.resolve(msg.result);
-          this.pendingRequests.delete(msg.id);
-        }
+      case "actionResult":
+        this.resolvePending(msg.id, msg.result);
         break;
-      }
 
       case "error":
         if (msg.id) {
-          const pending = this.pendingRequests.get(msg.id);
-          if (pending) {
-            pending.reject(new Error(msg.message));
-            this.pendingRequests.delete(msg.id);
-          }
+          this.rejectPending(msg.id, new Error(msg.message));
         }
+        break;
+
+      case "pong":
+        this.lastPongAt = Date.now();
         break;
 
       case "reset":
@@ -312,6 +381,7 @@ export class ZerobackClient {
 
   close(): void {
     this.closed = true;
+    this.stopHeartbeat();
     this.ws?.close();
     this.ws = null;
     this.setConnectionState("disconnected");
