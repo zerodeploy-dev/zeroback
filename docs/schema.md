@@ -70,7 +70,7 @@ Every document automatically includes two system fields that you do **not** decl
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `_id` | `string` | Auto-generated ULID-based ID in `"tableName/ULID"` format |
+| `_id` | `string` | Auto-generated ULID-based ID in `"tableName:ULID"` format |
 | `_creationTime` | `number` | Unix timestamp in milliseconds, derived from the ULID |
 
 These fields cannot be set or modified by user code and are excluded from `insert()`, `patch()`, and `replace()` arguments.
@@ -160,7 +160,7 @@ Validators are used in three places:
 | `v.id(tableName)` | `Id<TableName>` | Document ID referencing a specific table |
 
 ```ts
-v.id("tasks")  // Id<"tasks"> — e.g. "tasks/01HXZ..."
+v.id("tasks")  // Id<"tasks"> — e.g. "tasks:01HXZ..."
 ```
 
 ### Compound Validators

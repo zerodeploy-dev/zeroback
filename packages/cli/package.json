@@ -10,10 +10,10 @@
     "runtime"
   ],
   "exports": {
-    ".": "./dist/index.js",
-    "./codegen": "./dist/codegen/utils.js",
-    "./analyze": "./dist/analyze/extract.js",
-    "./build": "./dist/build/bundle.js"
+    ".": "./src/index.ts",
+    "./codegen": "./src/codegen/utils.ts",
+    "./analyze": "./src/analyze/extract.ts",
+    "./build": "./src/build/bundle.ts"
   },
   "dependencies": {
     "@vex/server": "workspace:*",

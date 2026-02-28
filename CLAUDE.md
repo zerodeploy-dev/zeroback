@@ -26,7 +26,7 @@ docs/         - API documentation
 - **VexDO** (`packages/cli/runtime/src/VexDO.ts`) is the main Durable Object handling all state, transactions, subscriptions, and WebSocket connections.
 - **Codegen** analyzes user's `vex/` directory and generates typed API references, function factories, and DataModel types into `vex/_generated/`.
 - All filters compile to SQL WHERE clauses via `json_extract` for efficiency.
-- IDs are ULID-based in `"tableName/ULID"` format. `_creationTime` is derived from the ULID.
+- IDs are ULID-based in `"tableName:ULID"` format. `_creationTime` is derived from the ULID.
 
 ## Development
 

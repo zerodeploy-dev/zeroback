@@ -118,7 +118,7 @@ describe("queries", () => {
     const { result } = await c.query("tasks:listByProject", { projectId: proj });
     expect(result).toHaveLength(1);
     const doc = result[0];
-    expect(doc._id).toMatch(/^tasks\//);
+    expect(doc._id).toMatch(/^tasks:/);
     expect(typeof doc._creationTime).toBe("number");
     expect(doc._creationTime).toBeGreaterThan(0);
   });
@@ -401,7 +401,7 @@ describe("document structure", () => {
     await c.mutation("tasks:create", taskArgs({ title: "x", projectId: proj }));
 
     const { result } = await c.query("tasks:listByProject", { projectId: proj });
-    expect(result[0]._id).toMatch(/^tasks\//);
+    expect(result[0]._id).toMatch(/^tasks:/);
   });
 
   it("_creationTime should be monotonically increasing", async () => {

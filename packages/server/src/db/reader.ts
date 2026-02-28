@@ -44,6 +44,6 @@ export class DatabaseReader<DataModel> {
 }
 
 function tableFromId(id: string): string {
-  const parts = id.split("/");
+  const parts = id.split(":");
   return parts[0] ?? "";
 }

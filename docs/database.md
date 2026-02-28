@@ -29,7 +29,7 @@ db.get<T extends keyof DataModel>(id: Id<T>): Promise<DataModel[T] | null>
 Returns `null` if the document does not exist.
 
 ```ts
-const task = await ctx.db.get("tasks/01HXZ...");
+const task = await ctx.db.get("tasks:01HXZ...");
 ```
 
 ### `db.getMany(...ids)`
@@ -43,8 +43,8 @@ db.getMany<T extends keyof DataModel>(...ids: Id<T>[]): Promise<Map<Id<T>, DataM
 Returns a `Map` where missing documents are `null`.
 
 ```ts
-const results = await ctx.db.getMany("tasks/01A...", "tasks/01B...");
-// results.get("tasks/01A...") => document or null
+const results = await ctx.db.getMany("tasks:01A...", "tasks:01B...");
+// results.get("tasks:01A...") => document or null
 ```
 
 ## DatabaseWriter
@@ -62,16 +62,16 @@ db.insert<T extends keyof DataModel>(
 ): Promise<Id<T>>
 ```
 
-The `_id` (ULID-based, format `"tableName/ULID"`) and `_creationTime` (Unix ms timestamp) are generated automatically.
+The `_id` (ULID-based, format `"tableName:ULID"`) and `_creationTime` (Unix ms timestamp) are generated automatically.
 
 ```ts
 const id = await ctx.db.insert("tasks", {
   title: "Fix bug",
   status: "todo",
   priority: "high",
-  projectId: "projects/01HXZ...",
+  projectId: "projects:01HXZ...",
 });
-// id => "tasks/01HXZ..."
+// id => "tasks:01HXZ..."
 ```
 
 ### `db.patch(id, fields)`
@@ -105,7 +105,7 @@ await ctx.db.replace(taskId, {
   title: "New title",
   status: "todo",
   priority: "medium",
-  projectId: "projects/01HXZ...",
+  projectId: "projects:01HXZ...",
 });
 ```
 

@@ -226,7 +226,7 @@ export function sqlRowToDoc(
   info: TableColumnInfo
 ): Record<string, unknown> {
   const id = row._id as string;
-  const ulidPart = id.split("/")[1] ?? id;
+  const ulidPart = id.split(":")[1] ?? id;
   const doc: Record<string, unknown> = {
     _id: id,
     _creationTime: decodeTime(ulidPart),

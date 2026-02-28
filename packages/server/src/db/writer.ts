@@ -8,7 +8,7 @@ export class DatabaseWriter<DataModel> extends DatabaseReader<DataModel> {
     table: T,
     doc: Omit<DataModel[T], "_id" | "_creationTime">
   ): Promise<Id<T>> {
-    const id = `${table}/${ulid()}` as Id<T>;
+    const id = `${table}:${ulid()}` as Id<T>;
     const fullDoc = { ...(doc as any), _id: id };
     await this.ops.insert(table, id, fullDoc);
     return id;
@@ -34,6 +34,6 @@ export class DatabaseWriter<DataModel> extends DatabaseReader<DataModel> {
 }
 
 function tableFromId(id: string): string {
-  const parts = id.split("/");
+  const parts = id.split(":");
   return parts[0] ?? "";
 }
