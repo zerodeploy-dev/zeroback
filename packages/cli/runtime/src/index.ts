@@ -63,7 +63,11 @@ export default {
       return new Response("Not found", { status: 404 });
     }
 
-    const baseUrl = `${url.origin}${tenantPrefix(tenant.slug)}`;
+    // Derive base URL from Host header (url.origin may be an internal
+    // hostname in wrangler dev / workerd).
+    const host = request.headers.get("Host") ?? url.host;
+    const protocol = url.protocol;
+    const baseUrl = `${protocol}//${host}${tenantPrefix(tenant.slug)}`;
 
     // -- Storage upload route (Worker handles file I/O, DO handles metadata) --
     if (tenant.forwardPath === "/storage/upload" && request.method === "POST") {
