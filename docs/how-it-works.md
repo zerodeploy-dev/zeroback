@@ -13,6 +13,8 @@ When a client subscribes to a query, the server:
 
 This is **query-level invalidation** — posting a message to `#random` won't trigger re-execution of a subscription watching `#general`.
 
+**Full-text search queries** use conservative invalidation: any write to the table triggers re-execution, since FTS relevance ranking makes fine-grained overlap detection impractical.
+
 ## Optimistic Concurrency Control
 
 Mutations use OCC with timestamp-based conflict detection:

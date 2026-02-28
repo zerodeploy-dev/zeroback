@@ -1,4 +1,4 @@
-import type { FilterExpressionJSON, IndexQueryJSON, KeysetCursorInfo } from "../types.js";
+import type { FilterExpressionJSON, IndexQueryJSON, KeysetCursorInfo, SearchQueryJSON } from "../types.js";
 import type { DatabaseReader } from "./reader.js";
 import { FilterBuilder, FilterExpression } from "./filter.js";
 
@@ -44,6 +44,7 @@ export class IndexRangeBuilder {
 export class QueryBuilder<Doc> {
   private filterExpr: FilterExpressionJSON | null = null;
   private indexQueryValue: IndexQueryJSON | null = null;
+  private searchQueryValue: SearchQueryJSON | null = null;
   private orderField: string | null = null;
   private orderDirection: "asc" | "desc" = "asc";
   private limitValue: number | null = null;
@@ -54,11 +55,22 @@ export class QueryBuilder<Doc> {
   ) {}
 
   withIndex(indexName: string, fn?: (q: IndexRangeBuilder) => IndexRangeBuilder): this {
+    if (this.searchQueryValue) {
+      throw new Error(".withIndex() cannot be combined with .search()");
+    }
     const builder = new IndexRangeBuilder();
     if (fn) {
       fn(builder);
     }
     this.indexQueryValue = { indexName, ranges: builder.toJSON() };
+    return this;
+  }
+
+  search(field: string, query: string): this {
+    if (this.indexQueryValue) {
+      throw new Error(".search() cannot be combined with .withIndex()");
+    }
+    this.searchQueryValue = { searchField: field, searchQuery: query };
     return this;
   }
 
@@ -91,7 +103,9 @@ export class QueryBuilder<Doc> {
       this.orderField,
       this.orderDirection,
       this.limitValue,
-      this.indexQueryValue
+      this.indexQueryValue,
+      undefined,
+      this.searchQueryValue
     );
     return result as Doc[];
   }
@@ -124,7 +138,8 @@ export class QueryBuilder<Doc> {
       this.orderDirection,
       numItems + 1,
       this.indexQueryValue,
-      keysetCursor
+      keysetCursor,
+      this.searchQueryValue
     );
 
     const hasMore = allResults.length > numItems;

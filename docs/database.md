@@ -125,6 +125,51 @@ q.lte(field, value)   // less than or equal
 
 Indexes are automatically maintained — inserts, updates, and deletes keep index tables in sync. Subscription invalidation is also index-aware: a query watching `channel: "general"` won't re-execute when a message is sent to `"random"`.
 
+## Full-Text Search
+
+Declare search indexes in your schema to enable full-text search on text fields:
+
+```ts
+// vex/schema.ts
+export const schema = defineSchema({
+  tasks: defineTable({
+    title: v.string(),
+    body: v.string(),
+    projectId: v.string(),
+  })
+    .index("by_project", ["projectId"])
+    .searchIndex("search_title", { searchField: "title" }),
+});
+```
+
+Query using `.search()` on the QueryBuilder:
+
+```ts
+// Basic search — returns results ranked by relevance
+await ctx.db.query("tasks")
+  .search("title", "fix bug")
+  .take(10);
+
+// Search with additional filter
+await ctx.db.query("tasks")
+  .search("title", "fix bug")
+  .filter((q) => q.eq(q.field("projectId"), "proj_123"))
+  .take(10);
+```
+
+### How it works
+
+- Powered by **SQLite FTS5** external content tables — zero extra storage overhead
+- FTS tables are kept in sync via database triggers (inserts and deletes)
+- Results are ordered by **relevance** (`fts.rank`); custom `.order()` is ignored when `.search()` is active
+- `.search()` and `.withIndex()` are mutually exclusive — use `.filter()` for additional conditions on search results
+- Search queries use the FTS5 `MATCH` syntax — supports terms, phrases (`"fix bug"`), prefix queries (`fix*`), boolean operators (`fix AND bug`, `fix OR patch`), and column filters
+- Schema migration automatically creates, rebuilds, or removes FTS tables and triggers as search indexes change
+
+### Subscription behavior
+
+Search queries use **conservative invalidation**: any write to a table with active search subscriptions triggers re-execution. This ensures correctness since FTS relevance ranking makes fine-grained overlap detection impractical.
+
 ## Pagination
 
 Use `.paginate()` for cursor-based pagination:

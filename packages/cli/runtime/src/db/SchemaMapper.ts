@@ -111,6 +111,41 @@ export function generateTableDDL(
     );
   }
 
+  // FTS5 search indexes
+  for (const si of tableInfo.searchIndexes || []) {
+    stmts.push(...generateSearchIndexDDL(tableName, si));
+  }
+
+  return stmts;
+}
+
+// ---------------------------------------------------------------------------
+// FTS5 search index DDL
+// ---------------------------------------------------------------------------
+
+export function generateSearchIndexDDL(
+  tableName: string,
+  searchIndex: { name: string; searchField: string }
+): string[] {
+  const ftsTable = `${tableName}_${searchIndex.name}`;
+  const field = searchIndex.searchField;
+  const stmts: string[] = [];
+
+  // FTS5 virtual table with external content
+  stmts.push(
+    `CREATE VIRTUAL TABLE IF NOT EXISTS "${ftsTable}" USING fts5("${field}", content="${tableName}", content_rowid=rowid)`
+  );
+
+  // AFTER INSERT trigger — sync new rows to FTS
+  stmts.push(
+    `CREATE TRIGGER IF NOT EXISTS "${ftsTable}_ai" AFTER INSERT ON "${tableName}" BEGIN INSERT INTO "${ftsTable}"(rowid, "${field}") VALUES (new.rowid, new."${field}"); END`
+  );
+
+  // AFTER DELETE trigger — remove deleted rows from FTS
+  stmts.push(
+    `CREATE TRIGGER IF NOT EXISTS "${ftsTable}_ad" AFTER DELETE ON "${tableName}" BEGIN INSERT INTO "${ftsTable}"("${ftsTable}", rowid, "${field}") VALUES ('delete', old.rowid, old."${field}"); END`
+  );
+
   return stmts;
 }
 
@@ -268,11 +303,19 @@ function isSystemTable(name: string): boolean {
   );
 }
 
+function getExistingFtsTables(sql: SqlApi): string[] {
+  const rows = sql
+    .exec(`SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE '%fts5%'`)
+    .toArray() as { name: string }[];
+  return rows.map((r) => r.name);
+}
+
 function getExistingUserTables(sql: SqlApi): string[] {
+  const ftsNames = new Set(getExistingFtsTables(sql));
   const rows = sql
     .exec(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
     .toArray() as { name: string }[];
-  return rows.map((r) => r.name).filter((n) => !isSystemTable(n));
+  return rows.map((r) => r.name).filter((n) => !isSystemTable(n) && !ftsNames.has(n));
 }
 
 function getTableColumns(sql: SqlApi, tableName: string): PragmaColumnInfo[] {
@@ -412,6 +455,44 @@ function migrateIndexes(
   }
 }
 
+function migrateSearchIndexes(
+  sql: SqlApi,
+  tableName: string,
+  tableInfo: SchemaJSON["tables"][string]
+): void {
+  const desiredFts = new Map<string, { name: string; searchField: string }>();
+  for (const si of tableInfo.searchIndexes || []) {
+    desiredFts.set(`${tableName}_${si.name}`, si);
+  }
+
+  // Find existing FTS tables for this content table
+  const existingFts = getExistingFtsTables(sql).filter(
+    (name) => name.startsWith(`${tableName}_`)
+  );
+
+  // Drop stale FTS tables + triggers
+  for (const ftsName of existingFts) {
+    if (!desiredFts.has(ftsName)) {
+      sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ai"`);
+      sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ad"`);
+      sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
+    }
+  }
+
+  const existingSet = new Set(existingFts);
+
+  // Create missing FTS tables + triggers
+  for (const [ftsName, si] of desiredFts) {
+    if (!existingSet.has(ftsName)) {
+      for (const stmt of generateSearchIndexDDL(tableName, si)) {
+        sql.exec(stmt);
+      }
+      // Populate FTS from existing content table data
+      sql.exec(`INSERT INTO "${ftsName}"("${ftsName}") VALUES ('rebuild')`);
+    }
+  }
+}
+
 const SYSTEM_COLS = new Set(["_id", "_creationTime", "_ts"]);
 
 export function migrateSchema(sql: SqlApi, schema: SchemaJSON): void {
@@ -464,6 +545,13 @@ export function migrateSchema(sql: SqlApi, schema: SchemaJSON): void {
     }
 
     if (needsRebuild) {
+      // Drop all FTS tables/triggers before rebuild (they reference the old table)
+      const ftsForTable = getExistingFtsTables(sql).filter((n) => n.startsWith(`${tableName}_`));
+      for (const ftsName of ftsForTable) {
+        sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ai"`);
+        sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ad"`);
+        sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
+      }
       rebuildTable(sql, tableName, tableInfo);
     } else if (addableCols.length > 0) {
       // Simple ALTER TABLE ADD COLUMN for new nullable columns
@@ -474,11 +562,21 @@ export function migrateSchema(sql: SqlApi, schema: SchemaJSON): void {
 
     // Always reconcile indexes
     migrateIndexes(sql, tableName, tableInfo);
+
+    // Reconcile FTS search indexes
+    migrateSearchIndexes(sql, tableName, tableInfo);
   }
 
-  // Drop tables no longer in schema
+  // Drop tables no longer in schema (including their FTS tables/triggers)
   for (const tableName of existingTables) {
     if (!desiredTables.has(tableName)) {
+      // Drop any FTS tables associated with this table
+      const ftsForTable = getExistingFtsTables(sql).filter((n) => n.startsWith(`${tableName}_`));
+      for (const ftsName of ftsForTable) {
+        sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ai"`);
+        sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ad"`);
+        sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
+      }
       sql.exec(`DROP TABLE IF EXISTS "${tableName}"`);
     }
   }

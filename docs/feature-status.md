@@ -27,7 +27,7 @@
 | Secondary indexes (`.withIndex()` with range expressions) | Implemented |
 | Compound indexes (multi-field) | Implemented |
 | Cursor-based pagination (`.paginate()`) | Implemented |
-| Full-text search (`.withSearchIndex()`) | Not yet |
+| Full-text search (`.searchIndex()` + `.search()`) | Implemented |
 | Vector search (`ctx.vectorSearch()`) | Not yet |
 | Default `by_creation_time` / `by_id` indexes | Implemented |
 

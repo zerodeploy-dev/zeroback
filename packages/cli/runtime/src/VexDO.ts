@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo } from "@vex/server";
+import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON } from "@vex/server";
 import { DatabaseReader, DatabaseWriter } from "@vex/server";
 import { validate } from "@vex/values";
 import { DOSQLiteReader } from "./db/DOSQLiteReader";
@@ -328,13 +328,16 @@ export class VexDO extends DurableObject {
 
   private createDbOps(txId: string): DbOps {
     return {
-      query: async (table, filter, orderField, orderDirection, limit, indexQuery, keysetCursor) => {
+      query: async (table, filter, orderField, orderDirection, limit, indexQuery, keysetCursor, searchQuery) => {
         const tx = this.transactions.get(txId);
         if (!tx) throw new Error("Invalid transaction");
 
         // Build combined filter for query descriptor (index ranges + user filter)
+        // For search queries, use null filter (conservative invalidation — any write triggers re-execution)
         let descriptorFilter = filter;
-        if (indexQuery) {
+        if (searchQuery) {
+          descriptorFilter = null;
+        } else if (indexQuery) {
           const indexFilter = indexRangesToFilter(indexQuery.ranges);
           descriptorFilter = filter && indexFilter
             ? { op: "and" as const, exprs: [indexFilter, filter] }
@@ -342,7 +345,7 @@ export class VexDO extends DurableObject {
         }
         this.transactions.addQueryDescriptor(txId, { table, filter: descriptorFilter });
 
-        const docs = this.queryTable(table, tx.beginTs, filter, indexQuery ?? null, orderField, orderDirection, limit, keysetCursor);
+        const docs = this.queryTable(table, tx.beginTs, filter, indexQuery ?? null, orderField, orderDirection, limit, keysetCursor, searchQuery ?? null);
 
         for (const doc of docs) {
           this.transactions.addRead(txId, { table, documentId: doc.documentId, ts: doc.ts });
@@ -875,7 +878,8 @@ export class VexDO extends DurableObject {
     orderField: string | null,
     orderDirection: "asc" | "desc",
     limit: number | null,
-    keysetCursor?: KeysetCursorInfo | null
+    keysetCursor?: KeysetCursorInfo | null,
+    searchQuery?: SearchQueryJSON | null
   ): { documentId: string; data: unknown; ts: number }[] {
     const info = this.tableColumns.get(table);
     if (!info) return [];
@@ -886,16 +890,43 @@ export class VexDO extends DurableObject {
       if (col.isJsonColumn) jsonColumns.add(name);
     }
 
-    const conditions: string[] = [`_ts <= ?`];
+    const isSearch = !!searchQuery;
+    // When doing FTS, use table alias "m" so filters reference m.column
+    const colPrefix = isSearch ? "m." : "";
+    const ftsTable = isSearch
+      ? `${table}_search_${searchQuery!.searchField}`
+      : null;
+
+    // Find the actual FTS table name from schema search indexes
+    let resolvedFtsTable = ftsTable;
+    if (isSearch) {
+      const tableSchema = this.schemaInfo.tables[table];
+      if (tableSchema?.searchIndexes) {
+        const si = tableSchema.searchIndexes.find(
+          (s) => s.searchField === searchQuery!.searchField
+        );
+        if (si) {
+          resolvedFtsTable = `${table}_${si.name}`;
+        }
+      }
+    }
+
+    const conditions: string[] = [`${colPrefix}_ts <= ?`];
     const params: unknown[] = [asOfTs];
 
-    // Index range conditions
-    if (indexQuery) {
+    // FTS MATCH condition
+    if (isSearch && resolvedFtsTable) {
+      conditions.push(`"${resolvedFtsTable}" MATCH ?`);
+      params.push(searchQuery!.searchQuery);
+    }
+
+    // Index range conditions (not used with search)
+    if (indexQuery && !isSearch) {
       for (const range of indexQuery.ranges) {
         const sqlOps: Record<string, string> = {
           eq: "=", gt: ">", gte: ">=", lt: "<", lte: "<=",
         };
-        conditions.push(`"${range.field}" ${sqlOps[range.op]} ?`);
+        conditions.push(`${colPrefix}"${range.field}" ${sqlOps[range.op]} ?`);
         params.push(range.value);
       }
     }
@@ -905,25 +936,34 @@ export class VexDO extends DurableObject {
     const filterPushed = !filter || compiled !== null;
 
     if (compiled) {
-      conditions.push(compiled.sql);
+      if (isSearch) {
+        conditions.push(prefixFilterColumns(compiled.sql, "m"));
+      } else {
+        conditions.push(compiled.sql);
+      }
       params.push(...compiled.params);
     }
 
     // Keyset cursor WHERE clause — seek past the last seen row
-    if (keysetCursor) {
+    if (keysetCursor && !isSearch) {
       const sf = keysetCursor.sortField;
       const cmp = keysetCursor.direction === "desc" ? "<" : ">";
-      // (sortField <cmp> ? OR (sortField = ? AND _id <cmp> ?))
-      conditions.push(`("${sf}" ${cmp} ? OR ("${sf}" = ? AND _id ${cmp} ?))`);
+      conditions.push(`(${colPrefix}"${sf}" ${cmp} ? OR (${colPrefix}"${sf}" = ? AND ${colPrefix}_id ${cmp} ?))`);
       params.push(keysetCursor.sortValue, keysetCursor.sortValue, keysetCursor.lastId);
     }
 
     const where = conditions.join(" AND ");
 
-    // ORDER BY — always include _id as tiebreaker for deterministic ordering
-    const effectiveSortField = orderField ?? "_creationTime";
-    const dir = orderDirection === "desc" ? "DESC" : "ASC";
-    const orderClause = `ORDER BY "${effectiveSortField}" ${dir}, _id ${dir}`;
+    // ORDER BY
+    let orderClause: string;
+    if (isSearch) {
+      // FTS results ordered by relevance (rank), with _id tiebreaker
+      orderClause = `ORDER BY fts.rank, ${colPrefix}_id ASC`;
+    } else {
+      const effectiveSortField = orderField ?? "_creationTime";
+      const dir = orderDirection === "desc" ? "DESC" : "ASC";
+      orderClause = `ORDER BY ${colPrefix}"${effectiveSortField}" ${dir}, ${colPrefix}_id ${dir}`;
+    }
 
     // LIMIT (only when filter was fully pushed to SQL)
     let limitClause = "";
@@ -932,8 +972,14 @@ export class VexDO extends DurableObject {
       params.push(limit);
     }
 
-    const sql = `SELECT * FROM "${table}" WHERE ${where} ${orderClause}${limitClause}`;
-    const results = this.sql.exec(sql, ...params).toArray() as Record<string, unknown>[];
+    let sqlQuery: string;
+    if (isSearch && resolvedFtsTable) {
+      sqlQuery = `SELECT m.* FROM "${table}" m INNER JOIN "${resolvedFtsTable}" fts ON m.rowid = fts.rowid WHERE ${where} ${orderClause}${limitClause}`;
+    } else {
+      sqlQuery = `SELECT * FROM "${table}" WHERE ${where} ${orderClause}${limitClause}`;
+    }
+
+    const results = this.sql.exec(sqlQuery, ...params).toArray() as Record<string, unknown>[];
 
     let docs = results.map((row) => ({
       documentId: row._id as string,
@@ -998,6 +1044,15 @@ function indexRangesToFilter(
 
   if (exprs.length === 1) return exprs[0];
   return { op: "and", exprs };
+}
+
+/**
+ * Prefix quoted column references in a SQL fragment with a table alias.
+ * e.g. `"status" = ?` → `m."status" = ?`
+ */
+function prefixFilterColumns(sql: string, alias: string): string {
+  // Match quoted identifiers that aren't already prefixed with alias.
+  return sql.replace(/(?<![.\w])"(\w+)"/g, `${alias}."$1"`);
 }
 
 export interface Env {

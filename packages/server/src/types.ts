@@ -8,7 +8,7 @@ export type KeysetCursorInfo = {
 };
 
 export interface DbOps {
-  query(table: string, filter: FilterExpressionJSON | null, orderField: string | null, orderDirection: "asc" | "desc", limit: number | null, indexQuery?: IndexQueryJSON | null, keysetCursor?: KeysetCursorInfo | null): Promise<any[]>;
+  query(table: string, filter: FilterExpressionJSON | null, orderField: string | null, orderDirection: "asc" | "desc", limit: number | null, indexQuery?: IndexQueryJSON | null, keysetCursor?: KeysetCursorInfo | null, searchQuery?: SearchQueryJSON | null): Promise<any[]>;
   get(table: string, id: string): Promise<any>;
   getMany(table: string, ids: string[]): Promise<Map<string, any>>;
   insert(table: string, id: string, data: any): Promise<void>;
@@ -77,12 +77,19 @@ export type TableDefinition<F> = {
   validator: Validator<F>;
   _doc: F;
   indexes: TableIndex[];
+  searchIndexes: SearchIndex[];
   index(name: string, fields: string[]): TableDefinition<F>;
+  searchIndex(name: string, opts: { searchField: string }): TableDefinition<F>;
 };
 
 export type TableIndex = {
   name: string;
   fields: string[];
+};
+
+export type SearchIndex = {
+  name: string;
+  searchField: string;
 };
 
 export type SchemaDefinition<T> = {
@@ -137,6 +144,7 @@ export type SchemaJSON = {
     {
       fields: Record<string, ValidatorJSON>;
       indexes: { name: string; fields: string[] }[];
+      searchIndexes?: { name: string; searchField: string }[];
     }
   >;
 };
@@ -144,4 +152,9 @@ export type SchemaJSON = {
 export type IndexQueryJSON = {
   indexName: string;
   ranges: { field: string; op: "eq" | "gt" | "gte" | "lt" | "lte"; value: unknown }[];
+};
+
+export type SearchQueryJSON = {
+  searchField: string;
+  searchQuery: string;
 };

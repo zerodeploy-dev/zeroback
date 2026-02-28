@@ -1,4 +1,4 @@
-import type { DbOps, FilterExpressionJSON, IndexQueryJSON, KeysetCursorInfo } from "../types.js";
+import type { DbOps, FilterExpressionJSON, IndexQueryJSON, KeysetCursorInfo, SearchQueryJSON } from "../types.js";
 import { QueryBuilder } from "./query-builder.js";
 import type { Id } from "@vex/values";
 
@@ -36,9 +36,10 @@ export class DatabaseReader<DataModel> {
     orderDirection: "asc" | "desc",
     limit: number | null,
     indexQuery?: IndexQueryJSON | null,
-    keysetCursor?: KeysetCursorInfo | null
+    keysetCursor?: KeysetCursorInfo | null,
+    searchQuery?: SearchQueryJSON | null
   ): Promise<any[]> {
-    return this.ops.query(table, filter, orderField, orderDirection, limit, indexQuery, keysetCursor);
+    return this.ops.query(table, filter, orderField, orderDirection, limit, indexQuery, keysetCursor, searchQuery);
   }
 }
 

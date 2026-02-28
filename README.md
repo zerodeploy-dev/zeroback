@@ -11,6 +11,7 @@ Convex introduced a great developer experience: define your backend as plain Typ
 - **Type-safe codegen** — generated `api` object gives you end-to-end type safety from database to UI
 - **Optimistic concurrency control** — mutations are checked for conflicts before committing
 - **Database indexes** — declare indexes in your schema, query them with `.withIndex()` for efficient lookups
+- **Full-text search** — declare search indexes in your schema, query with `.search()` for relevance-ranked results powered by SQLite FTS5
 - **Pagination** — built-in cursor-based pagination with `.paginate()`
 - **Single Durable Object** — all state, transactions, and WebSocket connections in one place for strong consistency
 - **Offline support** — opt-in IndexedDB persistence for instant cached renders, offline reads, and mutation replay
@@ -35,7 +36,9 @@ export const schema = defineSchema({
     body: v.string(),
     author: v.string(),
     channel: v.string(),
-  }).index("by_channel", ["channel"]),
+  })
+    .index("by_channel", ["channel"])
+    .searchIndex("search_body", { searchField: "body" }),
 });
 ```
 
@@ -54,6 +57,16 @@ export const list = query({
       .withIndex("by_channel", (q) => q.eq("channel", args.channel))
       .order("desc")
       .take(50);
+  },
+});
+
+export const search = query({
+  args: { query: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .search("body", args.query)
+      .take(10);
   },
 });
 
@@ -406,6 +419,7 @@ The `wrangler.toml` at project root points to `.vex/src/index.ts` as the Worker 
 | **Type-safe codegen** | Yes | Yes |
 | **ACID transactions** | Yes | Yes (OCC) |
 | **Database indexes** | Yes | Yes |
+| **Full-text search** | Yes | Yes (SQLite FTS5) |
 | **Pagination** | Yes | Yes (cursor-based) |
 | **Database** | Custom | SQLite (Durable Objects) |
 | **Subscriptions** | Server-push | Server-push (WebSocket) |

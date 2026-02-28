@@ -101,6 +101,17 @@ export const search = query({
   },
 });
 
+export const searchByTitle = query({
+  args: { query: v.string(), projectId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    let q = ctx.db.query("tasks").search("title", args.query);
+    if (args.projectId) {
+      q = q.filter((f) => f.eq(f.field("projectId"), args.projectId));
+    }
+    return await q.take(10);
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------

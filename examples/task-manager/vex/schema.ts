@@ -20,7 +20,8 @@ export const schema = defineSchema({
   })
     .index("by_project", ["projectId"])
     .index("by_status", ["status"])
-    .index("by_project_status", ["projectId", "status"]),
+    .index("by_project_status", ["projectId", "status"])
+    .searchIndex("search_title", { searchField: "title" }),
 
   comments: defineTable({
     body: v.string(),

@@ -34,6 +34,7 @@ export type SchemaJSON = {
     {
       fields: Record<string, ValidatorJSON>;
       indexes: { name: string; fields: string[] }[];
+      searchIndexes?: { name: string; searchField: string }[];
     }
   >;
 };
@@ -137,8 +138,8 @@ export function extractSchema(schemaPath: string): SchemaJSON {
             if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
               const tableName = prop.name.text;
               if (prop.initializer && ts.isCallExpression(prop.initializer)) {
-                const { fields, indexes } = extractTableDef(prop.initializer, sourceFile);
-                schemaJSON.tables[tableName] = { fields, indexes };
+                const { fields, indexes, searchIndexes } = extractTableDef(prop.initializer, sourceFile);
+                schemaJSON.tables[tableName] = { fields, indexes, searchIndexes: searchIndexes.length > 0 ? searchIndexes : undefined };
               }
             }
           }
@@ -155,10 +156,11 @@ export function extractSchema(schemaPath: string): SchemaJSON {
 function extractTableDef(
   expr: ts.CallExpression,
   sf: ts.SourceFile
-): { fields: Record<string, ValidatorJSON>; indexes: { name: string; fields: string[] }[] } {
+): { fields: Record<string, ValidatorJSON>; indexes: { name: string; fields: string[] }[]; searchIndexes: { name: string; searchField: string }[] } {
   const indexes: { name: string; fields: string[] }[] = [];
+  const searchIndexes: { name: string; searchField: string }[] = [];
 
-  // Walk the chain to find defineTable() and collect .index() calls
+  // Walk the chain to find defineTable() and collect .index() / .searchIndex() calls
   let current: ts.Expression = expr;
   let defineTableCall: ts.CallExpression | null = null;
 
@@ -178,6 +180,25 @@ function extractTableDef(
         indexes.push({ name: indexName, fields: indexFields });
       }
       current = callee.expression;
+    } else if (ts.isPropertyAccessExpression(callee) && callee.name.text === "searchIndex") {
+      // This is a .searchIndex("name", { searchField: "field" }) call
+      const siName = current.arguments[0] && ts.isStringLiteral(current.arguments[0])
+        ? current.arguments[0].text
+        : null;
+      let searchField: string | null = null;
+      if (current.arguments[1] && ts.isObjectLiteralExpression(current.arguments[1])) {
+        for (const prop of current.arguments[1].properties) {
+          if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === "searchField") {
+            if (ts.isStringLiteral(prop.initializer)) {
+              searchField = prop.initializer.text;
+            }
+          }
+        }
+      }
+      if (siName && searchField) {
+        searchIndexes.push({ name: siName, searchField });
+      }
+      current = callee.expression;
     } else {
       // This should be the defineTable(...) call
       defineTableCall = current;
@@ -186,7 +207,7 @@ function extractTableDef(
   }
 
   const fields = defineTableCall ? extractTableFields(defineTableCall, sf) : {};
-  return { fields, indexes };
+  return { fields, indexes, searchIndexes };
 }
 
 function extractTableFields(callExpr: ts.CallExpression, sf: ts.SourceFile): Record<string, ValidatorJSON> {
