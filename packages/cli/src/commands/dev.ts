@@ -1,11 +1,11 @@
 import * as chokidar from "chokidar";
 import * as path from "path";
 import { spawn, type ChildProcess } from "child_process";
-import { extractFunctions, extractSchema } from "../analyze/extract";
-import { generateApi } from "../codegen/api";
-import { generateServer } from "../codegen/server";
-import { generateDataModel } from "../codegen/dataModel";
-import { bundle } from "../build/bundle";
+import { extractFunctions, extractSchema } from "../analyze/extract.js";
+import { generateApi } from "../codegen/api.js";
+import { generateServer } from "../codegen/server.js";
+import { generateDataModel } from "../codegen/dataModel.js";
+import { bundle } from "../build/bundle.js";
 import { existsSync, mkdirSync, copyFileSync } from "fs";
 
 export interface DevConfig {
