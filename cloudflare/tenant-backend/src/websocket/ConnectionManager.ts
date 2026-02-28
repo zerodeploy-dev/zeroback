@@ -5,7 +5,7 @@ export class ConnectionManager {
   /** Per-connection sliding window rate limiter: [timestamps of recent messages] */
   private rateLimitWindows = new Map<string, number[]>();
 
-  static readonly MAX_CONNECTIONS = 100;
+  static readonly MAX_CONNECTIONS = 1_000;
   static readonly RATE_LIMIT_WINDOW_MS = 1_000;
   static readonly RATE_LIMIT_MAX_MESSAGES = 50;
 
