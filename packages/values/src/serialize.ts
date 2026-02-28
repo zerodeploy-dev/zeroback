@@ -108,6 +108,11 @@ export function validate<T>(value: unknown, json: ValidatorJSON): T {
       }
       result[key] = validate((value as Record<string, unknown>)[key], schema);
     }
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      if (!(key in json.value)) {
+        throw new Error(`Unexpected field: ${key}`);
+      }
+    }
     return result as T;
   }
 

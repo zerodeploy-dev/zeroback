@@ -712,6 +712,62 @@ describe("ctx.runAction", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Schema enforcement on writes
+// ---------------------------------------------------------------------------
+describe("schema enforcement", () => {
+  it("rejects insert with wrong field type", async () => {
+    const c = await freshClient();
+    const err = await c.mutationError("tasks:create", {
+      title: 999,
+      status: "todo",
+      priority: "medium",
+      projectId: "schema-test",
+    });
+    expect(err.code).toBe("execution_error");
+    expect(err.message).toMatch(/Expected string/);
+  });
+
+  it("rejects insert with extra field", async () => {
+    const c = await freshClient();
+    const err = await c.mutationError("tasks:create", {
+      title: "test",
+      status: "todo",
+      priority: "medium",
+      projectId: "schema-test",
+      nonExistentField: "should fail",
+    });
+    expect(err.code).toBe("execution_error");
+    expect(err.message).toMatch(/Unexpected field/);
+  });
+
+  it("rejects insert with missing required field", async () => {
+    const c = await freshClient();
+    const err = await c.mutationError("tasks:create", {
+      title: "test",
+      // missing status, priority, projectId
+    });
+    expect(err.code).toBe("execution_error");
+    expect(err.message).toMatch(/Missing required field/);
+  });
+
+  it("rejects patch with wrong field type", async () => {
+    const c = await freshClient();
+    const proj = `schema-patch-${Date.now()}`;
+    await c.mutation("tasks:create", taskArgs({ title: "to-patch", projectId: proj }));
+
+    const { result: tasks } = await c.query("tasks:listByProject", { projectId: proj });
+    const id = tasks[0]._id;
+
+    const err = await c.mutationError("tasks:update", {
+      id,
+      title: 123,
+    } as any);
+    expect(err.code).toBe("execution_error");
+    expect(err.message).toMatch(/Expected string/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // v.record() validator
 // ---------------------------------------------------------------------------
 describe("v.record", () => {

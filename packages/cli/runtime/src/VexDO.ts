@@ -324,6 +324,15 @@ export class VexDO extends DurableObject {
     this.subscriptions.removeAll(ws);
   }
 
+  // -- Schema validation on writes --
+
+  private validateDocument(table: string, data: Record<string, unknown>): void {
+    const tableInfo = this.schemaInfo.tables[table];
+    if (!tableInfo) return;
+    const { _id, _creationTime, _ts, ...userFields } = data;
+    validate(userFields, { type: "object", value: tableInfo.fields });
+  }
+
   // -- DbOps: direct in-process SQLite access --
 
   private createDbOps(txId: string): DbOps {
@@ -383,6 +392,7 @@ export class VexDO extends DurableObject {
       },
 
       insert: async (table, id, data) => {
+        this.validateDocument(table, data as Record<string, unknown>);
         this.transactions.addWrite(txId, { table, documentId: id, data });
       },
 
@@ -392,6 +402,7 @@ export class VexDO extends DurableObject {
         const existing = await this.reader.getDocument(table, id, tx.beginTs);
         if (!existing) throw new Error(`Document ${id} not found`);
         const merged = { ...(existing.data as any), ...fields };
+        this.validateDocument(table, merged);
         this.transactions.addWrite(txId, { table, documentId: id, data: merged });
       },
 
@@ -401,6 +412,7 @@ export class VexDO extends DurableObject {
         const existing = await this.reader.getDocument(table, id, tx.beginTs);
         if (!existing) throw new Error(`Document ${id} not found`);
         const fullDoc = { ...(data as any), _id: id, _creationTime: (existing.data as any)._creationTime };
+        this.validateDocument(table, fullDoc);
         this.transactions.addWrite(txId, { table, documentId: id, data: fullDoc });
       },
 
