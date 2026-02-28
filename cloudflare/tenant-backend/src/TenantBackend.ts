@@ -342,7 +342,7 @@ export class TenantBackend extends DurableObject {
         }
         this.transactions.addQueryDescriptor(txId, { table, filter: descriptorFilter });
 
-        const docs = this.queryTable(table, tx.beginTs, filter, indexQuery, orderField, orderDirection, limit, keysetCursor);
+        const docs = this.queryTable(table, tx.beginTs, filter, indexQuery ?? null, orderField, orderDirection, limit, keysetCursor);
 
         for (const doc of docs) {
           this.transactions.addRead(txId, { table, documentId: doc.documentId, ts: doc.ts });
@@ -677,7 +677,7 @@ export class TenantBackend extends DurableObject {
 
   // -- Action context --
 
-  private createActionCtx(): { runQuery: (fnName: string, args?: unknown) => Promise<any>; runMutation: (fnName: string, args?: unknown) => Promise<any>; scheduler: ReturnType<typeof TenantBackend.prototype.createScheduler> } {
+  private createActionCtx(): { runQuery: (fnName: string, args?: unknown) => Promise<any>; runMutation: (fnName: string, args?: unknown) => Promise<any>; runAction: (fnName: string, args?: unknown) => Promise<any>; scheduler: ReturnType<typeof TenantBackend.prototype.createScheduler> } {
     return {
       runQuery: async (fnName: string, args?: unknown) => {
         const fn = this.functions[fnName];

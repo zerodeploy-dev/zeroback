@@ -29,5 +29,13 @@
       "@vex/solid/*": ["./packages/solid/src/*"]
     }
   },
-  "exclude": ["node_modules", "**/dist"]
+  "files": [],
+  "references": [
+    { "path": "packages/values" },
+    { "path": "packages/server" },
+    { "path": "packages/client" },
+    { "path": "packages/react" },
+    { "path": "packages/cli" },
+    { "path": "packages/solid" }
+  ]
 }

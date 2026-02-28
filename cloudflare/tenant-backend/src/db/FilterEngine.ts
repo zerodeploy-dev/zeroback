@@ -80,8 +80,8 @@ export function applyOrder<T>(
     const bVal = getByPath(b, field);
 
     let cmp = 0;
-    if (aVal < bVal) cmp = -1;
-    if (aVal > bVal) cmp = 1;
+    if ((aVal as any) < (bVal as any)) cmp = -1;
+    if ((aVal as any) > (bVal as any)) cmp = 1;
 
     return direction === "asc" ? cmp : -cmp;
   });

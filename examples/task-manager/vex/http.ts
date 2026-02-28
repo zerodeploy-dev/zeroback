@@ -6,7 +6,7 @@ http.route({
   path: "/api/tasks",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const { title, status, priority, projectId } = await request.json();
+    const { title, status, priority, projectId } = await request.json() as any;
     await ctx.runMutation("tasks:create", { title, status, priority, projectId });
     return new Response(JSON.stringify({ ok: true }), {
       headers: { "Content-Type": "application/json" },

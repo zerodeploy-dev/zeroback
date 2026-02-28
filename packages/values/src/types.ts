@@ -44,12 +44,12 @@ export type Infer<V extends Validator<any>> = V["_type"];
 
 export type ObjectType<F extends PropertyValidators> = {
   [K in keyof F as F[K] extends Validator<infer T>
-    ? T extends undefined ? never : K
+    ? undefined extends T ? never : K
     : K]: F[K] extends Validator<infer T> ? T : never
 } & {
   [K in keyof F as F[K] extends Validator<infer T>
-    ? T extends undefined ? K : never
+    ? undefined extends T ? K : never
     : never]?: F[K] extends Validator<infer T> ? Exclude<T, undefined> : never
 };
 
-export type Id<TableName extends string> = string & { readonly __tableName: TableName };
+export type Id<TableName extends string = string> = string;

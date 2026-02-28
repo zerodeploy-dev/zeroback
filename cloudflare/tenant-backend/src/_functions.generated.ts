@@ -2,7 +2,7 @@
 import * as comments from "../../../examples/task-manager/vex/comments";
 import * as projects from "../../../examples/task-manager/vex/projects";
 import * as tasks from "../../../examples/task-manager/vex/tasks";
-import * as utils_stats from "../../../examples/task-manager/vex/utils/stats";
+import * as utils$stats from "../../../examples/task-manager/vex/utils/stats";
 import httpRouterModule from "../../../examples/task-manager/vex/http";
 import cronsModule from "../../../examples/task-manager/vex/crons";
 
@@ -39,7 +39,7 @@ for (const [name, fn] of Object.entries(tasks)) {
     functions["tasks:" + name] = { type: (fn as any)._type, isInternal, handler: (fn as any).handler, argsValidator, returnsValidator };
   }
 }
-for (const [name, fn] of Object.entries(utils_stats)) {
+for (const [name, fn] of Object.entries(utils$stats)) {
   if (fn && typeof fn === "object" && "_type" in fn && "handler" in fn) {
     const argsValidator = "_argsValidator" in fn ? (fn as any)._argsValidator : undefined;
     const returnsValidator = "_returnsValidator" in fn ? (fn as any)._returnsValidator : undefined;
