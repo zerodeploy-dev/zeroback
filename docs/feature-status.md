@@ -72,9 +72,11 @@
 
 | Feature | Status |
 |---------|--------|
-| `ctx.storage.generateUploadUrl()` | Not yet |
-| `ctx.storage.getUrl(storageId)` | Not yet |
-| `ctx.storage.store(blob)` / `ctx.storage.delete(id)` | Not yet |
+| `ctx.storage.generateUploadUrl()` | Implemented |
+| `ctx.storage.getUrl(storageId)` | Implemented |
+| `ctx.storage.getMetadata(storageId)` | Implemented |
+| `ctx.storage.store(blob)` / `ctx.storage.delete(id)` | Implemented |
+| Cloudflare R2 backend (`VEX_STORAGE` binding) | Implemented |
 
 ## Schema & Validation
 

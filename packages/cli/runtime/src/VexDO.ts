@@ -1,7 +1,7 @@
 import { ulid } from "ulidx";
 import { DurableObject } from "cloudflare:workers";
-import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON } from "@vex/server";
-import { DatabaseReader, DatabaseWriter } from "@vex/server";
+import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON, StorageOps, StorageMetadata } from "@vex/server";
+import { DatabaseReader, DatabaseWriter, StorageReader, StorageWriter, StorageActions } from "@vex/server";
 import { validate } from "@vex/values";
 import { DOSQLiteReader } from "./db/DOSQLiteReader";
 import { DOSQLiteWriter } from "./db/DOSQLiteWriter";
@@ -38,6 +38,8 @@ export class VexDO extends DurableObject {
   private reader: DOSQLiteReader;
   private writer: DOSQLiteWriter;
   private tableColumns: Map<string, TableColumnInfo>;
+  private uploadTokens = new Map<string, { expiresAt: number }>();
+  private baseUrl: string | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -176,6 +178,14 @@ export class VexDO extends DurableObject {
         last_run_at REAL
       );
       CREATE INDEX IF NOT EXISTS cron_jobs_next_run ON cron_jobs (next_run_at);
+      CREATE TABLE IF NOT EXISTS _storage (
+        id TEXT PRIMARY KEY,
+        sha256 TEXT NOT NULL,
+        content_type TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        r2_key TEXT NOT NULL,
+        created_at REAL NOT NULL
+      );
     `);
 
     // User tables from schema — migrate if needed
@@ -204,6 +214,12 @@ export class VexDO extends DurableObject {
     const url = new URL(req.url);
     const path = url.pathname;
 
+    // Capture base URL from Worker header (used for storage URLs)
+    const headerBaseUrl = req.headers.get("X-Vex-Base-Url");
+    if (headerBaseUrl && !this.baseUrl) {
+      this.baseUrl = headerBaseUrl;
+    }
+
     if (path === "/ws") {
       return this.handleWebSocketUpgrade(req);
     }
@@ -214,6 +230,17 @@ export class VexDO extends DurableObject {
 
     if (path === "/__dev/reset" && req.method === "POST") {
       return this.handleDevReset();
+    }
+
+    // Internal storage routes (called by Worker)
+    if (path === "/__internal/validate-upload" && req.method === "POST") {
+      return this.handleValidateUpload(url);
+    }
+    if (path === "/__internal/storage-record" && req.method === "POST") {
+      return this.handleStorageRecord(req);
+    }
+    if (path === "/__internal/storage-delete" && req.method === "POST") {
+      return this.handleStorageDelete(req);
     }
 
     // HTTP actions — user-defined routes
@@ -249,6 +276,19 @@ export class VexDO extends DurableObject {
       this.sql.exec(`DELETE FROM "${tableName}"`);
     }
 
+    // Clear storage metadata and R2 objects
+    const storageRows = this.sql.exec(`SELECT r2_key FROM _storage`).toArray() as { r2_key: string }[];
+    if (storageRows.length > 0) {
+      const r2 = (this.env as any).VEX_STORAGE as R2Bucket | undefined;
+      if (r2) {
+        for (const row of storageRows) {
+          r2.delete(row.r2_key);
+        }
+      }
+    }
+    this.sql.exec(`DELETE FROM _storage`);
+    this.uploadTokens.clear();
+
     // Reset timestamp
     this.latestTs = 0;
     this.ctx.storage.put("latestTs", 0);
@@ -264,6 +304,128 @@ export class VexDO extends DurableObject {
     }
 
     return new Response("OK");
+  }
+
+  // -- Internal storage routes --
+
+  private handleValidateUpload(url: URL): Response {
+    const token = url.searchParams.get("token");
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Missing token" }), { status: 400, headers: { "Content-Type": "application/json" } });
+    }
+
+    const entry = this.uploadTokens.get(token);
+    if (!entry || entry.expiresAt < Date.now()) {
+      this.uploadTokens.delete(token!);
+      return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 403, headers: { "Content-Type": "application/json" } });
+    }
+
+    // One-time use
+    this.uploadTokens.delete(token);
+
+    return new Response(
+      JSON.stringify({ valid: true, doId: this.ctx.id.toString() }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  private async handleStorageRecord(req: Request): Promise<Response> {
+    const body = await req.json() as { storageId: string; sha256: string; contentType: string; size: number; r2Key: string };
+    this.sql.exec(
+      `INSERT INTO _storage (id, sha256, content_type, size, r2_key, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      body.storageId, body.sha256, body.contentType, body.size, body.r2Key, Date.now()
+    );
+    return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+  }
+
+  private async handleStorageDelete(req: Request): Promise<Response> {
+    const body = await req.json() as { storageId: string };
+    const rows = this.sql.exec(
+      `SELECT r2_key FROM _storage WHERE id = ?`, body.storageId
+    ).toArray() as { r2_key: string }[];
+
+    if (rows.length > 0) {
+      const r2 = (this.env as any).VEX_STORAGE as R2Bucket | undefined;
+      if (r2) {
+        await r2.delete(rows[0].r2_key);
+      }
+      this.sql.exec(`DELETE FROM _storage WHERE id = ?`, body.storageId);
+    }
+
+    return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+  }
+
+  // -- Storage ops --
+
+  private createStorageOps(): StorageOps {
+    const r2 = (this.env as any).VEX_STORAGE as R2Bucket | undefined;
+    const doId = this.ctx.id.toString();
+
+    const requireR2 = (): R2Bucket => {
+      if (!r2) throw new Error("File storage not configured. Add a [[r2_buckets]] binding named VEX_STORAGE to your wrangler.toml.");
+      return r2;
+    };
+
+    return {
+      generateUploadUrl: async () => {
+        requireR2();
+        if (!this.baseUrl) throw new Error("Base URL not available — storage requires HTTP request context");
+        const token = crypto.randomUUID();
+        this.uploadTokens.set(token, { expiresAt: Date.now() + 60_000 });
+        return `${this.baseUrl}/storage/upload?token=${token}`;
+      },
+
+      getUrl: async (storageId: string) => {
+        const rows = this.sql.exec(
+          `SELECT id FROM _storage WHERE id = ?`, storageId
+        ).toArray();
+        if (rows.length === 0) return null;
+        if (!this.baseUrl) throw new Error("Base URL not available — storage requires HTTP request context");
+        return `${this.baseUrl}/storage/${storageId}`;
+      },
+
+      getMetadata: async (storageId: string) => {
+        const rows = this.sql.exec(
+          `SELECT id, sha256, content_type, size FROM _storage WHERE id = ?`, storageId
+        ).toArray() as { id: string; sha256: string; content_type: string; size: number }[];
+        if (rows.length === 0) return null;
+        const row = rows[0];
+        return {
+          storageId: row.id,
+          sha256: row.sha256,
+          contentType: row.content_type,
+          size: row.size,
+        };
+      },
+
+      deleteFile: async (storageId: string) => {
+        const bucket = requireR2();
+        const rows = this.sql.exec(
+          `SELECT r2_key FROM _storage WHERE id = ?`, storageId
+        ).toArray() as { r2_key: string }[];
+        if (rows.length > 0) {
+          await bucket.delete(rows[0].r2_key);
+          this.sql.exec(`DELETE FROM _storage WHERE id = ?`, storageId);
+        }
+      },
+
+      store: async (blob: Blob) => {
+        const bucket = requireR2();
+        const storageId = `_storage/${crypto.randomUUID()}`;
+        const r2Key = `${doId}/${storageId}`;
+        const buffer = await blob.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+        const sha256 = [...new Uint8Array(hashBuffer)].map((b) => b.toString(16).padStart(2, "0")).join("");
+        await bucket.put(r2Key, buffer, {
+          httpMetadata: { contentType: blob.type || "application/octet-stream" },
+        });
+        this.sql.exec(
+          `INSERT INTO _storage (id, sha256, content_type, size, r2_key, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+          storageId, sha256, blob.type || "application/octet-stream", blob.size, r2Key, Date.now()
+        );
+        return storageId;
+      },
+    };
   }
 
   private handleWebSocketUpgrade(req: Request): Response {
@@ -443,6 +605,8 @@ export class VexDO extends DurableObject {
       validate(args, argsSchema);
     }
 
+    const storageOps = this.createStorageOps();
+
     if (fn.type === "action") {
       // Actions don't get direct db access — they use runQuery/runMutation
       const ctx = this.createActionCtx();
@@ -456,7 +620,11 @@ export class VexDO extends DurableObject {
       ? new DatabaseReader(ops)
       : new DatabaseWriter(ops);
 
-    const result = await fn.handler({ db, scheduler: this.createScheduler() }, args);
+    const storage = fn.type === "query"
+      ? new StorageReader(storageOps)
+      : new StorageWriter(storageOps);
+
+    const result = await fn.handler({ db, scheduler: this.createScheduler(), storage }, args);
     this.validateReturnValue(fnName, fn, result);
 
     const tx = this.transactions.get(txId);
@@ -690,7 +858,8 @@ export class VexDO extends DurableObject {
 
   // -- Action context --
 
-  private createActionCtx(): { runQuery: (fnName: string, args?: unknown) => Promise<any>; runMutation: (fnName: string, args?: unknown) => Promise<any>; runAction: (fnName: string, args?: unknown) => Promise<any>; scheduler: ReturnType<typeof VexDO.prototype.createScheduler> } {
+  private createActionCtx(): { runQuery: (fnName: string, args?: unknown) => Promise<any>; runMutation: (fnName: string, args?: unknown) => Promise<any>; runAction: (fnName: string, args?: unknown) => Promise<any>; scheduler: ReturnType<typeof VexDO.prototype.createScheduler>; storage: StorageActions } {
+    const storageOps = this.createStorageOps();
     return {
       runQuery: async (fnName: string, args?: unknown) => {
         const fn = this.functions[fnName];
@@ -772,6 +941,7 @@ export class VexDO extends DurableObject {
         return await fn.handler(actionCtx, args ?? {});
       },
       scheduler: this.createScheduler(),
+      storage: new StorageActions(storageOps),
     };
   }
 
@@ -1068,4 +1238,5 @@ function prefixFilterColumns(sql: string, alias: string): string {
 
 export interface Env {
   VEX_DO: DurableObjectNamespace;
+  VEX_STORAGE?: R2Bucket;
 }

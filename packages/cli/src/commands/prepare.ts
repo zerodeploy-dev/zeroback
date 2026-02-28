@@ -15,6 +15,11 @@ enabled = true
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["VexDO"]
+
+# Uncomment to enable file storage (requires an R2 bucket):
+# [[r2_buckets]]
+# binding = "VEX_STORAGE"
+# bucket_name = "my-vex-storage"
 `;
 
 /**

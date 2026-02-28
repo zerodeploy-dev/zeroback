@@ -25,11 +25,13 @@ export type Scheduler = {
 
 export type QueryCtx<DataModel> = {
   db: import("./db/reader.js").DatabaseReader<DataModel>;
+  storage: import("./storage.js").StorageReader;
 };
 
 export type MutationCtx<DataModel> = {
   db: import("./db/writer.js").DatabaseWriter<DataModel>;
   scheduler: Scheduler;
+  storage: import("./storage.js").StorageWriter;
 };
 
 export type ActionCtx<DataModel> = {
@@ -37,6 +39,7 @@ export type ActionCtx<DataModel> = {
   runMutation<T>(fnName: string, args?: Record<string, unknown>): Promise<T>;
   runAction<T>(fnName: string, args?: Record<string, unknown>): Promise<T>;
   scheduler: Scheduler;
+  storage: import("./storage.js").StorageActions;
 };
 
 export type RegisteredQuery<Args, Returns> = {

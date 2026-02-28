@@ -1136,3 +1136,161 @@ describe("optimistic updates", () => {
     expect(notifyCountB).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// File Storage (R2)
+// ---------------------------------------------------------------------------
+describe("file storage", () => {
+  const PORT = 8788;
+
+  it("should generate upload URL, upload file, and download it", async () => {
+    const c = await freshClient();
+
+    // Generate upload URL via mutation
+    const uploadUrl = await c.mutation("storage:generateUploadUrl");
+    expect(uploadUrl).toContain("/storage/upload?token=");
+
+    // Upload a file to the URL
+    const fileContent = "Hello, Vex storage!";
+    const uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: fileContent,
+    });
+    expect(uploadRes.ok).toBe(true);
+    const { storageId } = await uploadRes.json() as { storageId: string };
+    expect(storageId).toMatch(/^_storage\//);
+
+    // Get the file URL
+    const { result: fileUrl } = await c.query("storage:getFileUrl", { storageId });
+    expect(fileUrl).toContain(`/storage/${storageId}`);
+
+    // Download and verify content
+    const downloadRes = await fetch(fileUrl!);
+    expect(downloadRes.ok).toBe(true);
+    expect(downloadRes.headers.get("Content-Type")).toBe("text/plain");
+    const downloaded = await downloadRes.text();
+    expect(downloaded).toBe(fileContent);
+  });
+
+  it("should return correct metadata for uploaded file", async () => {
+    const c = await freshClient();
+
+    const uploadUrl = await c.mutation("storage:generateUploadUrl");
+    const content = "metadata test content";
+    const uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: content,
+    });
+    const { storageId } = await uploadRes.json() as { storageId: string };
+
+    const { result: meta } = await c.query("storage:getFileMetadata", { storageId });
+    expect(meta).not.toBeNull();
+    expect(meta.storageId).toBe(storageId);
+    expect(meta.contentType).toBe("application/json");
+    expect(meta.size).toBe(new TextEncoder().encode(content).length);
+    expect(meta.sha256).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("should delete file from both SQLite and R2", async () => {
+    const c = await freshClient();
+
+    const uploadUrl = await c.mutation("storage:generateUploadUrl");
+    const uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: "delete me",
+    });
+    const { storageId } = await uploadRes.json() as { storageId: string };
+
+    // Verify file exists
+    const { result: urlBefore } = await c.query("storage:getFileUrl", { storageId });
+    expect(urlBefore).not.toBeNull();
+
+    // Delete
+    await c.mutation("storage:deleteFile", { storageId });
+
+    // Verify metadata gone
+    const { result: urlAfter } = await c.query("storage:getFileUrl", { storageId });
+    expect(urlAfter).toBeNull();
+
+    // Verify R2 object gone (download returns 404)
+    const downloadRes = await fetch(urlBefore!);
+    expect(downloadRes.status).toBe(404);
+  });
+
+  it("should store blob from action context", async () => {
+    const c = await freshClient();
+
+    const storageId = await c.action("storage:storeFromAction", {
+      content: "action-stored content",
+      contentType: "text/plain",
+    });
+    expect(storageId).toMatch(/^_storage\//);
+
+    // Verify metadata
+    const { result: meta } = await c.query("storage:getFileMetadata", { storageId });
+    expect(meta).not.toBeNull();
+    expect(meta.contentType).toBe("text/plain");
+    expect(meta.size).toBe(new TextEncoder().encode("action-stored content").length);
+  });
+
+  it("should reject upload with invalid token", async () => {
+    const uploadRes = await fetch(
+      `http://localhost:${PORT}/storage/upload?token=invalid-token-123`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: "should fail",
+      }
+    );
+    expect(uploadRes.status).toBe(403);
+  });
+
+  it("should reject upload with missing token", async () => {
+    const uploadRes = await fetch(
+      `http://localhost:${PORT}/storage/upload`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: "should fail",
+      }
+    );
+    expect(uploadRes.status).toBe(400);
+  });
+
+  it("should reject reuse of one-time upload token", async () => {
+    const c = await freshClient();
+
+    const uploadUrl = await c.mutation("storage:generateUploadUrl");
+
+    // First upload succeeds
+    const res1 = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: "first upload",
+    });
+    expect(res1.ok).toBe(true);
+
+    // Second upload with same token fails
+    const res2 = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: "second upload",
+    });
+    expect(res2.status).toBe(403);
+  });
+
+  it("getUrl returns null for nonexistent storageId", async () => {
+    const c = await freshClient();
+    const { result } = await c.query("storage:getFileUrl", { storageId: "_storage/nonexistent" });
+    expect(result).toBeNull();
+  });
+
+  it("getMetadata returns null for nonexistent storageId", async () => {
+    const c = await freshClient();
+    const { result } = await c.query("storage:getFileMetadata", { storageId: "_storage/nonexistent" });
+    expect(result).toBeNull();
+  });
+});

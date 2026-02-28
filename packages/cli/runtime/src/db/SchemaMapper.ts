@@ -287,7 +287,7 @@ type SqlApi = {
   exec(query: string, ...bindings: unknown[]): { toArray(): Record<string, unknown>[] };
 };
 
-const SYSTEM_TABLES = new Set(["scheduled_jobs", "cron_jobs"]);
+const SYSTEM_TABLES = new Set(["scheduled_jobs", "cron_jobs", "_storage"]);
 
 function isSystemTable(name: string): boolean {
   return (
