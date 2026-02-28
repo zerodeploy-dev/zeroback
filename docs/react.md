@@ -10,19 +10,19 @@ npm install @zeroback/react @zeroback/client
 
 ## Setup
 
-Wrap your app with `ConvexProvider` and pass a `ConvexClient` instance:
+Wrap your app with `ZerobackProvider` and pass a `ZerobackClient` instance:
 
 ```tsx
-import { ConvexClient } from "@zeroback/client";
-import { ConvexProvider } from "@zeroback/react";
+import { ZerobackClient } from "@zeroback/client";
+import { ZerobackProvider } from "@zeroback/react";
 
-const client = new ConvexClient("ws://localhost:8788/ws");
+const client = new ZerobackClient("ws://localhost:8788/ws");
 
 function App() {
   return (
-    <ConvexProvider client={client}>
+    <ZerobackProvider client={client}>
       <MyApp />
-    </ConvexProvider>
+    </ZerobackProvider>
   );
 }
 ```
@@ -30,7 +30,7 @@ function App() {
 ### With Persistence
 
 ```tsx
-const client = new ConvexClient("wss://example.com/ws", {
+const client = new ZerobackClient("wss://example.com/ws", {
   persistence: true,
   schemaVersion: "v1",
 });
@@ -40,25 +40,25 @@ await client.init();
 
 function App() {
   return (
-    <ConvexProvider client={client}>
+    <ZerobackProvider client={client}>
       <MyApp />
-    </ConvexProvider>
+    </ZerobackProvider>
   );
 }
 ```
 
-## `ConvexProvider`
+## `ZerobackProvider`
 
-React context provider that makes the `ConvexClient` available to all hooks.
+React context provider that makes the `ZerobackClient` available to all hooks.
 
 ```tsx
-function ConvexProvider({ children, client }: ConvexProviderProps): JSX.Element
+function ZerobackProvider({ children, client }: ZerobackProviderProps): JSX.Element
 ```
 
 | Prop | Type | Description |
 |------|------|-------------|
 | `children` | `React.ReactNode` | Child components |
-| `client` | `ConvexClient` | A `ConvexClient` instance from `@zeroback/client` |
+| `client` | `ZerobackClient` | A `ZerobackClient` instance from `@zeroback/client` |
 
 ## `useQuery(ref, args?)`
 
@@ -356,21 +356,21 @@ function ConnectionBanner() {
 }
 ```
 
-## `useConvexClient()`
+## `useZerobackClient()`
 
-Returns the `ConvexClient` instance from the closest `ConvexProvider`. Useful for advanced use cases where you need direct client access.
+Returns the `ZerobackClient` instance from the closest `ZerobackProvider`. Useful for advanced use cases where you need direct client access.
 
 ```ts
-function useConvexClient(): ConvexClient
+function useZerobackClient(): ZerobackClient
 ```
 
-Throws if called outside a `ConvexProvider`.
+Throws if called outside a `ZerobackProvider`.
 
 ```tsx
-import { useConvexClient } from "@zeroback/react";
+import { useZerobackClient } from "@zeroback/react";
 
 function AdvancedComponent() {
-  const client = useConvexClient();
+  const client = useZerobackClient();
   // Direct access to client.subscribe(), client.mutation(), etc.
 }
 ```

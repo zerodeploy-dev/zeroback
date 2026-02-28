@@ -7,7 +7,6 @@ build/
 .dev.vars
 .env
 .env.local
-.convex/
 .zeroback/
 _generated/
 *.tgz

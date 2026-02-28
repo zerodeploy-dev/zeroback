@@ -1,27 +1,27 @@
 import { useState, useEffect, useCallback, useContext, createContext, useSyncExternalStore, useRef } from "react";
-import { ConvexClient, QueryStore } from "@zeroback/client";
+import { ZerobackClient, QueryStore } from "@zeroback/client";
 import type { ConnectionState, LocalStore } from "@zeroback/client";
 import type { FunctionReference } from "@zeroback/server";
 
-const ConvexContext = createContext<ConvexClient | null>(null);
+const ZerobackContext = createContext<ZerobackClient | null>(null);
 
-export interface ConvexProviderProps {
+export interface ZerobackProviderProps {
   children: React.ReactNode;
-  client: ConvexClient;
+  client: ZerobackClient;
 }
 
-export function ConvexProvider({ children, client }: ConvexProviderProps): JSX.Element {
+export function ZerobackProvider({ children, client }: ZerobackProviderProps): JSX.Element {
   return (
-    <ConvexContext.Provider value={client}>
+    <ZerobackContext.Provider value={client}>
       {children}
-    </ConvexContext.Provider>
+    </ZerobackContext.Provider>
   );
 }
 
-export function useConvexClient(): ConvexClient {
-  const client = useContext(ConvexContext);
+export function useZerobackClient(): ZerobackClient {
+  const client = useContext(ZerobackContext);
   if (!client) {
-    throw new Error("useConvexClient must be used within a ConvexProvider");
+    throw new Error("useZerobackClient must be used within a ZerobackProvider");
   }
   return client;
 }
@@ -30,7 +30,7 @@ export function useQuery<Ref extends FunctionReference<"query", any, any>>(
   ref: Ref,
   args?: Ref["_args"]
 ): Ref["_returns"] | undefined {
-  const client = useConvexClient();
+  const client = useZerobackClient();
   const argsStr = JSON.stringify(args ?? {});
   const queryKey = QueryStore.makeKey(ref._name, args ?? {});
 
@@ -58,7 +58,7 @@ export function useQueryWithStatus<Ref extends FunctionReference<"query", any, a
   ref: Ref,
   args?: Ref["_args"]
 ): { data: Ref["_returns"] | undefined; isStale: boolean; isLoading: boolean } {
-  const client = useConvexClient();
+  const client = useZerobackClient();
   const data = useQuery(ref, args);
   const queryKey = QueryStore.makeKey(ref._name, args ?? {});
   const isLoading = data === undefined;
@@ -73,7 +73,7 @@ export function useMutation<Ref extends FunctionReference<"mutation", any, any>>
     optimisticUpdate?: (store: LocalStore, args: Ref["_args"]) => void;
   },
 ): (args: Ref["_args"]) => Promise<Ref["_returns"]> {
-  const client = useConvexClient();
+  const client = useZerobackClient();
   const optimisticUpdateRef = useRef(opts?.optimisticUpdate);
   optimisticUpdateRef.current = opts?.optimisticUpdate;
 
@@ -93,7 +93,7 @@ export function useMutation<Ref extends FunctionReference<"mutation", any, any>>
 export function useAction<Ref extends FunctionReference<"action", any, any>>(
   ref: Ref
 ): (args: Ref["_args"]) => Promise<Ref["_returns"]> {
-  const client = useConvexClient();
+  const client = useZerobackClient();
 
   return useCallback(
     async (args: Ref["_args"]): Promise<Ref["_returns"]> => {
@@ -104,7 +104,7 @@ export function useAction<Ref extends FunctionReference<"action", any, any>>(
 }
 
 export function useConnectionState(): ConnectionState {
-  const client = useConvexClient();
+  const client = useZerobackClient();
 
   return useSyncExternalStore(
     (onStoreChange) => client.onConnectionChange(onStoreChange),
@@ -123,7 +123,7 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
   args: Omit<Ref["_args"], "cursor" | "numItems">,
   opts: { initialNumItems: number }
 ): UsePaginatedQueryResult<any> {
-  const client = useConvexClient();
+  const client = useZerobackClient();
   const [pages, setPages] = useState<any[][]>([]);
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [isDone, setIsDone] = useState(false);

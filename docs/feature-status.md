@@ -108,7 +108,7 @@
 
 | Feature | Status |
 |---------|--------|
-| `ConvexProvider` | Implemented |
+| `ZerobackProvider` | Implemented |
 | `useQuery(ref, args)` | Implemented |
 | `useMutation(ref)` | Implemented |
 | `useAction(ref)` | Implemented |

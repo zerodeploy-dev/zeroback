@@ -10,7 +10,7 @@ Monorepo with Bun workspaces:
 packages/
   values/     - Validators (v.string(), v.number(), etc.) and core types
   server/     - Server APIs: schema, functions, database, queries, http, crons, storage
-  client/     - ConvexClient: WebSocket client with subscriptions, optimistic updates, persistence
+  client/     - ZerobackClient: WebSocket client with subscriptions, optimistic updates, persistence
   react/      - React hooks: useQuery, useMutation, useAction, usePaginatedQuery
   cli/        - CLI (zeroback init/dev/deploy/codegen) and runtime source files
   solid/      - SolidJS bindings (experimental)
@@ -53,8 +53,8 @@ bun run typecheck
 - [Schema & Validators](docs/schema.md) — `defineSchema`, `defineTable`, `v.*` validators, indexes, search indexes
 - [Functions](docs/functions.md) — `query`, `mutation`, `action`, internal functions, HTTP actions, cron jobs, codegen
 - [Database](docs/database.md) — `DatabaseReader`, `DatabaseWriter`, `QueryBuilder`, filters, indexes, pagination, full-text search
-- [Client SDK](docs/client.md) — `ConvexClient`, WebSocket subscriptions, optimistic updates, persistence
-- [React Hooks](docs/react.md) — `ConvexProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
+- [Client SDK](docs/client.md) — `ZerobackClient`, WebSocket subscriptions, optimistic updates, persistence
+- [React Hooks](docs/react.md) — `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
 - [CLI](docs/cli.md) — `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`
 - [Scheduling](docs/scheduling.md) — `scheduler.runAfter`, `scheduler.runAt`, `scheduler.cancel`
 - [File Storage](docs/storage.md) — `StorageReader`, `StorageWriter`, `StorageActions`, R2 setup

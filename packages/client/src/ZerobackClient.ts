@@ -9,13 +9,13 @@ import { MutationQueue } from "./persistence/MutationQueue.js";
 
 export type ConnectionState = "connecting" | "connected" | "disconnected";
 
-export interface ConvexClientOptions {
+export interface ZerobackClientOptions {
   persistence?: boolean | PersistenceAdapter;
   maxCacheAge?: number;
   schemaVersion?: string;
 }
 
-export class ConvexClient {
+export class ZerobackClient {
   private ws: WebSocket | null = null;
   private subscriptions: SubscriptionRegistry;
   private pendingRequests = new Map<string, {
@@ -38,9 +38,9 @@ export class ConvexClient {
   private mutationQueue: Promise<void> = Promise.resolve();
 
   private persistedMutationQueue: MutationQueue | null = null;
-  private options: ConvexClientOptions;
+  private options: ZerobackClientOptions;
 
-  constructor(url: string, options?: ConvexClientOptions) {
+  constructor(url: string, options?: ZerobackClientOptions) {
     this.url = url;
     this.options = options ?? {};
     this.subscriptions = new SubscriptionRegistry();

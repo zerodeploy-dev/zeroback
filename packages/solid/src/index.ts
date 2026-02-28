@@ -1,6 +1,6 @@
 export {
   ZerobackProvider,
-  useVexClient,
+  useZerobackClient,
   createQuery,
   createQueryWithStatus,
   createMutation,
@@ -9,4 +9,4 @@ export {
   createPaginatedQuery,
 } from "./primitives.js";
 export type { CreatePaginatedQueryResult } from "./primitives.js";
-export type { LocalStore, ConvexClientOptions, PersistenceAdapter, CachedEntry } from "@zeroback/client";
+export type { LocalStore, ZerobackClientOptions, PersistenceAdapter, CachedEntry } from "@zeroback/client";

@@ -8,29 +8,29 @@ import {
   onCleanup,
 } from "solid-js";
 import type { JSX, Accessor } from "solid-js";
-import { ConvexClient, QueryStore } from "@zeroback/client";
+import { ZerobackClient, QueryStore } from "@zeroback/client";
 import type { ConnectionState, LocalStore } from "@zeroback/client";
 import type { FunctionReference } from "@zeroback/server";
 
-const VexContext = createContext<ConvexClient>();
+const ZerobackContext = createContext<ZerobackClient>();
 
 export interface ZerobackProviderProps {
   children: JSX.Element;
-  client: ConvexClient;
+  client: ZerobackClient;
 }
 
 export function ZerobackProvider(props: ZerobackProviderProps): JSX.Element {
   return (
-    <VexContext.Provider value={props.client}>
+    <ZerobackContext.Provider value={props.client}>
       {props.children}
-    </VexContext.Provider>
+    </ZerobackContext.Provider>
   );
 }
 
-export function useVexClient(): ConvexClient {
-  const client = useContext(VexContext);
+export function useZerobackClient(): ZerobackClient {
+  const client = useContext(ZerobackContext);
   if (!client) {
-    throw new Error("useVexClient must be used within a ZerobackProvider");
+    throw new Error("useZerobackClient must be used within a ZerobackProvider");
   }
   return client;
 }
@@ -39,7 +39,7 @@ export function createQuery<Ref extends FunctionReference<"query", any, any>>(
   ref: Ref,
   argsAccessor?: Accessor<Ref["_args"]> | Ref["_args"],
 ): Accessor<Ref["_returns"] | undefined> {
-  const client = useVexClient();
+  const client = useZerobackClient();
 
   const resolveArgs = (): Ref["_args"] => {
     const raw = typeof argsAccessor === "function" ? (argsAccessor as Accessor<Ref["_args"]>)() : argsAccessor;
@@ -81,7 +81,7 @@ export function createQueryWithStatus<Ref extends FunctionReference<"query", any
   ref: Ref,
   argsAccessor?: Accessor<Ref["_args"]> | Ref["_args"],
 ): { data: Accessor<Ref["_returns"] | undefined>; isStale: Accessor<boolean>; isLoading: Accessor<boolean> } {
-  const client = useVexClient();
+  const client = useZerobackClient();
   const data = createQuery(ref, argsAccessor);
 
   const resolveArgs = (): Ref["_args"] => {
@@ -105,7 +105,7 @@ export function createMutation<Ref extends FunctionReference<"mutation", any, an
     optimisticUpdate?: (store: LocalStore, args: Ref["_args"]) => void;
   },
 ): (args: Ref["_args"]) => Promise<Ref["_returns"]> {
-  const client = useVexClient();
+  const client = useZerobackClient();
   // Plain variable — SolidJS components run once, no useRef needed
   let currentOptimisticUpdate = opts?.optimisticUpdate;
 
@@ -122,7 +122,7 @@ export function createMutation<Ref extends FunctionReference<"mutation", any, an
 export function createAction<Ref extends FunctionReference<"action", any, any>>(
   ref: Ref,
 ): (args: Ref["_args"]) => Promise<Ref["_returns"]> {
-  const client = useVexClient();
+  const client = useZerobackClient();
 
   return async (args: Ref["_args"]): Promise<Ref["_returns"]> => {
     return (await client.action(ref._name, args)) as Ref["_returns"];
@@ -130,7 +130,7 @@ export function createAction<Ref extends FunctionReference<"action", any, any>>(
 }
 
 export function createConnectionState(): Accessor<ConnectionState> {
-  const client = useVexClient();
+  const client = useZerobackClient();
   const [state, setState] = createSignal<ConnectionState>(client.connectionState);
 
   createEffect(() => {
@@ -154,7 +154,7 @@ export function createPaginatedQuery<Ref extends FunctionReference<"query", any,
   argsAccessor: Accessor<Omit<Ref["_args"], "cursor" | "numItems">> | Omit<Ref["_args"], "cursor" | "numItems">,
   opts: { initialNumItems: number },
 ): CreatePaginatedQueryResult<any> {
-  const client = useVexClient();
+  const client = useZerobackClient();
 
   const resolveArgs = () => {
     const raw = typeof argsAccessor === "function" ? (argsAccessor as Accessor<Record<string, unknown>>)() : argsAccessor;

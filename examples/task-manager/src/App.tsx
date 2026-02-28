@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import {
-  ConvexProvider,
+  ZerobackProvider,
   useQuery,
   useMutation,
   useConnectionState,
 } from "@zeroback/react";
-import { ConvexClient } from "@zeroback/client";
+import { ZerobackClient } from "@zeroback/client";
 import { api } from "../zeroback/_generated/api";
 import { Board } from "./Board";
 import { TaskDetail } from "./TaskDetail";
@@ -13,15 +13,15 @@ import "./styles.css";
 
 const globalKey = "__zeroback_client__" as keyof typeof globalThis;
 if (!(globalThis as any)[globalKey]) {
-  (globalThis as any)[globalKey] = new ConvexClient("ws://localhost:8788/ws");
+  (globalThis as any)[globalKey] = new ZerobackClient("ws://localhost:8788/ws");
 }
-const client = (globalThis as any)[globalKey] as ConvexClient;
+const client = (globalThis as any)[globalKey] as ZerobackClient;
 
 export function App() {
   return (
-    <ConvexProvider client={client}>
+    <ZerobackProvider client={client}>
       <TaskManager />
-    </ConvexProvider>
+    </ZerobackProvider>
   );
 }
 

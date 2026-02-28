@@ -1,5 +1,5 @@
-export { ConvexClient } from "./ConvexClient.js";
-export type { ConnectionState, ConvexClientOptions } from "./ConvexClient.js";
+export { ZerobackClient } from "./ZerobackClient.js";
+export type { ConnectionState, ZerobackClientOptions } from "./ZerobackClient.js";
 export { SubscriptionRegistry } from "./SubscriptionRegistry.js";
 export { Backoff } from "./Backoff.js";
 export { QueryStore } from "./QueryStore.js";

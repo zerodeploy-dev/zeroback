@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { ZerobackTestClient, sleep } from "./harness";
 import WS from "ws";
-// Polyfill WebSocket for Node so ConvexClient works in tests
+// Polyfill WebSocket for Node so ZerobackClient works in tests
 (globalThis as any).WebSocket = WS;
-import { ConvexClient, QueryStore } from "../packages/client/src/index";
+import { ZerobackClient, QueryStore } from "../packages/client/src/index";
 import type { LocalStore } from "../packages/client/src/index";
 
 let client: ZerobackTestClient;
@@ -945,17 +945,17 @@ describe("boolean compound index queries", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Optimistic Updates (via ConvexClient)
+// Optimistic Updates (via ZerobackClient)
 // ---------------------------------------------------------------------------
 describe("optimistic updates", () => {
-  let convexClient: ConvexClient;
+  let convexClient: ZerobackClient;
 
   afterEach(() => {
     convexClient?.close();
   });
 
   it("applies optimistic update immediately and reverts to server truth", async () => {
-    convexClient = new ConvexClient("ws://localhost:8788/ws");
+    convexClient = new ZerobackClient("ws://localhost:8788/ws");
 
     // Wait for connection
     await new Promise<void>((resolve) => {
@@ -1033,7 +1033,7 @@ describe("optimistic updates", () => {
   });
 
   it("reverts optimistic update on mutation failure", async () => {
-    convexClient = new ConvexClient("ws://localhost:8788/ws");
+    convexClient = new ZerobackClient("ws://localhost:8788/ws");
 
     await new Promise<void>((resolve) => {
       const unsub = convexClient.onConnectionChange((state) => {
@@ -1083,7 +1083,7 @@ describe("optimistic updates", () => {
   });
 
   it("only notifies listeners for affected query keys", async () => {
-    convexClient = new ConvexClient("ws://localhost:8788/ws");
+    convexClient = new ZerobackClient("ws://localhost:8788/ws");
 
     await new Promise<void>((resolve) => {
       const unsub = convexClient.onConnectionChange((state) => {

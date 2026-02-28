@@ -1,6 +1,6 @@
 # Client SDK
 
-The `@zeroback/client` package provides `ConvexClient` — a WebSocket-based client for connecting to your Zeroback backend from the browser or any JavaScript environment.
+The `@zeroback/client` package provides `ZerobackClient` — a WebSocket-based client for connecting to your Zeroback backend from the browser or any JavaScript environment.
 
 ## Installation
 
@@ -8,25 +8,25 @@ The `@zeroback/client` package provides `ConvexClient` — a WebSocket-based cli
 npm install @zeroback/client
 ```
 
-## ConvexClient
+## ZerobackClient
 
 ### Constructor
 
 ```ts
-import { ConvexClient } from "@zeroback/client";
+import { ZerobackClient } from "@zeroback/client";
 
-const client = new ConvexClient(url: string, options?: ConvexClientOptions);
+const client = new ZerobackClient(url: string, options?: ZerobackClientOptions);
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `url` | `string` | WebSocket URL of your Zeroback backend |
-| `options` | `ConvexClientOptions` | Optional configuration |
+| `options` | `ZerobackClientOptions` | Optional configuration |
 
-### `ConvexClientOptions`
+### `ZerobackClientOptions`
 
 ```ts
-interface ConvexClientOptions {
+interface ZerobackClientOptions {
   persistence?: boolean | PersistenceAdapter;
   maxCacheAge?: number;
   schemaVersion?: string;
@@ -55,7 +55,7 @@ await client.init(): Promise<void>
 **Only needed when `persistence` is enabled.** Without persistence, the client connects automatically on construction.
 
 ```ts
-const client = new ConvexClient(url, { persistence: true });
+const client = new ZerobackClient(url, { persistence: true });
 await client.init(); // hydrate cache, connect, replay offline mutations
 ```
 
@@ -251,7 +251,7 @@ static makeKey(fnName: string, args: unknown): string
 When enabled, the client caches query results in IndexedDB for instant display on subsequent page loads.
 
 ```ts
-const client = new ConvexClient("wss://example.com/ws", {
+const client = new ZerobackClient("wss://example.com/ws", {
   persistence: true,      // Use built-in IndexedDB adapter
   maxCacheAge: 86400000,  // 1 day cache
   schemaVersion: "v2",    // Clear cache on schema change

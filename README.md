@@ -85,11 +85,11 @@ export const send = mutation({
 ### 4. Use in React
 
 ```tsx
-import { ConvexProvider, useQuery, useMutation } from "@zeroback/react";
-import { ConvexClient } from "@zeroback/client";
+import { ZerobackProvider, useQuery, useMutation } from "@zeroback/react";
+import { ZerobackClient } from "@zeroback/client";
 import { api } from "../zeroback/_generated/api";
 
-const client = new ConvexClient("ws://localhost:8788/ws");
+const client = new ZerobackClient("ws://localhost:8788/ws");
 
 function Chat() {
   const messages = useQuery(api.messages.list, { channel: "general" });
@@ -111,9 +111,9 @@ function Chat() {
 
 function App() {
   return (
-    <ConvexProvider client={client}>
+    <ZerobackProvider client={client}>
       <Chat />
-    </ConvexProvider>
+    </ZerobackProvider>
   );
 }
 ```
@@ -123,7 +123,7 @@ function App() {
 Zeroback can persist query results to IndexedDB so your app renders instantly from cache on page load, works offline, and replays mutations when reconnected.
 
 ```ts
-const client = new ConvexClient("ws://localhost:8788/ws", {
+const client = new ZerobackClient("ws://localhost:8788/ws", {
   persistence: true,
   schemaVersion: "v1",    // bump on breaking schema changes
 });
@@ -373,7 +373,7 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 |---------|-------------|
 | `@zeroback/server` | Define schemas, queries, mutations. Database reader/writer, query builder, filter DSL |
 | `@zeroback/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence |
-| `@zeroback/react` | `ConvexProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
+| `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
 | `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery` |
 | `@zeroback/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
 | `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen` — scaffold, develop, deploy. Ships the Cloudflare Worker + Durable Object runtime in `packages/cli/runtime/src/` |
@@ -383,7 +383,7 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 - **[Schema & Validators](docs/schema.md)** — `defineSchema`, `defineTable`, `v.*` validators, indexes, search indexes
 - **[Functions](docs/functions.md)** — queries, mutations, actions, internal functions, HTTP actions, cron jobs, codegen
 - **[Database](docs/database.md)** — reading, writing, QueryBuilder, filters, indexes, pagination, full-text search
-- **[Client SDK](docs/client.md)** — `ConvexClient`, subscriptions, optimistic updates, persistence
+- **[Client SDK](docs/client.md)** — `ZerobackClient`, subscriptions, optimistic updates, persistence
 - **[React Hooks](docs/react.md)** — `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
 - **[CLI](docs/cli.md)** — `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`
 - **[Scheduling](docs/scheduling.md)** — `scheduler.runAfter`, `scheduler.runAt`, cron jobs
@@ -490,7 +490,7 @@ zeroback deploy -- --env production          # pass flags to wrangler
 Then point your client to the production URL:
 
 ```ts
-const client = new ConvexClient("wss://your-worker.your-subdomain.workers.dev/ws");
+const client = new ZerobackClient("wss://your-worker.your-subdomain.workers.dev/ws");
 ```
 
 ### Building Packages
