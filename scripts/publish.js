@@ -4,6 +4,7 @@ import { execSync } from "node:child_process"
 const packages = [
   "packages/values",
   "packages/server",
+  "packages/runtime",
   "packages/client",
   "packages/react",
   "packages/solid",
