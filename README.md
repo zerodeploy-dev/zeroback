@@ -380,7 +380,14 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 
 ## Documentation
 
-- **[Database API](docs/database.md)** — reading, writing, filters, indexes, pagination, validators
+- **[Schema & Validators](docs/schema.md)** — `defineSchema`, `defineTable`, `v.*` validators, indexes, search indexes
+- **[Functions](docs/functions.md)** — queries, mutations, actions, internal functions, HTTP actions, cron jobs, codegen
+- **[Database](docs/database.md)** — reading, writing, QueryBuilder, filters, indexes, pagination, full-text search
+- **[Client SDK](docs/client.md)** — `ConvexClient`, subscriptions, optimistic updates, persistence
+- **[React Hooks](docs/react.md)** — `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
+- **[CLI](docs/cli.md)** — `vex init`, `vex dev`, `vex deploy`, `vex codegen`
+- **[Scheduling](docs/scheduling.md)** — `scheduler.runAfter`, `scheduler.runAt`, cron jobs
+- **[File Storage](docs/storage.md)** — upload, serve, and manage files via Cloudflare R2
 - **[How It Works](docs/how-it-works.md)** — real-time subscriptions, OCC, type-safe codegen
 - **[Feature Status](docs/feature-status.md)** — implementation status for all features
 

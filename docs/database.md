@@ -1,219 +1,447 @@
 # Database API
 
-## Reading Data
+The database API is available through `ctx.db` in queries and mutations. Queries receive a `DatabaseReader` (read-only), while mutations receive a `DatabaseWriter` (read + write).
+
+## DatabaseReader
+
+Available as `ctx.db` in `query` and `internalQuery` handlers.
+
+### `db.query(table)`
+
+Start a query on a table. Returns a [`QueryBuilder`](#querybuilder) for chaining.
 
 ```ts
-// Full table scan
-await ctx.db.query("messages").collect();
+db.query<T extends keyof DataModel>(table: T): QueryBuilder<DataModel[T]>
+```
 
-// Index query — efficient lookup using a declared index
-await ctx.db.query("messages")
-  .withIndex("by_channel", (q) => q.eq("channel", "general"))
-  .order("desc")
-  .take(50);
+```ts
+const tasks = await ctx.db.query("tasks").collect();
+```
 
-// Filter (full scan with in-memory filtering)
-await ctx.db.query("messages")
-  .filter((q) => q.eq(q.field("channel"), "general"))
+### `db.get(id)`
+
+Get a single document by its `_id`.
+
+```ts
+db.get<T extends keyof DataModel>(id: Id<T>): Promise<DataModel[T] | null>
+```
+
+Returns `null` if the document does not exist.
+
+```ts
+const task = await ctx.db.get("tasks/01HXZ...");
+```
+
+### `db.getMany(...ids)`
+
+Get multiple documents by their `_id`s in a single call.
+
+```ts
+db.getMany<T extends keyof DataModel>(...ids: Id<T>[]): Promise<Map<Id<T>, DataModel[T] | null>>
+```
+
+Returns a `Map` where missing documents are `null`.
+
+```ts
+const results = await ctx.db.getMany("tasks/01A...", "tasks/01B...");
+// results.get("tasks/01A...") => document or null
+```
+
+## DatabaseWriter
+
+Available as `ctx.db` in `mutation` and `internalMutation` handlers. Extends `DatabaseReader` with write methods.
+
+### `db.insert(table, doc)`
+
+Insert a new document. Returns the auto-generated `_id`.
+
+```ts
+db.insert<T extends keyof DataModel>(
+  table: T,
+  doc: Omit<DataModel[T], "_id" | "_creationTime">
+): Promise<Id<T>>
+```
+
+The `_id` (ULID-based, format `"tableName/ULID"`) and `_creationTime` (Unix ms timestamp) are generated automatically.
+
+```ts
+const id = await ctx.db.insert("tasks", {
+  title: "Fix bug",
+  status: "todo",
+  priority: "high",
+  projectId: "projects/01HXZ...",
+});
+// id => "tasks/01HXZ..."
+```
+
+### `db.patch(id, fields)`
+
+Partially update a document. Only the specified fields are changed; all other fields are preserved.
+
+```ts
+db.patch<T extends keyof DataModel>(
+  id: Id<T>,
+  fields: Partial<Omit<DataModel[T], "_id" | "_creationTime">>
+): Promise<void>
+```
+
+```ts
+await ctx.db.patch(taskId, { status: "done", priority: "low" });
+```
+
+### `db.replace(id, doc)`
+
+Replace a document's entire contents. The `_id` and `_creationTime` are preserved; all other fields are replaced.
+
+```ts
+db.replace<T extends keyof DataModel>(
+  id: Id<T>,
+  doc: Omit<DataModel[T], "_id" | "_creationTime">
+): Promise<void>
+```
+
+```ts
+await ctx.db.replace(taskId, {
+  title: "New title",
+  status: "todo",
+  priority: "medium",
+  projectId: "projects/01HXZ...",
+});
+```
+
+### `db.delete(id)`
+
+Delete a document by its ID.
+
+```ts
+db.delete(id: Id<string>): Promise<void>
+```
+
+```ts
+await ctx.db.delete(taskId);
+```
+
+## QueryBuilder
+
+Created by `ctx.db.query("tableName")`. Methods are chainable (except terminal methods which execute the query).
+
+### Chainable Methods
+
+#### `.withIndex(indexName, fn?)`
+
+Use a named index for efficient queries. Cannot be combined with `.search()`.
+
+```ts
+.withIndex(indexName: string, fn?: (q: IndexRangeBuilder) => IndexRangeBuilder): this
+```
+
+The optional callback configures range constraints on index fields.
+
+```ts
+// Use index without constraints (scan in index order)
+ctx.db.query("tasks").withIndex("by_id").order("desc").take(50);
+
+// Equality match
+ctx.db.query("tasks")
+  .withIndex("by_project", (q) => q.eq("projectId", "proj123"))
   .collect();
 
-// Compound filter
-await ctx.db.query("users")
+// Compound index
+ctx.db.query("tasks")
+  .withIndex("by_project_status", (q) =>
+    q.eq("projectId", "proj123").eq("status", "active")
+  )
+  .collect();
+
+// Range query
+ctx.db.query("events")
+  .withIndex("by_date", (q) =>
+    q.gte("date", startDate).lt("date", endDate)
+  )
+  .collect();
+```
+
+#### `.search(field, query)`
+
+Full-text search on a search-indexed field. Cannot be combined with `.withIndex()`.
+
+```ts
+.search(field: string, query: string): this
+```
+
+Results are ordered by relevance (FTS5 rank). Custom `.order()` is ignored when `.search()` is active.
+
+Supports FTS5 match syntax: terms, phrases (`"fix bug"`), prefix queries (`fix*`), and boolean operators (`fix AND bug`, `fix OR patch`).
+
+```ts
+// Basic search
+ctx.db.query("tasks").search("title", "fix bug").take(10);
+
+// Search with filter
+ctx.db.query("tasks")
+  .search("title", "fix bug")
+  .filter((q) => q.eq(q.field("projectId"), "proj123"))
+  .take(10);
+```
+
+#### `.filter(fn)`
+
+Apply a filter expression to results. All filters are compiled to SQL `WHERE` clauses for efficiency.
+
+```ts
+.filter(fn: (q: FilterBuilder<Doc>) => FilterExpression): this
+```
+
+See [FilterBuilder](#filterbuilder) for available operators.
+
+```ts
+ctx.db.query("tasks")
   .filter((q) => q.and(
     q.eq(q.field("status"), "active"),
     q.gte(q.field("score"), 100)
   ))
-  .order("desc")
-  .take(10);
+  .collect();
+```
 
-// Point read by ID
-const doc = await ctx.db.get(id);
+#### `.order(direction)`
 
-// First match
+Set the sort direction.
+
+```ts
+.order(direction: "asc" | "desc"): this
+```
+
+Default: `"asc"`.
+
+#### `.orderBy(field, direction?)`
+
+Order by a specific field.
+
+```ts
+.orderBy(field: string, direction?: "asc" | "desc"): this
+```
+
+Default direction: `"asc"`.
+
+### Terminal Methods
+
+These execute the query and return results.
+
+#### `.collect()`
+
+Fetch all matching documents.
+
+```ts
+.collect(): Promise<Doc[]>
+```
+
+```ts
+const allTasks = await ctx.db.query("tasks").collect();
+```
+
+#### `.first()`
+
+Fetch the first matching document, or `null` if no results.
+
+```ts
+.first(): Promise<Doc | null>
+```
+
+```ts
 const user = await ctx.db.query("users")
   .filter((q) => q.eq(q.field("email"), "alice@example.com"))
   .first();
+```
 
-// Pagination
-const { page, isDone, continueCursor } = await ctx.db.query("messages")
+#### `.unique()`
+
+Fetch exactly one document. Throws if zero or more than one result.
+
+```ts
+.unique(): Promise<Doc>
+```
+
+Throws `"Expected exactly one result, got none"` or `"Expected exactly one result, got multiple"`.
+
+#### `.take(n)`
+
+Fetch at most `n` documents.
+
+```ts
+.take(n: number): Promise<Doc[]>
+```
+
+```ts
+const recent = await ctx.db.query("tasks").order("desc").take(10);
+```
+
+#### `.paginate(opts)`
+
+Cursor-based pagination. Returns a page of results with a cursor for the next page.
+
+```ts
+.paginate(opts: { cursor: string | null; numItems: number }): Promise<PaginationResult<Doc>>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `opts.cursor` | `string \| null` | Cursor from a previous page, or `null` for the first page |
+| `opts.numItems` | `number` | Maximum number of documents to return |
+
+**Returns:**
+
+```ts
+interface PaginationResult<Doc> {
+  page: Doc[];                    // Documents for this page
+  continueCursor: string | null;  // Cursor for the next page, null when done
+  isDone: boolean;                // true if there are no more results
+}
+```
+
+```ts
+// First page
+const { page, continueCursor, isDone } = await ctx.db
+  .query("messages")
   .withIndex("by_channel", (q) => q.eq("channel", "general"))
   .order("desc")
   .paginate({ cursor: null, numItems: 20 });
-// Pass continueCursor as cursor to get the next page
-```
 
-## Writing Data
-
-```ts
-// Insert (returns generated ID)
-const id = await ctx.db.insert("messages", {
-  body: "Hello",
-  author: "Alice",
-  channel: "general",
-});
-
-// Partial update
-await ctx.db.patch(id, { body: "Updated" });
-
-// Full replacement
-await ctx.db.replace(id, { body: "New", author: "Bob", channel: "general" });
-
-// Delete
-await ctx.db.delete(id);
-```
-
-## Filter Operators
-
-```ts
-q.eq(a, b)       // equal
-q.neq(a, b)      // not equal
-q.lt(a, b)       // less than
-q.lte(a, b)      // less than or equal
-q.gt(a, b)       // greater than
-q.gte(a, b)      // greater than or equal
-q.and(f1, f2)    // logical AND
-q.or(f1, f2)     // logical OR
-q.not(f)         // logical NOT
-q.field("name")  // reference a document field
-```
-
-Values like strings and numbers are auto-wrapped as literals — no need for `q.literal("general")`.
-
-## Indexes
-
-Declare indexes in your schema to enable efficient queries without full table scans:
-
-```ts
-// vex/schema.ts
-export const schema = defineSchema({
-  messages: defineTable({
-    body: v.string(),
-    author: v.string(),
-    channel: v.string(),
-  })
-    .index("by_channel", ["channel"])
-    .index("by_author", ["author"]),
-});
-```
-
-Query using an index with `.withIndex()`:
-
-```ts
-// Equality match
-await ctx.db.query("messages")
+// Next page
+const page2 = await ctx.db
+  .query("messages")
   .withIndex("by_channel", (q) => q.eq("channel", "general"))
-  .collect();
-
-// Range queries
-await ctx.db.query("events")
-  .withIndex("by_date", (q) =>
-    q.gte("date", startDate).lt("date", endDate)
-  )
   .order("desc")
-  .take(100);
+  .paginate({ cursor: continueCursor, numItems: 20 });
 ```
 
-The `IndexRangeBuilder` supports these operators:
+## IndexRangeBuilder
+
+Used inside the `.withIndex()` callback. All methods are chainable.
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `q.eq(field, value)` | `(field: string, value: unknown) => this` | Equality match |
+| `q.gt(field, value)` | `(field: string, value: unknown) => this` | Greater than |
+| `q.gte(field, value)` | `(field: string, value: unknown) => this` | Greater than or equal |
+| `q.lt(field, value)` | `(field: string, value: unknown) => this` | Less than |
+| `q.lte(field, value)` | `(field: string, value: unknown) => this` | Less than or equal |
+
+For compound indexes, chain equality constraints on leading fields, then optionally a range on the last field:
 
 ```ts
-q.eq(field, value)    // equal
-q.gt(field, value)    // greater than
-q.gte(field, value)   // greater than or equal
-q.lt(field, value)    // less than
-q.lte(field, value)   // less than or equal
+// Compound index: ["projectId", "status"]
+.withIndex("by_project_status", (q) =>
+  q.eq("projectId", "proj123").eq("status", "active")
+)
+
+// Compound index with range on last field: ["projectId", "date"]
+.withIndex("by_project_date", (q) =>
+  q.eq("projectId", "proj123").gte("date", startDate).lt("date", endDate)
+)
 ```
 
-Indexes are automatically maintained — inserts, updates, and deletes keep index tables in sync. Subscription invalidation is also index-aware: a query watching `channel: "general"` won't re-execute when a message is sent to `"random"`.
+## FilterBuilder
+
+Used inside the `.filter()` callback. Provides comparison and logical operators.
+
+### Field References
+
+```ts
+q.field(key: keyof Doc): Expression
+```
+
+Reference a document field. Required on at least one side of a comparison.
+
+### Comparison Operators
+
+All comparisons accept `Expression | string | number | boolean | null`. Literal values are auto-wrapped.
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `q.eq(a, b)` | `(a: ExpressionOrValue, b: ExpressionOrValue) => FilterExpression` | Equal |
+| `q.neq(a, b)` | `(a: ExpressionOrValue, b: ExpressionOrValue) => FilterExpression` | Not equal |
+| `q.lt(a, b)` | `(a: ExpressionOrValue, b: ExpressionOrValue) => FilterExpression` | Less than |
+| `q.lte(a, b)` | `(a: ExpressionOrValue, b: ExpressionOrValue) => FilterExpression` | Less than or equal |
+| `q.gt(a, b)` | `(a: ExpressionOrValue, b: ExpressionOrValue) => FilterExpression` | Greater than |
+| `q.gte(a, b)` | `(a: ExpressionOrValue, b: ExpressionOrValue) => FilterExpression` | Greater than or equal |
+
+### Logical Operators
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `q.and(...exprs)` | `(...exprs: FilterExpression[]) => FilterExpression` | Logical AND |
+| `q.or(...exprs)` | `(...exprs: FilterExpression[]) => FilterExpression` | Logical OR |
+| `q.not(expr)` | `(expr: FilterExpression) => FilterExpression` | Logical NOT |
+
+### Filter Examples
+
+```ts
+// Simple equality
+.filter((q) => q.eq(q.field("status"), "active"))
+
+// Multiple conditions
+.filter((q) => q.and(
+  q.eq(q.field("status"), "active"),
+  q.gte(q.field("score"), 100),
+  q.neq(q.field("assignee"), null)
+))
+
+// OR condition
+.filter((q) => q.or(
+  q.eq(q.field("priority"), "high"),
+  q.eq(q.field("priority"), "critical")
+))
+
+// NOT
+.filter((q) => q.not(q.eq(q.field("status"), "archived")))
+```
+
+## Indexes vs Filters
+
+Both `.withIndex()` and `.filter()` narrow query results, but they work differently:
+
+| | `.withIndex()` | `.filter()` |
+|---|---|---|
+| **Mechanism** | Uses a B-tree index for O(log n) lookups | Compiles to SQL `WHERE` clause |
+| **Declaration** | Must be declared in schema with `.index()` | No schema declaration needed |
+| **Performance** | Most efficient for equality + range queries | Efficient for arbitrary conditions |
+| **Operators** | `eq`, `gt`, `gte`, `lt`, `lte` | All comparison + `and`/`or`/`not` |
+| **Combinable** | No (one index per query) | Yes (can combine with `.withIndex()`) |
+
+Best practice: use `.withIndex()` for primary access patterns, and `.filter()` for additional conditions.
 
 ## Full-Text Search
 
-Declare search indexes in your schema to enable full-text search on text fields:
+Declare search indexes in your schema:
 
 ```ts
-// vex/schema.ts
-export const schema = defineSchema({
-  tasks: defineTable({
-    title: v.string(),
-    body: v.string(),
-    projectId: v.string(),
-  })
-    .index("by_project", ["projectId"])
-    .searchIndex("search_title", { searchField: "title" }),
-});
+defineTable({
+  title: v.string(),
+  body: v.string(),
+}).searchIndex("search_title", { searchField: "title" })
 ```
 
-Query using `.search()` on the QueryBuilder:
+Query with `.search()`:
 
 ```ts
-// Basic search — returns results ranked by relevance
-await ctx.db.query("tasks")
-  .search("title", "fix bug")
-  .take(10);
+// Basic search
+await ctx.db.query("tasks").search("title", "fix bug").take(10);
 
-// Search with additional filter
+// With additional filter
 await ctx.db.query("tasks")
   .search("title", "fix bug")
-  .filter((q) => q.eq(q.field("projectId"), "proj_123"))
+  .filter((q) => q.eq(q.field("projectId"), "proj123"))
   .take(10);
 ```
 
-### How it works
+### Search Behavior
 
-- Powered by **SQLite FTS5** external content tables — zero extra storage overhead
-- FTS tables are kept in sync via database triggers (inserts and deletes)
-- Results are ordered by **relevance** (`fts.rank`); custom `.order()` is ignored when `.search()` is active
-- `.search()` and `.withIndex()` are mutually exclusive — use `.filter()` for additional conditions on search results
-- Search queries use the FTS5 `MATCH` syntax — supports terms, phrases (`"fix bug"`), prefix queries (`fix*`), boolean operators (`fix AND bug`, `fix OR patch`), and column filters
-- Schema migration automatically creates, rebuilds, or removes FTS tables and triggers as search indexes change
+- Powered by SQLite FTS5 with external content tables (zero extra storage overhead)
+- Results are ordered by relevance — custom `.order()` is ignored when `.search()` is active
+- `.search()` and `.withIndex()` are mutually exclusive
+- Supports FTS5 syntax: terms, phrases, prefix queries, boolean operators
+- Search indexes are automatically maintained via database triggers
 
-### Subscription behavior
+### Subscription Behavior
 
-Search queries use **conservative invalidation**: any write to a table with active search subscriptions triggers re-execution. This ensures correctness since FTS relevance ranking makes fine-grained overlap detection impractical.
-
-## Pagination
-
-Use `.paginate()` for cursor-based pagination:
-
-```ts
-export const listPaginated = query({
-  args: {
-    channel: v.string(),
-    cursor: v.optional(v.string()),
-    numItems: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("messages")
-      .withIndex("by_channel", (q) => q.eq("channel", args.channel))
-      .order("desc")
-      .paginate({ cursor: args.cursor ?? null, numItems: args.numItems ?? 20 });
-  },
-});
-```
-
-Returns `{ page, isDone, continueCursor }`:
-- `page` — array of documents for the current page
-- `isDone` — `true` if there are no more results
-- `continueCursor` — pass as `cursor` to fetch the next page (`null` when done)
-
-## Validators
-
-Use `v` from `@vex/values` to define schemas and function args:
-
-```ts
-v.string()                                // string
-v.number()                                // number
-v.boolean()                               // boolean
-v.null()                                  // null
-v.id("tableName")                         // document ID reference
-v.literal("active")                       // literal value
-v.object({ name: v.string() })            // nested object
-v.array(v.string())                       // array
-v.union(v.literal("a"), v.literal("b"))   // union type
-v.optional(v.string())                    // optional field
-v.record(v.string(), v.string())          // record / map type
-v.float64()                               // IEEE 754 double (number)
-v.int64()                                 // 64-bit integer (bigint)
-v.bytes()                                 // binary data (ArrayBuffer)
-v.any()                                   // any type
-```
+Search queries use **conservative invalidation**: any write to the table triggers re-execution, since FTS relevance ranking makes fine-grained overlap detection impractical.
