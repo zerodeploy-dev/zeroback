@@ -11,3 +11,10 @@ build/
 .vex/
 _generated/
 *.tgz
+
+# TypeScript build output
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+tsconfig.tsbuildinfo
