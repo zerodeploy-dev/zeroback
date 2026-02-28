@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { execSync } from "node:child_process"
-import { readFileSync, unlinkSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 
 const packages = [
   "packages/values",
@@ -17,10 +17,6 @@ function run(cmd, opts) {
   return execSync(cmd, { stdio: "inherit", ...opts })
 }
 
-function exec(cmd, opts) {
-  return execSync(cmd, { encoding: "utf-8", ...opts }).trim()
-}
-
 function isPublished(name, version) {
   try {
     execSync(`npm view ${name}@${version} version`, { stdio: "pipe" })
@@ -28,6 +24,34 @@ function isPublished(name, version) {
   } catch {
     return false
   }
+}
+
+// Build a map of package name -> version for workspace resolution
+const versionMap = {}
+for (const pkg of packages) {
+  const manifest = JSON.parse(readFileSync(`${pkg}/package.json`, "utf-8"))
+  versionMap[manifest.name] = manifest.version
+}
+
+function resolveWorkspaceDeps(pkgDir) {
+  const pkgPath = `${pkgDir}/package.json`
+  const original = readFileSync(pkgPath, "utf-8")
+  const manifest = JSON.parse(original)
+
+  for (const depType of ["dependencies", "devDependencies", "peerDependencies"]) {
+    const deps = manifest[depType]
+    if (!deps) continue
+    for (const [dep, ver] of Object.entries(deps)) {
+      if (typeof ver === "string" && ver.startsWith("workspace:")) {
+        if (versionMap[dep]) {
+          deps[dep] = `^${versionMap[dep]}`
+        }
+      }
+    }
+  }
+
+  writeFileSync(pkgPath, JSON.stringify(manifest, null, 2) + "\n")
+  return original
 }
 
 // Build all packages
@@ -49,19 +73,16 @@ for (const pkg of packages) {
 
   console.log(`\nPublishing ${name}@${version}...`)
   if (isCI) {
-    // bun pack resolves workspace:^ to real versions in the tarball
-    run("bun pack", { cwd: pkg })
-    const tarball = exec("ls *.tgz", { cwd: pkg })
-    // npm publish handles OIDC trusted publishing (provenance is automatic)
-    run(`npm publish ${tarball} --access public ${extraArgs}`.trim(), {
-      cwd: pkg,
-    })
-    unlinkSync(`${pkg}/${tarball}`)
+    // Resolve workspace:^ to real versions, publish with npm, then restore
+    const original = resolveWorkspaceDeps(pkg)
+    try {
+      run(`npm publish --access public ${extraArgs}`.trim(), { cwd: pkg })
+    } finally {
+      writeFileSync(`${pkg}/package.json`, original)
+    }
   } else {
-    // Locally: bun publish resolves workspace:^ and publishes in one step
-    run(`bun publish --access public ${extraArgs}`.trim(), {
-      cwd: pkg,
-    })
+    // Locally: bun publish resolves workspace:^ automatically
+    run(`bun publish --access public ${extraArgs}`.trim(), { cwd: pkg })
   }
 }
 
