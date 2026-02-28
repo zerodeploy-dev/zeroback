@@ -1,6 +1,7 @@
-import { ZerobackDO, Env } from "./ZerobackDO";
+import type { Env } from "./ZerobackDO"
 
-export { ZerobackDO };
+export { createZerobackDO } from "./ZerobackDO"
+export type { RuntimeConfig, FunctionDef, Env } from "./ZerobackDO"
 
 /**
  * Extract tenant slug from URL path.
@@ -45,7 +46,7 @@ async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export default {
+export const workerHandler = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 

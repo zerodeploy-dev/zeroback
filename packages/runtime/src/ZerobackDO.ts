@@ -12,11 +12,10 @@ import { TransactionStore } from "./transaction/TransactionStore";
 import { SubscriptionManager } from "./subscriptions/SubscriptionManager";
 import { ConnectionManager } from "./websocket/ConnectionManager";
 import type { ClientMessage, ServerMessage } from "./websocket/Protocol";
-import { functions as bundledFunctions, schema as bundledSchema, httpRouter as bundledHttpRouter, cronJobsDef as bundledCrons } from "./_functions.generated";
 import type { CronSchedule, CronJobDef } from "@zeroback/server";
 import { getNextRunTime } from "@zeroback/server";
 
-type FunctionDef = {
+export type FunctionDef = {
   type: "query" | "mutation" | "action";
   isInternal: boolean;
   handler: (ctx: any, args: any) => Promise<any>;
@@ -24,10 +23,18 @@ type FunctionDef = {
   returnsValidator?: { json: any };
 };
 
+export interface RuntimeConfig {
+  functions: Record<string, FunctionDef>;
+  schema: SchemaJSON;
+  httpRouter: any | null;
+  cronJobsDef: any | null;
+}
+
 /** Max bound parameters per SQL statement on Cloudflare DO SQLite. */
 const MAX_PARAMS = 100;
 
-export class ZerobackDO extends DurableObject {
+export function createZerobackDO(config: RuntimeConfig) {
+  return class ZerobackDO extends DurableObject<Env> {
   private latestTs: number = 0;
   private transactions: TransactionStore;
   private subscriptions: SubscriptionManager;
@@ -47,7 +54,7 @@ export class ZerobackDO extends DurableObject {
     this.subscriptions = new SubscriptionManager();
     this.connections = new ConnectionManager();
     this.sql = ctx.storage.sql;
-    this.schemaInfo = bundledSchema as SchemaJSON;
+    this.schemaInfo = config.schema as SchemaJSON;
 
     // Inject default by_id index on every table
     for (const tableInfo of Object.values(this.schemaInfo.tables)) {
@@ -68,7 +75,7 @@ export class ZerobackDO extends DurableObject {
     this.sql.exec("PRAGMA optimize");
 
     // Load bundled user functions
-    this.functions = bundledFunctions;
+    this.functions = config.functions;
 
     // Restore WebSocket connections after hibernation
     this.restoreConnectionsFromHibernation();
@@ -95,12 +102,12 @@ export class ZerobackDO extends DurableObject {
 
   /** Sync cron job definitions from code into SQLite and set the next alarm. */
   private initializeCronJobs(): void {
-    if (!bundledCrons || !bundledCrons.jobs || bundledCrons.jobs.length === 0) return;
+    if (!config.cronJobsDef || !config.cronJobsDef.jobs || config.cronJobsDef.jobs.length === 0) return;
 
     const now = Date.now();
     const definedNames = new Set<string>();
 
-    for (const job of bundledCrons.jobs as CronJobDef[]) {
+    for (const job of config.cronJobsDef.jobs as CronJobDef[]) {
       definedNames.add(job.name);
 
       // Check if this cron already exists
@@ -249,8 +256,8 @@ export class ZerobackDO extends DurableObject {
     }
 
     // HTTP actions — user-defined routes
-    if (bundledHttpRouter) {
-      const handler = bundledHttpRouter.lookup(req.method, path);
+    if (config.httpRouter) {
+      const handler = config.httpRouter.lookup(req.method, path);
       if (handler) {
         return this.handleHttpAction(handler, req);
       }
@@ -1271,7 +1278,8 @@ export class ZerobackDO extends DurableObject {
     return false;
   }
 
-}
+} // end class ZerobackDO
+} // end createZerobackDO
 
 function indexRangesToFilter(
   ranges: IndexQueryJSON["ranges"]

@@ -35,6 +35,6 @@ Running `zeroback dev` (or `zeroback deploy` / `zeroback codegen`) generates thr
 | `server.ts` | Typed `query()` and `mutation()` factories with your DataModel |
 | `dataModel.ts` | TypeScript types for all your tables |
 
-It also bundles all user functions and schema into `_functions.generated.ts` in the worker directory, which the Durable Object loads at runtime.
+It also generates `.zeroback/entry.ts`, which imports `createZerobackDO` and `workerHandler` from the `@zeroback/runtime` npm package, registers all user functions and schema, and exports the `ZerobackDO` class and default worker handler.
 
 Your editor gets full autocomplete for query args, mutation args, and return types.

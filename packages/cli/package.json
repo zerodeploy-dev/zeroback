@@ -25,13 +25,12 @@
       "import": "./dist/build/bundle.js"
     }
   },
-  "files": ["dist", "runtime"],
+  "files": ["dist"],
   "dependencies": {
     "@zeroback/server": "workspace:^",
     "@zeroback/values": "workspace:^",
     "chokidar": "^3.6.0",
-    "typescript": "^5.6.0",
-    "ulidx": "^2.4.1"
+    "typescript": "^5.6.0"
   },
   "scripts": {
     "build": "tsc --build",

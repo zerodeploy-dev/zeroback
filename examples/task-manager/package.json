@@ -12,6 +12,7 @@
     "@zeroback/react": "workspace:^",
     "@zeroback/server": "workspace:^",
     "@zeroback/values": "workspace:^",
+    "@zeroback/runtime": "workspace:^",
     "@zeroback/cli": "workspace:^",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"

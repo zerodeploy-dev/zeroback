@@ -90,8 +90,9 @@ export const mutation = createMutationFactory<any>();
   console.log("  ✓ zeroback/_generated/server.ts");
   console.log(`
 Next steps:
-  1. Run 'zeroback dev' to start development
-  2. Edit zeroback/schema.ts to define your tables
-  3. Edit zeroback/messages.ts to write your functions
+  1. Install dependencies: bun add @zeroback/server @zeroback/values @zeroback/runtime
+  2. Run 'zeroback dev' to start development
+  3. Edit zeroback/schema.ts to define your tables
+  4. Edit zeroback/messages.ts to write your functions
 `);
 }

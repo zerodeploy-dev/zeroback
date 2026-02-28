@@ -376,7 +376,8 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 | `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
 | `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery` |
 | `@zeroback/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
-| `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen` — scaffold, develop, deploy. Ships the Cloudflare Worker + Durable Object runtime in `packages/cli/runtime/src/` |
+| `@zeroback/runtime` | Runtime engine: Durable Object, DB, subscriptions, WebSocket handling |
+| `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen` — scaffold, develop, deploy |
 
 ## Documentation
 
@@ -408,14 +409,12 @@ your-project/
 ├── wrangler.toml             # Scaffolded by zeroback init, user can customize
 ├── package.json
 └── .zeroback/                     # Gitignored, CLI-managed
-    └── src/                  # Runtime source + generated bundle
+    └── entry.ts              # Generated entry point
 ```
 
-The `.zeroback/src/` directory is created automatically by `zeroback dev`, `zeroback deploy`, and `zeroback codegen`. It contains:
-- The **Cloudflare Worker + Durable Object runtime** — copied from the CLI package (`packages/cli/runtime/src/`). This includes `ZerobackDO.ts` (the main Durable Object that handles all state, transactions, subscriptions, and WebSocket connections), the SQLite database layer, subscription manager, and connection manager.
-- `_functions.generated.ts` — a generated bundle that imports your `zeroback/` functions and wires them into the runtime.
+The `.zeroback/` directory is created automatically by `zeroback dev`, `zeroback deploy`, and `zeroback codegen`. It contains a single generated `entry.ts` file that imports `createZerobackDO` and `workerHandler` from `@zeroback/runtime`, registers your user functions, and exports the `ZerobackDO` class and default worker handler.
 
-The `wrangler.toml` at project root points to `.zeroback/src/index.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
+The `wrangler.toml` at project root points to `.zeroback/entry.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
 
 ## How Zeroback Compares to Convex
 

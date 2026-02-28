@@ -50,8 +50,8 @@ zeroback dev [functionsDir]
 
 **Behavior:**
 
-1. Copies runtime source files into `.zeroback/src/`
-2. Analyzes schema and functions, generates types and bundles
+1. Generates `.zeroback/entry.ts` that wires user functions to `@zeroback/runtime`
+2. Analyzes schema and functions, generates types
 3. Starts Wrangler dev server on **port 8788**
 4. Watches `zeroback/` for changes (ignoring `_generated/` and `node_modules/`)
 5. On file changes: re-analyzes, re-generates, re-bundles
@@ -63,7 +63,7 @@ zeroback dev [functionsDir]
 | `zeroback/_generated/api.ts` | Typed function references (`api.tasks.create`, etc.) |
 | `zeroback/_generated/server.ts` | Typed function factories bound to your `DataModel` |
 | `zeroback/_generated/dataModel.ts` | Standalone `DataModel` type |
-| `.zeroback/src/_functions.generated.ts` | Bundled user functions + schema for the runtime |
+| `.zeroback/entry.ts` | Entry point that imports `@zeroback/runtime` and registers user functions |
 
 **Example:**
 
@@ -176,12 +176,8 @@ my-app/
       api.ts               # Generated: typed function references
       server.ts            # Generated: typed factories + DataModel
       dataModel.ts         # Generated: DataModel type
-  .zeroback/                    # Generated: runtime worker files (gitignored)
-    src/
-      index.ts
-      ZerobackDO.ts
-      _functions.generated.ts
-      ...
+  .zeroback/                    # Generated: entry point (gitignored)
+    entry.ts               # Imports @zeroback/runtime, registers user functions
   wrangler.toml            # Cloudflare Workers configuration
 ```
 

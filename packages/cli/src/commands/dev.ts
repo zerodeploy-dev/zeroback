@@ -31,7 +31,7 @@ export async function buildAndGenerate(functionsDir: string, workerDir: string):
   generateDataModel(schema, path.join(generatedDir, "dataModel.ts"));
 
   // 3. Bundle user functions + schema
-  const outfile = path.join(workerDir, "src/_functions.generated.ts");
+  const outfile = path.join(workerDir, "entry.ts");
   await bundle(functionsDir, outfile, schema);
 
   console.log(`  ✓ Bundled ${fnCount} functions, ${tableCount} tables`);

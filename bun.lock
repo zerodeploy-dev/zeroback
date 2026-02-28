@@ -18,11 +18,12 @@
       "name": "zeroback-task-manager",
       "version": "0.0.1",
       "dependencies": {
-        "@zeroback/cli": "workspace:*",
-        "@zeroback/client": "workspace:*",
-        "@zeroback/react": "workspace:*",
-        "@zeroback/server": "workspace:*",
-        "@zeroback/values": "workspace:*",
+        "@zeroback/cli": "workspace:^",
+        "@zeroback/client": "workspace:^",
+        "@zeroback/react": "workspace:^",
+        "@zeroback/runtime": "workspace:^",
+        "@zeroback/server": "workspace:^",
+        "@zeroback/values": "workspace:^",
         "react": "^18.3.0",
         "react-dom": "^18.3.0",
       },
@@ -36,16 +37,15 @@
     },
     "packages/cli": {
       "name": "@zeroback/cli",
-      "version": "0.0.1",
+      "version": "0.0.4",
       "bin": {
         "zeroback": "./dist/index.js",
       },
       "dependencies": {
-        "@zeroback/server": "workspace:*",
-        "@zeroback/values": "workspace:*",
+        "@zeroback/server": "workspace:^",
+        "@zeroback/values": "workspace:^",
         "chokidar": "^3.6.0",
         "typescript": "^5.6.0",
-        "ulidx": "^2.4.1",
       },
       "devDependencies": {
         "@types/node": "^20.0.0",
@@ -54,10 +54,10 @@
     },
     "packages/client": {
       "name": "@zeroback/client",
-      "version": "0.0.1",
+      "version": "0.0.4",
       "dependencies": {
-        "@zeroback/server": "workspace:*",
-        "@zeroback/values": "workspace:*",
+        "@zeroback/server": "workspace:^",
+        "@zeroback/values": "workspace:^",
       },
       "devDependencies": {
         "typescript": "^5.6.0",
@@ -65,10 +65,10 @@
     },
     "packages/react": {
       "name": "@zeroback/react",
-      "version": "0.0.1",
+      "version": "0.0.4",
       "dependencies": {
-        "@zeroback/client": "workspace:*",
-        "@zeroback/server": "workspace:*",
+        "@zeroback/client": "workspace:^",
+        "@zeroback/server": "workspace:^",
       },
       "devDependencies": {
         "@types/react": "^18.3.0",
@@ -79,11 +79,20 @@
         "react": "^18.0.0",
       },
     },
+    "packages/runtime": {
+      "name": "@zeroback/runtime",
+      "version": "0.0.4",
+      "dependencies": {
+        "@zeroback/server": "workspace:^",
+        "@zeroback/values": "workspace:^",
+        "ulidx": "^2.4.1",
+      },
+    },
     "packages/server": {
       "name": "@zeroback/server",
-      "version": "0.0.1",
+      "version": "0.0.4",
       "dependencies": {
-        "@zeroback/values": "workspace:*",
+        "@zeroback/values": "workspace:^",
         "ulidx": "^2.4.1",
       },
       "devDependencies": {
@@ -92,7 +101,7 @@
     },
     "packages/solid": {
       "name": "@zeroback/solid",
-      "version": "0.0.1",
+      "version": "0.0.4",
       "dependencies": {
         "@zeroback/client": "workspace:*",
         "@zeroback/server": "workspace:*",
@@ -111,7 +120,7 @@
     },
     "packages/values": {
       "name": "@zeroback/values",
-      "version": "0.0.1",
+      "version": "0.0.4",
       "devDependencies": {
         "typescript": "^5.6.0",
       },
@@ -423,6 +432,8 @@
     "@zeroback/client": ["@zeroback/client@workspace:packages/client"],
 
     "@zeroback/react": ["@zeroback/react@workspace:packages/react"],
+
+    "@zeroback/runtime": ["@zeroback/runtime@workspace:packages/runtime"],
 
     "@zeroback/server": ["@zeroback/server@workspace:packages/server"],
 
