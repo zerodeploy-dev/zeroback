@@ -24,7 +24,8 @@ zeroback init [dir]
 | `zeroback/messages.ts` | Example query and mutation functions |
 | `zeroback/_generated/server.ts` | Stub file so imports resolve before first codegen |
 | `wrangler.toml` | Cloudflare Workers configuration (if not present) |
-| `.gitignore` | Adds `.zeroback/` entry (creates or appends) |
+| `.zeroback/entry.ts` | Worker entry point — imports manifest and wires to runtime |
+| `.gitignore` | Ignores `.zeroback/*` except `entry.ts` (creates or appends) |
 
 Skips scaffolding if the `zeroback/` directory already exists.
 
@@ -50,11 +51,11 @@ zeroback dev [functionsDir]
 
 **Behavior:**
 
-1. Generates `.zeroback/entry.ts` that wires user functions to `@zeroback/runtime`
-2. Analyzes schema and functions, generates types
+1. Scaffolds `.zeroback/entry.ts` if missing (worker entry point)
+2. Analyzes schema and functions, generates types and `_generated/manifest.ts`
 3. Starts Wrangler dev server on **port 8788**
 4. Watches `zeroback/` for changes (ignoring `_generated/` and `node_modules/`)
-5. On file changes: re-analyzes, re-generates, re-bundles
+5. On file changes: re-analyzes, re-generates manifest
 
 **Generated files:**
 
@@ -63,7 +64,7 @@ zeroback dev [functionsDir]
 | `zeroback/_generated/api.ts` | Typed function references (`api.tasks.create`, etc.) |
 | `zeroback/_generated/server.ts` | Typed function factories bound to your `DataModel` |
 | `zeroback/_generated/dataModel.ts` | Standalone `DataModel` type |
-| `.zeroback/entry.ts` | Entry point that imports `@zeroback/runtime` and registers user functions |
+| `zeroback/_generated/manifest.ts` | Function registrations, schema, HTTP router, cron jobs |
 
 **Example:**
 
@@ -176,8 +177,8 @@ my-app/
       api.ts               # Generated: typed function references
       server.ts            # Generated: typed factories + DataModel
       dataModel.ts         # Generated: DataModel type
-  .zeroback/                    # Generated: entry point (gitignored)
-    entry.ts               # Imports @zeroback/runtime, registers user functions
+  .zeroback/
+    entry.ts               # Scaffolded by init, user-owned — imports manifest + wires to runtime
   wrangler.toml            # Cloudflare Workers configuration
 ```
 
@@ -185,4 +186,5 @@ my-app/
 - Function files go in `zeroback/` (any `.ts` file except `schema.ts` and files starting with `_`)
 - Nested directories are supported: `zeroback/utils/stats.ts` produces function names like `"utils/stats:functionName"`
 - Schema is always `zeroback/schema.ts`
-- Never edit files in `zeroback/_generated/` or `.zeroback/` — they are overwritten on every build
+- Never edit files in `zeroback/_generated/` — they are overwritten on every build
+- `.zeroback/entry.ts` is user-owned and can be customized (e.g. to add middleware or env bindings)

@@ -21,6 +21,13 @@ new_sqlite_classes = ["ZerobackDO"]
 # bucket_name = "my-zeroback-storage"
 `;
 
+export const ENTRY_TEMPLATE = `import { createZerobackDO, workerHandler } from "@zeroback/runtime"
+import { functions, schema, httpRouter, cronJobsDef } from "../zeroback/_generated/manifest"
+
+export const ZerobackDO = createZerobackDO({ functions, schema, httpRouter, cronJobsDef })
+export default workerHandler
+`;
+
 /**
  * Prepare the .zeroback/ worker directory:
  * 1. Ensure the .zeroback/ output directory exists
@@ -37,6 +44,13 @@ export function prepareWorkerDir(): string {
   if (!existsSync(wranglerPath)) {
     writeFileSync(wranglerPath, WRANGLER_TEMPLATE);
     console.log("  ✓ Created wrangler.toml");
+  }
+
+  // Scaffold .zeroback/entry.ts if missing
+  const entryPath = path.join(dotZeroback, "entry.ts");
+  if (!existsSync(entryPath)) {
+    writeFileSync(entryPath, ENTRY_TEMPLATE);
+    console.log("  ✓ Created .zeroback/entry.ts");
   }
 
   return dotZeroback;

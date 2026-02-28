@@ -58,7 +58,7 @@ export async function teardown() {
   killPort();
   await sleep(200);
 
-  // Clean up generated files
-  rmSync(path.join(EXAMPLE_DIR, ".zeroback"), { recursive: true, force: true });
+  // Clean up generated/ephemeral files (entry.ts is user-owned, committed to git)
   rmSync(path.join(EXAMPLE_DIR, ".wrangler"), { recursive: true, force: true });
+  rmSync(path.join(EXAMPLE_DIR, "zeroback", "_generated"), { recursive: true, force: true });
 }

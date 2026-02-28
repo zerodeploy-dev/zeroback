@@ -23,7 +23,7 @@ export async function deploy(options: DeployOptions = {}): Promise<void> {
 
   // Phase 1: Codegen
   try {
-    await buildAndGenerate(functionsDir, workerDir);
+    await buildAndGenerate(functionsDir);
   } catch (e) {
     console.error("  ✗ Codegen failed:", e instanceof Error ? e.message : e);
     process.exit(1);

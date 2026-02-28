@@ -408,11 +408,11 @@ your-project/
 │   └── App.tsx
 ├── wrangler.toml             # Scaffolded by zeroback init, user can customize
 ├── package.json
-└── .zeroback/                     # Gitignored, CLI-managed
-    └── entry.ts              # Generated entry point
+└── .zeroback/
+    └── entry.ts              # Scaffolded by zeroback init, user can customize
 ```
 
-The `.zeroback/` directory is created automatically by `zeroback dev`, `zeroback deploy`, and `zeroback codegen`. It contains a single generated `entry.ts` file that imports `createZerobackDO` and `workerHandler` from `@zeroback/runtime`, registers your user functions, and exports the `ZerobackDO` class and default worker handler.
+Both `wrangler.toml` and `.zeroback/entry.ts` are scaffolded once by `zeroback init` and owned by the user — you can customize them freely. The entry file imports from `zeroback/_generated/manifest.ts` (regenerated on every build), which wires your functions and schema to the `@zeroback/runtime`.
 
 The `wrangler.toml` at project root points to `.zeroback/entry.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
 

@@ -1,5 +1,6 @@
 node_modules/
-.zeroback/
+.zeroback/*
+!.zeroback/entry.ts
 .wrangler/
 wrangler.toml
 _generated/

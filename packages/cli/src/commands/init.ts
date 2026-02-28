@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync, appendFileSync } from "fs";
 import * as path from "path";
-import { WRANGLER_TEMPLATE } from "./prepare.js";
+import { WRANGLER_TEMPLATE, ENTRY_TEMPLATE } from "./prepare.js";
 
 export async function init(projectDir: string = "."): Promise<void> {
   console.log("▲ zeroback init\n");
@@ -73,15 +73,24 @@ export const mutation = createMutationFactory<any>();
     console.log("  ✓ wrangler.toml");
   }
 
-  // Add .zeroback/ to .gitignore
+  // .zeroback/entry.ts — worker entry point
+  const dotZeroback = path.join(resolved, ".zeroback");
+  mkdirSync(dotZeroback, { recursive: true });
+  const entryPath = path.join(dotZeroback, "entry.ts");
+  if (!existsSync(entryPath)) {
+    writeFileSync(entryPath, ENTRY_TEMPLATE);
+    console.log("  ✓ .zeroback/entry.ts");
+  }
+
+  // Add .zeroback/ to .gitignore (but allow .zeroback/entry.ts to be committed)
   const gitignorePath = path.join(resolved, ".gitignore");
   if (existsSync(gitignorePath)) {
     const content = readFileSync(gitignorePath, "utf-8");
     if (!content.includes(".zeroback/")) {
-      appendFileSync(gitignorePath, "\n.zeroback/\n");
+      appendFileSync(gitignorePath, "\n.zeroback/*\n!.zeroback/entry.ts\n");
     }
   } else {
-    writeFileSync(gitignorePath, "node_modules/\n.zeroback/\n.wrangler/\n");
+    writeFileSync(gitignorePath, "node_modules/\n.zeroback/*\n!.zeroback/entry.ts\n.wrangler/\n");
     console.log("  ✓ .gitignore");
   }
 

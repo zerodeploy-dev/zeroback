@@ -56,8 +56,8 @@ switch (command) {
 
   case "codegen": {
     const functionsDir = path.resolve(process.argv[3] || "./zeroback");
-    const workerDir = prepareWorkerDir();
-    buildAndGenerate(functionsDir, workerDir).catch((e) => {
+    prepareWorkerDir();
+    buildAndGenerate(functionsDir).catch((e) => {
       console.error(e);
       process.exit(1);
     });

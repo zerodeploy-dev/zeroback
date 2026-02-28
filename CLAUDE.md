@@ -23,9 +23,9 @@ docs/         - API documentation
 
 ## Key Architecture
 
-- **Runtime engine** lives in `packages/runtime/src/` (published as `@zeroback/runtime`). At build time, the CLI generates `.zeroback/entry.ts` that wires user functions to the runtime.
+- **Runtime engine** lives in `packages/runtime/src/` (published as `@zeroback/runtime`). The static `.zeroback/entry.ts` (scaffolded by `init`, user-owned) imports from `zeroback/_generated/manifest.ts` (regenerated on every build) to wire user functions to the runtime.
 - **ZerobackDO** (`packages/runtime/src/ZerobackDO.ts`) is the main Durable Object, created via `createZerobackDO(config)`. It handles all state, transactions, subscriptions, and WebSocket connections.
-- **Codegen** analyzes user's `zeroback/` directory and generates typed API references, function factories, and DataModel types into `zeroback/_generated/`.
+- **Codegen** analyzes user's `zeroback/` directory and generates typed API references, function factories, DataModel types, and a manifest into `zeroback/_generated/`.
 - All filters compile to SQL WHERE clauses via `json_extract` for efficiency.
 - IDs are ULID-based in `"tableName:ULID"` format. `_creationTime` is derived from the ULID.
 

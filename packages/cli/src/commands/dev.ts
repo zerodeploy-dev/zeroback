@@ -14,7 +14,7 @@ export interface DevConfig {
   port?: number;
 }
 
-export async function buildAndGenerate(functionsDir: string, workerDir: string): Promise<void> {
+export async function buildAndGenerate(functionsDir: string): Promise<void> {
   // 1. Analyze
   const schemaPath = path.join(functionsDir, "schema.ts");
   const schema = existsSync(schemaPath) ? extractSchema(schemaPath) : { tables: {} };
@@ -30,9 +30,8 @@ export async function buildAndGenerate(functionsDir: string, workerDir: string):
   generateServer(schema, path.join(generatedDir, "server.ts"));
   generateDataModel(schema, path.join(generatedDir, "dataModel.ts"));
 
-  // 3. Bundle user functions + schema
-  const outfile = path.join(workerDir, "entry.ts");
-  await bundle(functionsDir, outfile, schema);
+  // 3. Generate _generated/manifest.ts with functions + schema
+  await bundle(functionsDir, schema);
 
   console.log(`  ✓ Bundled ${fnCount} functions, ${tableCount} tables`);
 }
@@ -51,7 +50,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
 
   // Initial build
   try {
-    await buildAndGenerate(functionsDir, workerDir);
+    await buildAndGenerate(functionsDir);
   } catch (e) {
     console.error("  ✗", e instanceof Error ? e.message : e);
   }
@@ -69,7 +68,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
   watcher.on("all", async (event, filePath) => {
     console.log(`\n  ↺ ${event} ${path.relative(process.cwd(), filePath)}`);
     try {
-      await buildAndGenerate(functionsDir, workerDir);
+      await buildAndGenerate(functionsDir);
     } catch (e) {
       console.error("  ✗", e instanceof Error ? e.message : e);
     }
