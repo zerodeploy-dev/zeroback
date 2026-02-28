@@ -489,7 +489,7 @@ export class VexDO extends DurableObject {
   private validateDocument(table: string, data: Record<string, unknown>): void {
     const tableInfo = this.schemaInfo.tables[table];
     if (!tableInfo) return;
-    const { _id, _ts, ...userFields } = data;
+    const { _id, _ts, _creationTime, ...userFields } = data;
     validate(userFields, { type: "object", value: tableInfo.fields });
   }
 
