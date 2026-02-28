@@ -939,7 +939,8 @@ export class VexDO extends DurableObject {
           eq: "=", gt: ">", gte: ">=", lt: "<", lte: "<=",
         };
         conditions.push(`${colPrefix}"${range.field}" ${sqlOps[range.op]} ?`);
-        params.push(range.value);
+        // SQLite stores booleans as INTEGER 0/1; convert JS booleans to match
+        params.push(typeof range.value === "boolean" ? (range.value ? 1 : 0) : range.value);
       }
     }
 

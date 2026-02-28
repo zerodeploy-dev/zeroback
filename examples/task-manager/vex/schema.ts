@@ -17,10 +17,12 @@ export const schema = defineSchema({
     assignee: v.optional(v.string()),
     dueDate: v.optional(v.number()),
     labels: v.optional(v.array(v.string())),
+    isCompleted: v.optional(v.boolean()),
   })
     .index("by_project", ["projectId"])
     .index("by_status", ["status"])
     .index("by_project_status", ["projectId", "status"])
+    .index("by_project_completed", ["projectId", "isCompleted"])
     .searchIndex("search_title", { searchField: "title" }),
 
   comments: defineTable({

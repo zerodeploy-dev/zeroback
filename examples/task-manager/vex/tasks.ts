@@ -112,6 +112,19 @@ export const searchByTitle = query({
   },
 });
 
+export const listByProjectCompleted = query({
+  args: { projectId: v.string(), isCompleted: v.boolean() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("tasks")
+      .withIndex("by_project_completed", (q) =>
+        q.eq("projectId", args.projectId).eq("isCompleted", args.isCompleted),
+      )
+      .order("desc")
+      .collect();
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
@@ -126,6 +139,7 @@ export const create = mutation({
     assignee: v.optional(v.string()),
     dueDate: v.optional(v.number()),
     labels: v.optional(v.array(v.string())),
+    isCompleted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("tasks", args);

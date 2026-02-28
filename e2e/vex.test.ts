@@ -855,7 +855,9 @@ describe("default indexes", () => {
     const proj = `default-idx-${Date.now()}`;
 
     await c.mutation("tasks:create", taskArgs({ title: "first", projectId: proj }));
+    await sleep(10);
     await c.mutation("tasks:create", taskArgs({ title: "second", projectId: proj }));
+    await sleep(10);
     await c.mutation("tasks:create", taskArgs({ title: "third", projectId: proj }));
 
     // recent uses by_creation_time index with order("desc")
@@ -892,6 +894,53 @@ describe("default indexes", () => {
     const c = await freshClient();
     const { result: found } = await c.query("tasks:getById", { id: "nonexistent_12345" });
     expect(found).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Boolean compound index queries
+// ---------------------------------------------------------------------------
+describe("boolean compound index queries", () => {
+  it("should return documents matching boolean false in compound index", async () => {
+    const c = await freshClient();
+    const proj = `bool-idx-${Date.now()}`;
+
+    await c.mutation("tasks:create", taskArgs({ title: "incomplete-1", projectId: proj, isCompleted: false }));
+    await c.mutation("tasks:create", taskArgs({ title: "incomplete-2", projectId: proj, isCompleted: false }));
+    await c.mutation("tasks:create", taskArgs({ title: "complete-1", projectId: proj, isCompleted: true }));
+
+    const { result: incomplete } = await c.query("tasks:listByProjectCompleted", {
+      projectId: proj, isCompleted: false,
+    });
+    expect(incomplete).toHaveLength(2);
+    expect(incomplete.every((t: any) => t.isCompleted === false)).toBe(true);
+  });
+
+  it("should return documents matching boolean true in compound index", async () => {
+    const c = await freshClient();
+    const proj = `bool-idx-true-${Date.now()}`;
+
+    await c.mutation("tasks:create", taskArgs({ title: "incomplete-1", projectId: proj, isCompleted: false }));
+    await c.mutation("tasks:create", taskArgs({ title: "complete-1", projectId: proj, isCompleted: true }));
+    await c.mutation("tasks:create", taskArgs({ title: "complete-2", projectId: proj, isCompleted: true }));
+
+    const { result: complete } = await c.query("tasks:listByProjectCompleted", {
+      projectId: proj, isCompleted: true,
+    });
+    expect(complete).toHaveLength(2);
+    expect(complete.every((t: any) => t.isCompleted === true)).toBe(true);
+  });
+
+  it("should return empty when no documents match boolean value", async () => {
+    const c = await freshClient();
+    const proj = `bool-idx-empty-${Date.now()}`;
+
+    await c.mutation("tasks:create", taskArgs({ title: "only-complete", projectId: proj, isCompleted: true }));
+
+    const { result: incomplete } = await c.query("tasks:listByProjectCompleted", {
+      projectId: proj, isCompleted: false,
+    });
+    expect(incomplete).toHaveLength(0);
   });
 });
 
