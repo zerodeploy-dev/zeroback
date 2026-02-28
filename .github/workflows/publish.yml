@@ -12,9 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ">=22.14.0"
+          registry-url: "https://registry.npmjs.org"
       - run: bun install --frozen-lockfile
       - run: bun run build
       - run: bun run typecheck
       - run: bun run publish:all
-        env:
-          NPM_CONFIG_PROVENANCE: true

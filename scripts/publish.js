@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { execSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { readFileSync, unlinkSync } from "node:fs"
 
 const packages = [
   "packages/values",
@@ -14,7 +14,11 @@ const packages = [
 
 function run(cmd, opts) {
   console.log(`> ${cmd}`)
-  execSync(cmd, { stdio: "inherit", ...opts })
+  return execSync(cmd, { stdio: "inherit", ...opts })
+}
+
+function exec(cmd, opts) {
+  return execSync(cmd, { encoding: "utf-8", ...opts }).trim()
 }
 
 function isPublished(name, version) {
@@ -44,10 +48,21 @@ for (const pkg of packages) {
   }
 
   console.log(`\nPublishing ${name}@${version}...`)
-  const provenanceFlag = isCI ? " --provenance" : ""
-  run(`bun publish --access public${provenanceFlag} ${extraArgs}`.trim(), {
-    cwd: pkg,
-  })
+  if (isCI) {
+    // bun pack resolves workspace:^ to real versions in the tarball
+    run("bun pack", { cwd: pkg })
+    const tarball = exec("ls *.tgz", { cwd: pkg })
+    // npm publish handles OIDC trusted publishing (provenance is automatic)
+    run(`npm publish ${tarball} --access public ${extraArgs}`.trim(), {
+      cwd: pkg,
+    })
+    unlinkSync(`${pkg}/${tarball}`)
+  } else {
+    // Locally: bun publish resolves workspace:^ and publishes in one step
+    run(`bun publish --access public ${extraArgs}`.trim(), {
+      cwd: pkg,
+    })
+  }
 }
 
 console.log("\nAll packages published successfully!")
