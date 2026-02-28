@@ -126,6 +126,42 @@ Runs the same build step as `vex dev` (analyze, codegen, bundle) but exits immed
 vex codegen
 ```
 
+### `vex run <functionName> [jsonArgs] [--url <url>]`
+
+Invoke a function (query, mutation, or action) on the running dev server.
+
+```
+vex run <functionName> [jsonArgs] [--url <url>]
+```
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `functionName` | *(required)* | Function to call, e.g. `tasks:list` |
+| `jsonArgs` | `{}` | JSON object of arguments |
+| `--url` | `http://localhost:8788` | URL of the Vex server |
+
+**Behavior:**
+
+1. Sends a POST request to the server's `/__admin/run` endpoint
+2. Executes the function and prints the JSON result to stdout
+3. Both public and internal functions can be called (useful for debugging)
+
+**Examples:**
+
+```bash
+# Run a query
+vex run tasks:list
+
+# Run a mutation with arguments
+vex run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
+
+# Run an internal function
+vex run tasks:countInternal '{"projectId": "proj:abc"}'
+
+# Target a deployed server
+vex run tasks:list --url https://my-worker.example.com
+```
+
 ## Project Structure
 
 After running `vex init` and `vex dev`, your project looks like:

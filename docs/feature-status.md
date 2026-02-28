@@ -126,7 +126,7 @@
 | Nested directory function discovery | Implemented |
 | Generated `internal` API object | Implemented |
 | `vex deploy` (codegen + wrangler deploy) | Implemented |
-| `vex run` (invoke functions from CLI) | Not yet |
+| `vex run` (invoke functions from CLI) | Implemented |
 | Dashboard web UI | Not yet |
 
 ## Infrastructure

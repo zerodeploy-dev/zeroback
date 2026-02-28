@@ -243,6 +243,11 @@ export class VexDO extends DurableObject {
       return this.handleStorageDelete(req);
     }
 
+    // Admin: invoke any function (public or internal) from CLI
+    if (path === "/__admin/run" && req.method === "POST") {
+      return this.handleAdminRun(req);
+    }
+
     // HTTP actions — user-defined routes
     if (bundledHttpRouter) {
       const handler = bundledHttpRouter.lookup(req.method, path);
@@ -304,6 +309,56 @@ export class VexDO extends DurableObject {
     }
 
     return new Response("OK");
+  }
+
+  // -- Admin run (CLI `vex run`) --
+
+  private async handleAdminRun(req: Request): Promise<Response> {
+    const json = { "Content-Type": "application/json" };
+    try {
+      const body = (await req.json()) as { fn: string; args?: unknown };
+      const fnName = body.fn;
+      const args = body.args ?? {};
+
+      const fn = this.functions[fnName];
+      if (!fn) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Function not found: ${fnName}`, code: "not_found" }),
+          { status: 404, headers: json }
+        );
+      }
+
+      let result: unknown;
+      if (fn.type === "mutation") {
+        // Use actionCtx.runMutation for full OCC retry + subscription invalidation
+        const actionCtx = this.createActionCtx();
+        result = await actionCtx.runMutation(fnName, args);
+      } else {
+        // Queries and actions: invokeFunction handles arg/return validation
+        const txId = crypto.randomUUID();
+        this.transactions.begin(txId, this.latestTs, fn.type);
+        try {
+          const invoked = await this.invokeFunction(fnName, args, txId);
+          result = invoked.result;
+        } finally {
+          this.transactions.remove(txId);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, result }),
+        { status: 200, headers: json }
+      );
+    } catch (e) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: e instanceof Error ? e.message : "Unknown error",
+          code: "execution_error",
+        }),
+        { status: 500, headers: json }
+      );
+    }
   }
 
   // -- Internal storage routes --
