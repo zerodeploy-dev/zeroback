@@ -1,4 +1,4 @@
-import type { Validator, ValidatorJSON, PropertyValidators, ObjectType, Id } from "@vex/values";
+import type { Validator, ValidatorJSON, PropertyValidators, ObjectType, Id } from "@zeroback/values";
 
 export type KeysetCursorInfo = {
   sortValue: unknown;

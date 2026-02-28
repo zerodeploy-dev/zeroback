@@ -1,5 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
-import type { ReadSetEntry } from "@vex/server";
+import type { ReadSetEntry } from "@zeroback/server";
 
 export async function checkConflicts(
   db: D1Database,

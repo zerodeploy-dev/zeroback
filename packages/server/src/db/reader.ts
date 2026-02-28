@@ -1,6 +1,6 @@
 import type { DbOps, FilterExpressionJSON, IndexQueryJSON, KeysetCursorInfo, SearchQueryJSON } from "../types.js";
 import { QueryBuilder } from "./query-builder.js";
-import type { Id } from "@vex/values";
+import type { Id } from "@zeroback/values";
 
 export class DatabaseReader<DataModel> {
   constructor(protected ops: DbOps) {}

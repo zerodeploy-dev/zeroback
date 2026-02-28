@@ -1,10 +1,10 @@
-# Vex
+# Zeroback
 
 An open-source [Convex](https://convex.dev)-style backend you deploy to your own Cloudflare account. Real-time queries, mutations, type-safe codegen — all running on Cloudflare Workers, Durable Objects, and SQLite.
 
-## Why Vex?
+## Why Zeroback?
 
-Convex introduced a great developer experience: define your backend as plain TypeScript functions, get real-time subscriptions and a type-safe client for free. Vex brings that same model to Cloudflare's edge infrastructure — giving you full control over your data and deployment.
+Convex introduced a great developer experience: define your backend as plain TypeScript functions, get real-time subscriptions and a type-safe client for free. Zeroback brings that same model to Cloudflare's edge infrastructure — giving you full control over your data and deployment.
 
 - **Your Cloudflare account** — data lives in your Durable Objects, not a third-party service
 - **Real-time subscriptions** — queries re-run and push updates over WebSocket when data changes
@@ -27,9 +27,9 @@ bun install
 ### 2. Define your schema
 
 ```ts
-// vex/schema.ts
-import { defineSchema, defineTable } from "@vex/server";
-import { v } from "@vex/values";
+// zeroback/schema.ts
+import { defineSchema, defineTable } from "@zeroback/server";
+import { v } from "@zeroback/values";
 
 export const schema = defineSchema({
   messages: defineTable({
@@ -45,9 +45,9 @@ export const schema = defineSchema({
 ### 3. Write your functions
 
 ```ts
-// vex/messages.ts
+// zeroback/messages.ts
 import { query, mutation } from "./_generated/server";
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 
 export const list = query({
   args: { channel: v.string() },
@@ -85,9 +85,9 @@ export const send = mutation({
 ### 4. Use in React
 
 ```tsx
-import { ConvexProvider, useQuery, useMutation } from "@vex/react";
-import { ConvexClient } from "@vex/client";
-import { api } from "../vex/_generated/api";
+import { ConvexProvider, useQuery, useMutation } from "@zeroback/react";
+import { ConvexClient } from "@zeroback/client";
+import { api } from "../zeroback/_generated/api";
 
 const client = new ConvexClient("ws://localhost:8788/ws");
 
@@ -120,7 +120,7 @@ function App() {
 
 ### 5. Enable offline support (optional)
 
-Vex can persist query results to IndexedDB so your app renders instantly from cache on page load, works offline, and replays mutations when reconnected.
+Zeroback can persist query results to IndexedDB so your app renders instantly from cache on page load, works offline, and replays mutations when reconnected.
 
 ```ts
 const client = new ConvexClient("ws://localhost:8788/ws", {
@@ -133,7 +133,7 @@ await client.init(); // hydrate from cache, then connect
 Use `useQueryWithStatus` for staleness awareness:
 
 ```tsx
-import { useQueryWithStatus } from "@vex/react";
+import { useQueryWithStatus } from "@zeroback/react";
 
 function TaskList() {
   const { data: tasks, isStale, isLoading } = useQueryWithStatus(api.tasks.list, { projectId });
@@ -160,28 +160,28 @@ Without persistence (the default), everything works exactly as before — no cha
 ### 6. Start development
 
 ```bash
-vex dev
+zeroback dev
 ```
 
 This will:
 
-1. Analyze your `vex/` directory for schema and function definitions
-2. Generate type-safe code in `vex/_generated/`
+1. Analyze your `zeroback/` directory for schema and function definitions
+2. Generate type-safe code in `zeroback/_generated/`
 3. Start a local Cloudflare Worker with Durable Objects
 4. Watch for changes and rebuild automatically
 
 ## Functions
 
-Vex has four function types. All are defined as named exports in your `vex/` directory.
+Zeroback has four function types. All are defined as named exports in your `zeroback/` directory.
 
 ### Queries
 
 Queries are read-only functions. They receive `ctx.db` (a `DatabaseReader`) for reading data.
 
 ```ts
-// vex/messages.ts
+// zeroback/messages.ts
 import { query } from "./_generated/server";
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 
 export const list = query({
   args: { channel: v.string() },
@@ -203,7 +203,7 @@ Mutations can read and write data. They receive `ctx.db` (a `DatabaseWriter`) an
 
 ```ts
 import { mutation } from "./_generated/server";
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 
 export const send = mutation({
   args: { body: v.string(), author: v.string(), channel: v.string() },
@@ -228,7 +228,7 @@ Actions can call other functions but don't have direct database access. Use them
 
 ```ts
 import { action } from "./_generated/server";
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 
 export const createAndCount = action({
   args: { title: v.string(), projectId: v.string() },
@@ -251,11 +251,11 @@ export const createAndCount = action({
 
 ### HTTP Actions
 
-Expose HTTP endpoints alongside your WebSocket API. Define routes in `vex/http.ts`:
+Expose HTTP endpoints alongside your WebSocket API. Define routes in `zeroback/http.ts`:
 
 ```ts
-// vex/http.ts
-import { httpRouter, httpAction } from "@vex/server";
+// zeroback/http.ts
+import { httpRouter, httpAction } from "@zeroback/server";
 
 const http = httpRouter();
 
@@ -308,11 +308,11 @@ Available variants: `internalQuery`, `internalMutation`, `internalAction`.
 
 ### Cron Jobs
 
-Schedule recurring work in `vex/crons.ts`:
+Schedule recurring work in `zeroback/crons.ts`:
 
 ```ts
-// vex/crons.ts
-import { cronJobs } from "@vex/server";
+// zeroback/crons.ts
+import { cronJobs } from "@zeroback/server";
 
 const crons = cronJobs();
 
@@ -347,7 +347,7 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 │  Cloudflare Worker                              │
 │  Routes requests to Durable Object              │
 │ ┌─────────────────────────────────────────────┐ │
-│ │  VexDO (Durable Object)                     │ │
+│ │  ZerobackDO (Durable Object)                     │ │
 │ │                                             │ │
 │ │  ┌──────────┐ ┌────────────┐ ┌───────────┐ │ │
 │ │  │ User     │ │ Transaction│ │Subscription│ │ │
@@ -365,18 +365,18 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 
 **Single Durable Object per tenant.** All queries, mutations, subscriptions, and WebSocket connections go through one DO instance. This gives you strong consistency without distributed coordination.
 
-**User functions run in-process.** Your `vex/` functions are bundled into the worker and executed directly inside the Durable Object — no inter-service RPCs.
+**User functions run in-process.** Your `zeroback/` functions are bundled into the worker and executed directly inside the Durable Object — no inter-service RPCs.
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| `@vex/server` | Define schemas, queries, mutations. Database reader/writer, query builder, filter DSL |
-| `@vex/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence |
-| `@vex/react` | `ConvexProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
-| `@vex/solid` | Solid.js bindings: `VexProvider`, `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery` |
-| `@vex/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
-| `@vex/cli` | `vex init`, `vex dev`, `vex deploy`, `vex codegen` — scaffold, develop, deploy. Ships the Cloudflare Worker + Durable Object runtime in `packages/cli/runtime/src/` |
+| `@zeroback/server` | Define schemas, queries, mutations. Database reader/writer, query builder, filter DSL |
+| `@zeroback/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence |
+| `@zeroback/react` | `ConvexProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
+| `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery` |
+| `@zeroback/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
+| `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen` — scaffold, develop, deploy. Ships the Cloudflare Worker + Durable Object runtime in `packages/cli/runtime/src/` |
 
 ## Documentation
 
@@ -385,7 +385,7 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 - **[Database](docs/database.md)** — reading, writing, QueryBuilder, filters, indexes, pagination, full-text search
 - **[Client SDK](docs/client.md)** — `ConvexClient`, subscriptions, optimistic updates, persistence
 - **[React Hooks](docs/react.md)** — `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
-- **[CLI](docs/cli.md)** — `vex init`, `vex dev`, `vex deploy`, `vex codegen`
+- **[CLI](docs/cli.md)** — `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`
 - **[Scheduling](docs/scheduling.md)** — `scheduler.runAfter`, `scheduler.runAt`, cron jobs
 - **[File Storage](docs/storage.md)** — upload, serve, and manage files via Cloudflare R2
 - **[How It Works](docs/how-it-works.md)** — real-time subscriptions, OCC, type-safe codegen
@@ -395,7 +395,7 @@ Available schedules: `interval`, `hourly`, `daily`, `weekly`, `monthly`, and `cr
 
 ```
 your-project/
-├── vex/                      # Your backend code
+├── zeroback/                      # Your backend code
 │   ├── schema.ts             # Table definitions
 │   ├── messages.ts           # Query & mutation functions
 │   ├── users.ts              # More functions...
@@ -405,21 +405,21 @@ your-project/
 │       └── dataModel.ts      # TypeScript types for tables
 ├── src/                      # Your frontend code
 │   └── App.tsx
-├── wrangler.toml             # Scaffolded by vex init, user can customize
+├── wrangler.toml             # Scaffolded by zeroback init, user can customize
 ├── package.json
-└── .vex/                     # Gitignored, CLI-managed
+└── .zeroback/                     # Gitignored, CLI-managed
     └── src/                  # Runtime source + generated bundle
 ```
 
-The `.vex/src/` directory is created automatically by `vex dev`, `vex deploy`, and `vex codegen`. It contains:
-- The **Cloudflare Worker + Durable Object runtime** — copied from the CLI package (`packages/cli/runtime/src/`). This includes `VexDO.ts` (the main Durable Object that handles all state, transactions, subscriptions, and WebSocket connections), the SQLite database layer, subscription manager, and connection manager.
-- `_functions.generated.ts` — a generated bundle that imports your `vex/` functions and wires them into the runtime.
+The `.zeroback/src/` directory is created automatically by `zeroback dev`, `zeroback deploy`, and `zeroback codegen`. It contains:
+- The **Cloudflare Worker + Durable Object runtime** — copied from the CLI package (`packages/cli/runtime/src/`). This includes `ZerobackDO.ts` (the main Durable Object that handles all state, transactions, subscriptions, and WebSocket connections), the SQLite database layer, subscription manager, and connection manager.
+- `_functions.generated.ts` — a generated bundle that imports your `zeroback/` functions and wires them into the runtime.
 
-The `wrangler.toml` at project root points to `.vex/src/index.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
+The `wrangler.toml` at project root points to `.zeroback/src/index.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
 
-## How Vex Compares to Convex
+## How Zeroback Compares to Convex
 
-| | Convex | Vex |
+| | Convex | Zeroback |
 |-|--------|-----|
 | **Hosting** | Convex Cloud | Your Cloudflare account |
 | **Real-time queries** | Yes | Yes |
@@ -449,7 +449,7 @@ The `wrangler.toml` at project root points to `.vex/src/index.ts` as the Worker 
 bun install
 
 # Start the backend (from your app directory)
-vex dev
+zeroback dev
 
 # In another terminal, start the frontend
 cd examples/task-manager
@@ -460,7 +460,7 @@ Open http://localhost:5173 to see the example task manager app.
 
 ### Testing
 
-Vex includes an end-to-end test suite that starts a local dev server and exercises the full stack over WebSocket:
+Zeroback includes an end-to-end test suite that starts a local dev server and exercises the full stack over WebSocket:
 
 ```bash
 # Run the E2E test suite
@@ -474,17 +474,17 @@ Tests cover mutations, index queries, pagination, real-time subscriptions, multi
 
 ### Deployment
 
-Deploy your Vex backend to Cloudflare with a single command:
+Deploy your Zeroback backend to Cloudflare with a single command:
 
 ```bash
-vex deploy
+zeroback deploy
 ```
 
 This runs codegen and then `wrangler deploy`. You can pass flags through to wrangler:
 
 ```bash
-vex deploy --dry-run                    # codegen only, skip deploy
-vex deploy -- --env production          # pass flags to wrangler
+zeroback deploy --dry-run                    # codegen only, skip deploy
+zeroback deploy -- --env production          # pass flags to wrangler
 ```
 
 Then point your client to the production URL:

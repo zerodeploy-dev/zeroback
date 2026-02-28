@@ -1,6 +1,6 @@
 import * as path from "path";
 import * as fs from "fs";
-import type { SchemaJSON } from "@vex/server";
+import type { SchemaJSON } from "@zeroback/server";
 
 function scanFiles(dir: string, rootDir: string): { relPath: string; moduleName: string }[] {
   const results: { relPath: string; moduleName: string }[] = [];

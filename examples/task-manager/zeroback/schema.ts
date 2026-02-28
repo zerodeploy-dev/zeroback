@@ -1,5 +1,5 @@
-import { defineSchema, defineTable } from "@vex/server";
-import { v } from "@vex/values";
+import { defineSchema, defineTable } from "@zeroback/server";
+import { v } from "@zeroback/values";
 
 export const schema = defineSchema({
   projects: defineTable({

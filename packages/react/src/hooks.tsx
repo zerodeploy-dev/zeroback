@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useContext, createContext, useSyncExternalStore, useRef } from "react";
-import { ConvexClient, QueryStore } from "@vex/client";
-import type { ConnectionState, LocalStore } from "@vex/client";
-import type { FunctionReference } from "@vex/server";
+import { ConvexClient, QueryStore } from "@zeroback/client";
+import type { ConnectionState, LocalStore } from "@zeroback/client";
+import type { FunctionReference } from "@zeroback/server";
 
 const ConvexContext = createContext<ConvexClient | null>(null);
 

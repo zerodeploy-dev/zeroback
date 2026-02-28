@@ -76,7 +76,7 @@
 | `ctx.storage.getUrl(storageId)` | Implemented |
 | `ctx.storage.getMetadata(storageId)` | Implemented |
 | `ctx.storage.store(blob)` / `ctx.storage.delete(id)` | Implemented |
-| Cloudflare R2 backend (`VEX_STORAGE` binding) | Implemented |
+| Cloudflare R2 backend (`ZEROBACK_STORAGE` binding) | Implemented |
 
 ## Schema & Validation
 
@@ -90,7 +90,7 @@
 | `v.record()` | Implemented |
 | `v.bytes()`, `v.int64()`, `v.float64()` | Implemented |
 
-## Client SDK (`@vex/client`)
+## Client SDK (`@zeroback/client`)
 
 | Feature | Status |
 |---------|--------|
@@ -104,7 +104,7 @@
 | Sequential mutation queue (ordered execution) | Implemented |
 | Auth token management (`setAuth`) | Not yet |
 
-## React (`@vex/react`)
+## React (`@zeroback/react`)
 
 | Feature | Status |
 |---------|--------|
@@ -122,11 +122,11 @@
 | Generated `api` object (type-safe function references) | Implemented |
 | Generated `DataModel` types | Implemented |
 | Typed `query` / `mutation` / `action` factories | Implemented |
-| `vex dev` (watch, codegen, bundle, local server) | Implemented |
+| `zeroback dev` (watch, codegen, bundle, local server) | Implemented |
 | Nested directory function discovery | Implemented |
 | Generated `internal` API object | Implemented |
-| `vex deploy` (codegen + wrangler deploy) | Implemented |
-| `vex run` (invoke functions from CLI) | Implemented |
+| `zeroback deploy` (codegen + wrangler deploy) | Implemented |
+| `zeroback run` (invoke functions from CLI) | Implemented |
 | Dashboard web UI | Not yet |
 
 ## Infrastructure

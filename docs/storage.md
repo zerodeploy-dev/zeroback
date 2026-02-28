@@ -1,6 +1,6 @@
 # File Storage
 
-Vex provides file storage backed by Cloudflare R2. The storage API is available through `ctx.storage` with different access levels depending on the function type.
+Zeroback provides file storage backed by Cloudflare R2. The storage API is available through `ctx.storage` with different access levels depending on the function type.
 
 ## Setup
 
@@ -8,8 +8,8 @@ Uncomment the R2 binding in your `wrangler.toml`:
 
 ```toml
 [[r2_buckets]]
-binding = "VEX_STORAGE"
-bucket_name = "my-vex-storage"
+binding = "ZEROBACK_STORAGE"
+bucket_name = "my-zeroback-storage"
 ```
 
 For local development, Wrangler automatically uses a local R2 simulator.
@@ -140,9 +140,9 @@ export const downloadAndStore = action({
 ### Server
 
 ```ts
-// vex/files.ts
+// zeroback/files.ts
 import { query, mutation, action } from "./_generated/server";
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 
 export const generateUploadUrl = mutation({
   args: {},

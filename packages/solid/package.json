@@ -1,5 +1,5 @@
 {
-  "name": "@vex/solid",
+  "name": "@zeroback/solid",
   "version": "0.0.1",
   "type": "module",
   "main": "./src/index.ts",
@@ -7,8 +7,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@vex/client": "workspace:*",
-    "@vex/server": "workspace:*"
+    "@zeroback/client": "workspace:*",
+    "@zeroback/server": "workspace:*"
   },
   "peerDependencies": {
     "solid-js": "^1.8.0"

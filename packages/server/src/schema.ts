@@ -1,4 +1,4 @@
-import type { PropertyValidators, ObjectType, Validator } from "@vex/values";
+import type { PropertyValidators, ObjectType, Validator } from "@zeroback/values";
 import type { TableDefinition, SchemaDefinition, TableIndex, SearchIndex } from "./types.js";
 
 export function defineTable<F extends PropertyValidators>(fields: F): TableDefinition<ObjectType<F>> {

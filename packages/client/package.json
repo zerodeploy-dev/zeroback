@@ -1,5 +1,5 @@
 {
-  "name": "@vex/client",
+  "name": "@zeroback/client",
   "version": "0.0.1",
   "type": "module",
   "main": "./src/index.ts",
@@ -7,8 +7,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@vex/values": "workspace:*",
-    "@vex/server": "workspace:*"
+    "@zeroback/values": "workspace:*",
+    "@zeroback/server": "workspace:*"
   },
   "scripts": {
     "build": "tsc --build",

@@ -1,4 +1,4 @@
-import type { FilterExpressionJSON, ExprJSON } from "@vex/server";
+import type { FilterExpressionJSON, ExprJSON } from "@zeroback/server";
 
 export function applyFilter<T>(rows: T[], filter: FilterExpressionJSON | null): T[] {
   if (!filter) {

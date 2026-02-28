@@ -6,9 +6,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@vex/client": path.resolve(__dirname, "node_modules/@vex/client"),
-      "@vex/react": path.resolve(__dirname, "node_modules/@vex/react"),
-      "@vex/values": path.resolve(__dirname, "node_modules/@vex/values"),
+      "@zeroback/client": path.resolve(__dirname, "node_modules/@zeroback/client"),
+      "@zeroback/react": path.resolve(__dirname, "node_modules/@zeroback/react"),
+      "@zeroback/values": path.resolve(__dirname, "node_modules/@zeroback/values"),
     },
   },
 });

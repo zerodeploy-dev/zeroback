@@ -1,6 +1,6 @@
-import { VexDO, Env } from "./VexDO";
+import { ZerobackDO, Env } from "./ZerobackDO";
 
-export { VexDO };
+export { ZerobackDO };
 
 /**
  * Extract tenant slug from URL path.
@@ -54,8 +54,8 @@ export default {
       return new Response("OK");
     }
 
-    if (!env.VEX_DO) {
-      return new Response("VEX_DO binding not configured", { status: 500 });
+    if (!env.ZEROBACK_DO) {
+      return new Response("ZEROBACK_DO binding not configured", { status: 500 });
     }
 
     const tenant = extractTenant(url.pathname);
@@ -80,14 +80,14 @@ export default {
       return handleStorageDownload(env, tenant.slug, storageMatch[1]);
     }
 
-    const doId = env.VEX_DO.idFromName(tenant.slug);
-    const doStub = env.VEX_DO.get(doId);
+    const doId = env.ZEROBACK_DO.idFromName(tenant.slug);
+    const doStub = env.ZEROBACK_DO.get(doId);
 
     // Forward to DO with the tenant prefix stripped + base URL header
     const forwardUrl = new URL(request.url);
     forwardUrl.pathname = tenant.forwardPath;
     const headers = new Headers(request.headers);
-    headers.set("X-Vex-Base-Url", baseUrl);
+    headers.set("X-Zeroback-Base-Url", baseUrl);
     const forwardReq = new Request(forwardUrl.toString(), {
       method: request.method,
       headers,
@@ -107,10 +107,10 @@ async function handleStorageUpload(
   baseUrl: string,
   url: URL
 ): Promise<Response> {
-  const r2 = env.VEX_STORAGE;
+  const r2 = env.ZEROBACK_STORAGE;
   if (!r2) {
     return new Response(
-      JSON.stringify({ error: "File storage not configured. Add a [[r2_buckets]] binding named VEX_STORAGE to your wrangler.toml." }),
+      JSON.stringify({ error: "File storage not configured. Add a [[r2_buckets]] binding named ZEROBACK_STORAGE to your wrangler.toml." }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -121,11 +121,11 @@ async function handleStorageUpload(
   }
 
   // Validate token with DO (lightweight, no body)
-  const doId = env.VEX_DO.idFromName(slug);
-  const doStub = env.VEX_DO.get(doId);
+  const doId = env.ZEROBACK_DO.idFromName(slug);
+  const doStub = env.ZEROBACK_DO.get(doId);
   const validateUrl = `https://do-internal/__internal/validate-upload?token=${encodeURIComponent(token)}`;
   const validateHeaders = new Headers();
-  validateHeaders.set("X-Vex-Base-Url", baseUrl);
+  validateHeaders.set("X-Zeroback-Base-Url", baseUrl);
   const validateRes = await doStub.fetch(new Request(validateUrl, { method: "POST", headers: validateHeaders }));
 
   if (!validateRes.ok) {
@@ -154,7 +154,7 @@ async function handleStorageUpload(
   const recordUrl = `https://do-internal/__internal/storage-record`;
   const recordHeaders = new Headers();
   recordHeaders.set("Content-Type", "application/json");
-  recordHeaders.set("X-Vex-Base-Url", baseUrl);
+  recordHeaders.set("X-Zeroback-Base-Url", baseUrl);
   await doStub.fetch(new Request(recordUrl, {
     method: "POST",
     headers: recordHeaders,
@@ -172,7 +172,7 @@ async function handleStorageDownload(
   slug: string,
   storageId: string
 ): Promise<Response> {
-  const r2 = env.VEX_STORAGE;
+  const r2 = env.ZEROBACK_STORAGE;
   if (!r2) {
     return new Response(
       JSON.stringify({ error: "File storage not configured" }),
@@ -181,7 +181,7 @@ async function handleStorageDownload(
   }
 
   // Derive R2 key deterministically — no DO call needed
-  const doId = env.VEX_DO.idFromName(slug).toString();
+  const doId = env.ZEROBACK_DO.idFromName(slug).toString();
   const r2Key = `${doId}/${storageId}`;
 
   const object = await r2.get(r2Key);

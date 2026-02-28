@@ -1,5 +1,5 @@
 import { decodeTime } from "ulidx";
-import type { ValidatorJSON, SchemaJSON } from "@vex/server";
+import type { ValidatorJSON, SchemaJSON } from "@zeroback/server";
 
 // ---------------------------------------------------------------------------
 // Column metadata types

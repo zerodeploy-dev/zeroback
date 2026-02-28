@@ -1,11 +1,11 @@
 # Client SDK
 
-The `@vex/client` package provides `ConvexClient` — a WebSocket-based client for connecting to your Vex backend from the browser or any JavaScript environment.
+The `@zeroback/client` package provides `ConvexClient` — a WebSocket-based client for connecting to your Zeroback backend from the browser or any JavaScript environment.
 
 ## Installation
 
 ```bash
-npm install @vex/client
+npm install @zeroback/client
 ```
 
 ## ConvexClient
@@ -13,14 +13,14 @@ npm install @vex/client
 ### Constructor
 
 ```ts
-import { ConvexClient } from "@vex/client";
+import { ConvexClient } from "@zeroback/client";
 
 const client = new ConvexClient(url: string, options?: ConvexClientOptions);
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `url` | `string` | WebSocket URL of your Vex backend |
+| `url` | `string` | WebSocket URL of your Zeroback backend |
 | `options` | `ConvexClientOptions` | Optional configuration |
 
 ### `ConvexClientOptions`

@@ -1,5 +1,5 @@
-import { useQuery, useMutation } from "@vex/react";
-import { api } from "../vex/_generated/api";
+import { useQuery, useMutation } from "@zeroback/react";
+import { api } from "../zeroback/_generated/api";
 
 const STATUS_COLUMNS = [
   { key: "todo", label: "Todo", color: "#94a3b8" },

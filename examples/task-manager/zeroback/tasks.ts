@@ -5,7 +5,7 @@ import {
   internalQuery,
   internalMutation,
 } from "./_generated/server";
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 
 // ---------------------------------------------------------------------------
 // Queries

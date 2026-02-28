@@ -2,12 +2,12 @@
 
 ## Defining a Schema
 
-Define your data model in `vex/schema.ts`. The schema declares tables, their fields, indexes, and search indexes.
+Define your data model in `zeroback/schema.ts`. The schema declares tables, their fields, indexes, and search indexes.
 
 ```ts
-// vex/schema.ts
-import { defineSchema, defineTable } from "@vex/server";
-import { v } from "@vex/values";
+// zeroback/schema.ts
+import { defineSchema, defineTable } from "@zeroback/server";
+import { v } from "@zeroback/values";
 
 export const schema = defineSchema({
   projects: defineTable({
@@ -132,10 +132,10 @@ defineTable({
 
 ## Validators (`v`)
 
-Import validators from `@vex/values`:
+Import validators from `@zeroback/values`:
 
 ```ts
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 ```
 
 Validators are used in three places:
@@ -209,7 +209,7 @@ v.record(v.string(), v.number())  // Record<string, number>
 The `Infer` type helper extracts the TypeScript type from a validator:
 
 ```ts
-import type { Infer } from "@vex/values";
+import type { Infer } from "@zeroback/values";
 
 const taskValidator = v.object({
   title: v.string(),

@@ -1,5 +1,5 @@
 export * from "./types.js";
-export type { ValidatorJSON } from "@vex/values";
+export type { ValidatorJSON } from "@zeroback/values";
 export * from "./schema.js";
 export * from "./functions.js";
 export * from "./context.js";

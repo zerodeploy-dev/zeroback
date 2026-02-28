@@ -1,6 +1,6 @@
 # Scheduling
 
-Vex provides two mechanisms for running functions in the future: the **Scheduler** for one-off scheduled calls, and **Cron Jobs** for recurring schedules.
+Zeroback provides two mechanisms for running functions in the future: the **Scheduler** for one-off scheduled calls, and **Cron Jobs** for recurring schedules.
 
 ## Scheduler
 
@@ -103,8 +103,8 @@ Cron jobs run functions on recurring schedules. See [Functions > Cron Jobs](func
 Quick example:
 
 ```ts
-// vex/crons.ts
-import { cronJobs } from "@vex/server";
+// zeroback/crons.ts
+import { cronJobs } from "@zeroback/server";
 
 const crons = cronJobs();
 

@@ -27,7 +27,7 @@ async function waitForHealth(timeoutMs = 30_000) {
     } catch {}
     await sleep(500);
   }
-  throw new Error(`vex dev did not become healthy within ${timeoutMs}ms`);
+  throw new Error(`zeroback dev did not become healthy within ${timeoutMs}ms`);
 }
 
 async function resetData() {
@@ -59,6 +59,6 @@ export async function teardown() {
   await sleep(200);
 
   // Clean up generated files
-  rmSync(path.join(EXAMPLE_DIR, ".vex"), { recursive: true, force: true });
+  rmSync(path.join(EXAMPLE_DIR, ".zeroback"), { recursive: true, force: true });
   rmSync(path.join(EXAMPLE_DIR, ".wrangler"), { recursive: true, force: true });
 }

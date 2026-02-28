@@ -1,15 +1,15 @@
 # CLI
 
-The `vex` CLI manages development, code generation, and deployment of your Vex application.
+The `zeroback` CLI manages development, code generation, and deployment of your Zeroback application.
 
 ## Commands
 
-### `vex init [dir]`
+### `zeroback init [dir]`
 
-Scaffold a new Vex project.
+Scaffold a new Zeroback project.
 
 ```
-vex init [dir]
+zeroback init [dir]
 ```
 
 | Argument | Default | Description |
@@ -20,76 +20,76 @@ vex init [dir]
 
 | File | Description |
 |------|-------------|
-| `vex/schema.ts` | Starter schema with a `messages` table |
-| `vex/messages.ts` | Example query and mutation functions |
-| `vex/_generated/server.ts` | Stub file so imports resolve before first codegen |
+| `zeroback/schema.ts` | Starter schema with a `messages` table |
+| `zeroback/messages.ts` | Example query and mutation functions |
+| `zeroback/_generated/server.ts` | Stub file so imports resolve before first codegen |
 | `wrangler.toml` | Cloudflare Workers configuration (if not present) |
-| `.gitignore` | Adds `.vex/` entry (creates or appends) |
+| `.gitignore` | Adds `.zeroback/` entry (creates or appends) |
 
-Skips scaffolding if the `vex/` directory already exists.
+Skips scaffolding if the `zeroback/` directory already exists.
 
 **Example:**
 
 ```bash
 mkdir my-app && cd my-app
 npm init -y
-vex init
+zeroback init
 ```
 
-### `vex dev [vexDir]`
+### `zeroback dev [functionsDir]`
 
 Start the development server with hot reload.
 
 ```
-vex dev [vexDir]
+zeroback dev [functionsDir]
 ```
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `vexDir` | `"./vex"` | Path to your functions directory |
+| `functionsDir` | `"./zeroback"` | Path to your functions directory |
 
 **Behavior:**
 
-1. Copies runtime source files into `.vex/src/`
+1. Copies runtime source files into `.zeroback/src/`
 2. Analyzes schema and functions, generates types and bundles
 3. Starts Wrangler dev server on **port 8788**
-4. Watches `vex/` for changes (ignoring `_generated/` and `node_modules/`)
+4. Watches `zeroback/` for changes (ignoring `_generated/` and `node_modules/`)
 5. On file changes: re-analyzes, re-generates, re-bundles
 
 **Generated files:**
 
 | File | Description |
 |------|-------------|
-| `vex/_generated/api.ts` | Typed function references (`api.tasks.create`, etc.) |
-| `vex/_generated/server.ts` | Typed function factories bound to your `DataModel` |
-| `vex/_generated/dataModel.ts` | Standalone `DataModel` type |
-| `.vex/src/_functions.generated.ts` | Bundled user functions + schema for the runtime |
+| `zeroback/_generated/api.ts` | Typed function references (`api.tasks.create`, etc.) |
+| `zeroback/_generated/server.ts` | Typed function factories bound to your `DataModel` |
+| `zeroback/_generated/dataModel.ts` | Standalone `DataModel` type |
+| `.zeroback/src/_functions.generated.ts` | Bundled user functions + schema for the runtime |
 
 **Example:**
 
 ```bash
-vex dev
+zeroback dev
 # or with a custom functions directory
-vex dev ./src/vex
+zeroback dev ./src/zeroback
 ```
 
-### `vex deploy [vexDir] [--dry-run] [-- wranglerArgs...]`
+### `zeroback deploy [functionsDir] [--dry-run] [-- wranglerArgs...]`
 
 Build and deploy to Cloudflare.
 
 ```
-vex deploy [vexDir] [--dry-run] [-- wranglerArgs...]
+zeroback deploy [functionsDir] [--dry-run] [-- wranglerArgs...]
 ```
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `vexDir` | `"./vex"` | Path to your functions directory |
+| `functionsDir` | `"./zeroback"` | Path to your functions directory |
 | `--dry-run` | `false` | Run codegen only, skip wrangler deploy |
 | `-- args...` | — | Extra arguments passed through to `wrangler deploy` |
 
 **Behavior:**
 
-1. Runs codegen (same as `vex dev` build step)
+1. Runs codegen (same as `zeroback dev` build step)
 2. If `--dry-run`: stops after codegen
 3. Otherwise: runs `wrangler deploy` with any extra arguments
 
@@ -99,46 +99,46 @@ Requires `wrangler.toml` at the project root.
 
 ```bash
 # Deploy
-vex deploy
+zeroback deploy
 
 # Dry run (codegen only)
-vex deploy --dry-run
+zeroback deploy --dry-run
 
 # Pass args to wrangler
-vex deploy -- --env production
+zeroback deploy -- --env production
 ```
 
-### `vex codegen [vexDir]`
+### `zeroback codegen [functionsDir]`
 
 Run code generation without starting a dev server.
 
 ```
-vex codegen [vexDir]
+zeroback codegen [functionsDir]
 ```
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `vexDir` | `"./vex"` | Path to your functions directory |
+| `functionsDir` | `"./zeroback"` | Path to your functions directory |
 
-Runs the same build step as `vex dev` (analyze, codegen, bundle) but exits immediately. Useful for CI or pre-commit hooks.
+Runs the same build step as `zeroback dev` (analyze, codegen, bundle) but exits immediately. Useful for CI or pre-commit hooks.
 
 ```bash
-vex codegen
+zeroback codegen
 ```
 
-### `vex run <functionName> [jsonArgs] [--url <url>]`
+### `zeroback run <functionName> [jsonArgs] [--url <url>]`
 
 Invoke a function (query, mutation, or action) on the running dev server.
 
 ```
-vex run <functionName> [jsonArgs] [--url <url>]
+zeroback run <functionName> [jsonArgs] [--url <url>]
 ```
 
 | Argument | Default | Description |
 |----------|---------|-------------|
 | `functionName` | *(required)* | Function to call, e.g. `tasks:list` |
 | `jsonArgs` | `{}` | JSON object of arguments |
-| `--url` | `http://localhost:8788` | URL of the Vex server |
+| `--url` | `http://localhost:8788` | URL of the Zeroback server |
 
 **Behavior:**
 
@@ -150,25 +150,25 @@ vex run <functionName> [jsonArgs] [--url <url>]
 
 ```bash
 # Run a query
-vex run tasks:list
+zeroback run tasks:list
 
 # Run a mutation with arguments
-vex run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
+zeroback run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
 
 # Run an internal function
-vex run tasks:countInternal '{"projectId": "proj:abc"}'
+zeroback run tasks:countInternal '{"projectId": "proj:abc"}'
 
 # Target a deployed server
-vex run tasks:list --url https://my-worker.example.com
+zeroback run tasks:list --url https://my-worker.example.com
 ```
 
 ## Project Structure
 
-After running `vex init` and `vex dev`, your project looks like:
+After running `zeroback init` and `zeroback dev`, your project looks like:
 
 ```
 my-app/
-  vex/
+  zeroback/
     schema.ts              # Your schema definition
     messages.ts            # Your function files
     tasks.ts
@@ -176,17 +176,17 @@ my-app/
       api.ts               # Generated: typed function references
       server.ts            # Generated: typed factories + DataModel
       dataModel.ts         # Generated: DataModel type
-  .vex/                    # Generated: runtime worker files (gitignored)
+  .zeroback/                    # Generated: runtime worker files (gitignored)
     src/
       index.ts
-      VexDO.ts
+      ZerobackDO.ts
       _functions.generated.ts
       ...
   wrangler.toml            # Cloudflare Workers configuration
 ```
 
 **Key conventions:**
-- Function files go in `vex/` (any `.ts` file except `schema.ts` and files starting with `_`)
-- Nested directories are supported: `vex/utils/stats.ts` produces function names like `"utils/stats:functionName"`
-- Schema is always `vex/schema.ts`
-- Never edit files in `vex/_generated/` or `.vex/` — they are overwritten on every build
+- Function files go in `zeroback/` (any `.ts` file except `schema.ts` and files starting with `_`)
+- Nested directories are supported: `zeroback/utils/stats.ts` produces function names like `"utils/stats:functionName"`
+- Schema is always `zeroback/schema.ts`
+- Never edit files in `zeroback/_generated/` or `.zeroback/` — they are overwritten on every build

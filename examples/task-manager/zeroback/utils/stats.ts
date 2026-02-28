@@ -1,5 +1,5 @@
 import { query } from "../_generated/server";
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 
 export const taskStats = query({
   args: { projectId: v.string() },

@@ -1,4 +1,4 @@
-import type { PropertyValidators, ObjectType, Validator } from "@vex/values";
+import type { PropertyValidators, ObjectType, Validator } from "@zeroback/values";
 import type { QueryCtx, MutationCtx, ActionCtx, RegisteredQuery, RegisteredMutation, RegisteredAction } from "./types.js";
 
 function makeQueryFactory<DataModel>(isInternal: boolean) {

@@ -8,18 +8,18 @@ import {
   onCleanup,
 } from "solid-js";
 import type { JSX, Accessor } from "solid-js";
-import { ConvexClient, QueryStore } from "@vex/client";
-import type { ConnectionState, LocalStore } from "@vex/client";
-import type { FunctionReference } from "@vex/server";
+import { ConvexClient, QueryStore } from "@zeroback/client";
+import type { ConnectionState, LocalStore } from "@zeroback/client";
+import type { FunctionReference } from "@zeroback/server";
 
 const VexContext = createContext<ConvexClient>();
 
-export interface VexProviderProps {
+export interface ZerobackProviderProps {
   children: JSX.Element;
   client: ConvexClient;
 }
 
-export function VexProvider(props: VexProviderProps): JSX.Element {
+export function ZerobackProvider(props: ZerobackProviderProps): JSX.Element {
   return (
     <VexContext.Provider value={props.client}>
       {props.children}
@@ -30,7 +30,7 @@ export function VexProvider(props: VexProviderProps): JSX.Element {
 export function useVexClient(): ConvexClient {
   const client = useContext(VexContext);
   if (!client) {
-    throw new Error("useVexClient must be used within a VexProvider");
+    throw new Error("useVexClient must be used within a ZerobackProvider");
   }
   return client;
 }

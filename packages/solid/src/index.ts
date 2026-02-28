@@ -1,5 +1,5 @@
 export {
-  VexProvider,
+  ZerobackProvider,
   useVexClient,
   createQuery,
   createQueryWithStatus,
@@ -9,4 +9,4 @@ export {
   createPaginatedQuery,
 } from "./primitives.js";
 export type { CreatePaginatedQueryResult } from "./primitives.js";
-export type { LocalStore, ConvexClientOptions, PersistenceAdapter, CachedEntry } from "@vex/client";
+export type { LocalStore, ConvexClientOptions, PersistenceAdapter, CachedEntry } from "@zeroback/client";

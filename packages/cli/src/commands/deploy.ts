@@ -5,25 +5,25 @@ import { buildAndGenerate } from "./dev.js";
 import { prepareWorkerDir } from "./prepare.js";
 
 export interface DeployOptions {
-  vexDir?: string;
+  functionsDir?: string;
   dryRun?: boolean;
   wranglerArgs?: string[];
 }
 
 export async function deploy(options: DeployOptions = {}): Promise<void> {
-  const vexDir = path.resolve(options.vexDir || "./vex");
+  const functionsDir = path.resolve(options.functionsDir || "./zeroback");
   const workerDir = prepareWorkerDir();
 
-  console.log("▲ vex deploy\n");
+  console.log("▲ zeroback deploy\n");
 
-  if (!existsSync(vexDir)) {
-    console.error(`Error: ${vexDir} not found.`);
+  if (!existsSync(functionsDir)) {
+    console.error(`Error: ${functionsDir} not found.`);
     process.exit(1);
   }
 
   // Phase 1: Codegen
   try {
-    await buildAndGenerate(vexDir, workerDir);
+    await buildAndGenerate(functionsDir, workerDir);
   } catch (e) {
     console.error("  ✗ Codegen failed:", e instanceof Error ? e.message : e);
     process.exit(1);

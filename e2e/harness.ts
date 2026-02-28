@@ -10,7 +10,7 @@ type ServerMessage =
   | { type: "error"; id?: string; code: string; message: string }
   | { type: "reset" };
 
-export class VexTestClient {
+export class ZerobackTestClient {
   private ws!: WebSocket;
   private pending = new Map<string, {
     resolve: (msg: ServerMessage) => void;

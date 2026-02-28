@@ -5,7 +5,7 @@ import * as path from "path";
 import * as os from "os";
 
 function withTempSchema(source: string, fn: (schemaPath: string) => void): void {
-  const dir = mkdirSync(path.join(os.tmpdir(), `vex-test-${Date.now()}`), { recursive: true }) as string;
+  const dir = mkdirSync(path.join(os.tmpdir(), `zeroback-test-${Date.now()}`), { recursive: true }) as string;
   const schemaPath = path.join(dir, "schema.ts");
   writeFileSync(schemaPath, source);
   try {
@@ -16,7 +16,7 @@ function withTempSchema(source: string, fn: (schemaPath: string) => void): void 
 }
 
 function withTempVexDir(files: Record<string, string>, fn: (vexDir: string) => void): void {
-  const dir = mkdirSync(path.join(os.tmpdir(), `vex-test-${Date.now()}`), { recursive: true }) as string;
+  const dir = mkdirSync(path.join(os.tmpdir(), `zeroback-test-${Date.now()}`), { recursive: true }) as string;
   for (const [name, content] of Object.entries(files)) {
     const filePath = path.join(dir, name);
     mkdirSync(path.dirname(filePath), { recursive: true });
@@ -32,8 +32,8 @@ function withTempVexDir(files: Record<string, string>, fn: (vexDir: string) => v
 describe("extractSchema", () => {
   it("extracts v.union with literals", () => {
     withTempSchema(`
-      import { defineSchema, defineTable } from "@vex/server";
-      import { v } from "@vex/values";
+      import { defineSchema, defineTable } from "@zeroback/server";
+      import { v } from "@zeroback/values";
       export default defineSchema({
         items: defineTable({
           status: v.union(v.literal("a"), v.literal("b")),
@@ -53,8 +53,8 @@ describe("extractSchema", () => {
 
   it("extracts v.union with mixed types", () => {
     withTempSchema(`
-      import { defineSchema, defineTable } from "@vex/server";
-      import { v } from "@vex/values";
+      import { defineSchema, defineTable } from "@zeroback/server";
+      import { v } from "@zeroback/values";
       export default defineSchema({
         items: defineTable({
           val: v.union(v.string(), v.number()),
@@ -71,8 +71,8 @@ describe("extractSchema", () => {
 
   it("extracts v.id with table name", () => {
     withTempSchema(`
-      import { defineSchema, defineTable } from "@vex/server";
-      import { v } from "@vex/values";
+      import { defineSchema, defineTable } from "@zeroback/server";
+      import { v } from "@zeroback/values";
       export default defineSchema({
         comments: defineTable({
           taskId: v.id("tasks"),
@@ -89,8 +89,8 @@ describe("extractSchema", () => {
 
   it("extracts v.id without argument as unknown", () => {
     withTempSchema(`
-      import { defineSchema, defineTable } from "@vex/server";
-      import { v } from "@vex/values";
+      import { defineSchema, defineTable } from "@zeroback/server";
+      import { v } from "@zeroback/values";
       export default defineSchema({
         items: defineTable({
           ref: v.id(),
@@ -107,8 +107,8 @@ describe("extractSchema", () => {
 
   it("extracts basic types (regression)", () => {
     withTempSchema(`
-      import { defineSchema, defineTable } from "@vex/server";
-      import { v } from "@vex/values";
+      import { defineSchema, defineTable } from "@zeroback/server";
+      import { v } from "@zeroback/values";
       export default defineSchema({
         items: defineTable({
           name: v.string(),
@@ -141,7 +141,7 @@ describe("extractFunctions", () => {
     withTempVexDir({
       "tasks.ts": `
         import { query } from "./server";
-        import { v } from "@vex/values";
+        import { v } from "@zeroback/values";
         export const get = query({
           args: { status: v.union(v.literal("open"), v.literal("closed")) },
           handler: async (ctx, args) => {},

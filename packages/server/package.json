@@ -1,5 +1,5 @@
 {
-  "name": "@vex/server",
+  "name": "@zeroback/server",
   "version": "0.0.1",
   "type": "module",
   "main": "./src/index.ts",
@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@vex/values": "workspace:*",
+    "@zeroback/values": "workspace:*",
     "ulidx": "^2.4.1"
   },
   "scripts": {

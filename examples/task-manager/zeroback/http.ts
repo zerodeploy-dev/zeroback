@@ -1,4 +1,4 @@
-import { httpRouter, httpAction } from "@vex/server";
+import { httpRouter, httpAction } from "@zeroback/server";
 
 const http = httpRouter();
 

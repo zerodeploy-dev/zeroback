@@ -1,8 +1,8 @@
 import { ulid } from "ulidx";
 import { DurableObject } from "cloudflare:workers";
-import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON, StorageOps, StorageMetadata } from "@vex/server";
-import { DatabaseReader, DatabaseWriter, StorageReader, StorageWriter, StorageActions } from "@vex/server";
-import { validate } from "@vex/values";
+import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON, StorageOps, StorageMetadata } from "@zeroback/server";
+import { DatabaseReader, DatabaseWriter, StorageReader, StorageWriter, StorageActions } from "@zeroback/server";
+import { validate } from "@zeroback/values";
 import { DOSQLiteReader } from "./db/DOSQLiteReader";
 import { DOSQLiteWriter } from "./db/DOSQLiteWriter";
 import { applyFilter, applyLimit, evaluateFilter, compileFilterToSQL } from "./db/FilterEngine";
@@ -13,8 +13,8 @@ import { SubscriptionManager } from "./subscriptions/SubscriptionManager";
 import { ConnectionManager } from "./websocket/ConnectionManager";
 import type { ClientMessage, ServerMessage } from "./websocket/Protocol";
 import { functions as bundledFunctions, schema as bundledSchema, httpRouter as bundledHttpRouter, cronJobsDef as bundledCrons } from "./_functions.generated";
-import type { CronSchedule, CronJobDef } from "@vex/server";
-import { getNextRunTime } from "@vex/server";
+import type { CronSchedule, CronJobDef } from "@zeroback/server";
+import { getNextRunTime } from "@zeroback/server";
 
 type FunctionDef = {
   type: "query" | "mutation" | "action";
@@ -27,7 +27,7 @@ type FunctionDef = {
 /** Max bound parameters per SQL statement on Cloudflare DO SQLite. */
 const MAX_PARAMS = 100;
 
-export class VexDO extends DurableObject {
+export class ZerobackDO extends DurableObject {
   private latestTs: number = 0;
   private transactions: TransactionStore;
   private subscriptions: SubscriptionManager;
@@ -215,7 +215,7 @@ export class VexDO extends DurableObject {
     const path = url.pathname;
 
     // Capture base URL from Worker header (used for storage URLs)
-    const headerBaseUrl = req.headers.get("X-Vex-Base-Url");
+    const headerBaseUrl = req.headers.get("X-Zeroback-Base-Url");
     if (headerBaseUrl && !this.baseUrl) {
       this.baseUrl = headerBaseUrl;
     }
@@ -284,7 +284,7 @@ export class VexDO extends DurableObject {
     // Clear storage metadata and R2 objects
     const storageRows = this.sql.exec(`SELECT r2_key FROM _storage`).toArray() as { r2_key: string }[];
     if (storageRows.length > 0) {
-      const r2 = (this.env as any).VEX_STORAGE as R2Bucket | undefined;
+      const r2 = (this.env as any).ZEROBACK_STORAGE as R2Bucket | undefined;
       if (r2) {
         for (const row of storageRows) {
           r2.delete(row.r2_key);
@@ -311,7 +311,7 @@ export class VexDO extends DurableObject {
     return new Response("OK");
   }
 
-  // -- Admin run (CLI `vex run`) --
+  // -- Admin run (CLI `zeroback run`) --
 
   private async handleAdminRun(req: Request): Promise<Response> {
     const json = { "Content-Type": "application/json" };
@@ -400,7 +400,7 @@ export class VexDO extends DurableObject {
     ).toArray() as { r2_key: string }[];
 
     if (rows.length > 0) {
-      const r2 = (this.env as any).VEX_STORAGE as R2Bucket | undefined;
+      const r2 = (this.env as any).ZEROBACK_STORAGE as R2Bucket | undefined;
       if (r2) {
         await r2.delete(rows[0].r2_key);
       }
@@ -413,11 +413,11 @@ export class VexDO extends DurableObject {
   // -- Storage ops --
 
   private createStorageOps(): StorageOps {
-    const r2 = (this.env as any).VEX_STORAGE as R2Bucket | undefined;
+    const r2 = (this.env as any).ZEROBACK_STORAGE as R2Bucket | undefined;
     const doId = this.ctx.id.toString();
 
     const requireR2 = (): R2Bucket => {
-      if (!r2) throw new Error("File storage not configured. Add a [[r2_buckets]] binding named VEX_STORAGE to your wrangler.toml.");
+      if (!r2) throw new Error("File storage not configured. Add a [[r2_buckets]] binding named ZEROBACK_STORAGE to your wrangler.toml.");
       return r2;
     };
 
@@ -766,7 +766,7 @@ export class VexDO extends DurableObject {
       return;
     }
 
-    for (let attempt = 0; attempt <= VexDO.MAX_OCC_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= ZerobackDO.MAX_OCC_RETRIES; attempt++) {
       const txId = crypto.randomUUID();
       this.transactions.begin(txId, this.latestTs, "mutation");
 
@@ -782,8 +782,8 @@ export class VexDO extends DurableObject {
           const hasConflicts = this.checkConflicts(readSet, mutationTx!.beginTs);
           if (hasConflicts) {
             this.transactions.remove(txId);
-            if (attempt < VexDO.MAX_OCC_RETRIES) {
-              await VexDO.occBackoff(attempt);
+            if (attempt < ZerobackDO.MAX_OCC_RETRIES) {
+              await ZerobackDO.occBackoff(attempt);
               continue;
             }
             ws.send(
@@ -913,7 +913,7 @@ export class VexDO extends DurableObject {
 
   // -- Action context --
 
-  private createActionCtx(): { runQuery: (fnName: string, args?: unknown) => Promise<any>; runMutation: (fnName: string, args?: unknown) => Promise<any>; runAction: (fnName: string, args?: unknown) => Promise<any>; scheduler: ReturnType<typeof VexDO.prototype.createScheduler>; storage: StorageActions } {
+  private createActionCtx(): { runQuery: (fnName: string, args?: unknown) => Promise<any>; runMutation: (fnName: string, args?: unknown) => Promise<any>; runAction: (fnName: string, args?: unknown) => Promise<any>; scheduler: ReturnType<typeof ZerobackDO.prototype.createScheduler>; storage: StorageActions } {
     const storageOps = this.createStorageOps();
     return {
       runQuery: async (fnName: string, args?: unknown) => {
@@ -932,7 +932,7 @@ export class VexDO extends DurableObject {
         const fn = this.functions[fnName];
         if (!fn || fn.type !== "mutation") throw new Error(`Mutation not found: ${fnName}`);
         // Run the mutation through the same path as handleMutation (with OCC retries)
-        for (let attempt = 0; attempt <= VexDO.MAX_OCC_RETRIES; attempt++) {
+        for (let attempt = 0; attempt <= ZerobackDO.MAX_OCC_RETRIES; attempt++) {
           const txId = crypto.randomUUID();
           this.transactions.begin(txId, this.latestTs, "mutation");
           try {
@@ -943,8 +943,8 @@ export class VexDO extends DurableObject {
 
             if (readSet.length > 0 && this.checkConflicts(readSet, mutationTx!.beginTs)) {
               this.transactions.remove(txId);
-              if (attempt < VexDO.MAX_OCC_RETRIES) {
-                await VexDO.occBackoff(attempt);
+              if (attempt < ZerobackDO.MAX_OCC_RETRIES) {
+                await ZerobackDO.occBackoff(attempt);
                 continue;
               }
               throw new Error("Transaction conflict — max retries exceeded");
@@ -1292,6 +1292,6 @@ function prefixFilterColumns(sql: string, alias: string): string {
 }
 
 export interface Env {
-  VEX_DO: DurableObjectNamespace;
-  VEX_STORAGE?: R2Bucket;
+  ZEROBACK_DO: DurableObjectNamespace;
+  ZEROBACK_STORAGE?: R2Bucket;
 }

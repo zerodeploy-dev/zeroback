@@ -1,11 +1,11 @@
 # React Hooks
 
-The `@vex/react` package provides React hooks for building real-time UIs with Vex.
+The `@zeroback/react` package provides React hooks for building real-time UIs with Zeroback.
 
 ## Installation
 
 ```bash
-npm install @vex/react @vex/client
+npm install @zeroback/react @zeroback/client
 ```
 
 ## Setup
@@ -13,8 +13,8 @@ npm install @vex/react @vex/client
 Wrap your app with `ConvexProvider` and pass a `ConvexClient` instance:
 
 ```tsx
-import { ConvexClient } from "@vex/client";
-import { ConvexProvider } from "@vex/react";
+import { ConvexClient } from "@zeroback/client";
+import { ConvexProvider } from "@zeroback/react";
 
 const client = new ConvexClient("ws://localhost:8788/ws");
 
@@ -58,7 +58,7 @@ function ConvexProvider({ children, client }: ConvexProviderProps): JSX.Element
 | Prop | Type | Description |
 |------|------|-------------|
 | `children` | `React.ReactNode` | Child components |
-| `client` | `ConvexClient` | A `ConvexClient` instance from `@vex/client` |
+| `client` | `ConvexClient` | A `ConvexClient` instance from `@zeroback/client` |
 
 ## `useQuery(ref, args?)`
 
@@ -83,8 +83,8 @@ function useQuery<Ref extends FunctionReference<"query">>(
 - Re-subscribes when `ref` or `args` change.
 
 ```tsx
-import { api } from "../vex/_generated/api";
-import { useQuery } from "@vex/react";
+import { api } from "../zeroback/_generated/api";
+import { useQuery } from "@zeroback/react";
 
 function TaskList({ projectId }: { projectId: string }) {
   const tasks = useQuery(api.tasks.listByProject, { projectId });
@@ -165,8 +165,8 @@ function useMutation<Ref extends FunctionReference<"mutation">>(
 **Returns:** An async function that executes the mutation when called.
 
 ```tsx
-import { api } from "../vex/_generated/api";
-import { useMutation } from "@vex/react";
+import { api } from "../zeroback/_generated/api";
+import { useMutation } from "@zeroback/react";
 
 function CreateTask({ projectId }: { projectId: string }) {
   const createTask = useMutation(api.tasks.create);
@@ -280,7 +280,7 @@ Automatically resets when `args` change.
 The query function must accept `cursor` and `numItems` args and return a `PaginationResult`:
 
 ```ts
-// vex/tasks.ts
+// zeroback/tasks.ts
 export const listPaginated = query({
   args: {
     projectId: v.string(),
@@ -300,8 +300,8 @@ export const listPaginated = query({
 ### Client Usage
 
 ```tsx
-import { api } from "../vex/_generated/api";
-import { usePaginatedQuery } from "@vex/react";
+import { api } from "../zeroback/_generated/api";
+import { usePaginatedQuery } from "@zeroback/react";
 
 function TaskList({ projectId }: { projectId: string }) {
   const { results, status, loadMore } = usePaginatedQuery(
@@ -341,7 +341,7 @@ function useConnectionState(): ConnectionState
 **Returns:** `"connecting" | "connected" | "disconnected"`
 
 ```tsx
-import { useConnectionState } from "@vex/react";
+import { useConnectionState } from "@zeroback/react";
 
 function ConnectionBanner() {
   const state = useConnectionState();
@@ -367,7 +367,7 @@ function useConvexClient(): ConvexClient
 Throws if called outside a `ConvexProvider`.
 
 ```tsx
-import { useConvexClient } from "@vex/react";
+import { useConvexClient } from "@zeroback/react";
 
 function AdvancedComponent() {
   const client = useConvexClient();

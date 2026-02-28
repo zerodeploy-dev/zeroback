@@ -8,7 +8,7 @@ import { run } from "./commands/run.js";
 import * as path from "path";
 
 function parseDeployArgs(argv: string[]): {
-  vexDir?: string;
+  functionsDir?: string;
   dryRun: boolean;
   wranglerArgs: string[];
 } {
@@ -19,9 +19,9 @@ function parseDeployArgs(argv: string[]): {
 
   const dryRun = before.includes("--dry-run");
   const positional = before.filter((a) => !a.startsWith("--"));
-  const vexDir = positional[0] || undefined;
+  const functionsDir = positional[0] || undefined;
 
-  return { vexDir, dryRun, wranglerArgs };
+  return { functionsDir, dryRun, wranglerArgs };
 }
 
 const command = process.argv[2];
@@ -37,8 +37,8 @@ switch (command) {
   }
 
   case "dev": {
-    const vexDir = process.argv[3] || undefined;
-    dev({ vexDir }).catch((e) => {
+    const functionsDir = process.argv[3] || undefined;
+    dev({ functionsDir }).catch((e) => {
       console.error(e);
       process.exit(1);
     });
@@ -46,8 +46,8 @@ switch (command) {
   }
 
   case "deploy": {
-    const { vexDir, dryRun, wranglerArgs } = parseDeployArgs(process.argv);
-    deploy({ vexDir, dryRun, wranglerArgs }).catch((e) => {
+    const { functionsDir, dryRun, wranglerArgs } = parseDeployArgs(process.argv);
+    deploy({ functionsDir, dryRun, wranglerArgs }).catch((e) => {
       console.error(e);
       process.exit(1);
     });
@@ -55,9 +55,9 @@ switch (command) {
   }
 
   case "codegen": {
-    const vexDir = path.resolve(process.argv[3] || "./vex");
+    const functionsDir = path.resolve(process.argv[3] || "./zeroback");
     const workerDir = prepareWorkerDir();
-    buildAndGenerate(vexDir, workerDir).catch((e) => {
+    buildAndGenerate(functionsDir, workerDir).catch((e) => {
       console.error(e);
       process.exit(1);
     });
@@ -68,7 +68,7 @@ switch (command) {
     const runArgs = process.argv.slice(3);
     const fnName = runArgs.find((a) => !a.startsWith("--"));
     if (!fnName) {
-      console.error("Usage: vex run <functionName> [jsonArgs] [--url <url>]");
+      console.error("Usage: zeroback run <functionName> [jsonArgs] [--url <url>]");
       process.exit(1);
     }
 
@@ -99,14 +99,14 @@ switch (command) {
 
   default:
     console.log(`
-vex - Open-source backend on Cloudflare
+zeroback - Open-source backend on Cloudflare
 
 Usage:
-  vex init [dir]                          Scaffold a new project
-  vex dev [vexDir]                        Start development server
-  vex codegen [vexDir]                    Run codegen without starting dev server
-  vex deploy [vexDir] [--dry-run] [-- …]  Codegen + wrangler deploy
-  vex run <fn> [jsonArgs] [--url <url>]   Invoke a function on the dev server
+  zeroback init [dir]                          Scaffold a new project
+  zeroback dev [functionsDir]                        Start development server
+  zeroback codegen [functionsDir]                    Run codegen without starting dev server
+  zeroback deploy [functionsDir] [--dry-run] [-- …]  Codegen + wrangler deploy
+  zeroback run <fn> [jsonArgs] [--url <url>]   Invoke a function on the dev server
 `);
     process.exit(command ? 1 : 0);
 }

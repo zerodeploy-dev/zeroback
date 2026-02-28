@@ -1,5 +1,5 @@
 import { query, mutation, action } from "./_generated/server";
-import { v } from "@vex/values";
+import { v } from "@zeroback/values";
 
 export const generateUploadUrl = mutation({
   args: {},

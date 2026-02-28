@@ -27,7 +27,7 @@ Mutations use OCC with timestamp-based conflict detection:
 
 ## Type-Safe Codegen
 
-Running `vex dev` (or `vex deploy` / `vex codegen`) generates three files in `vex/_generated/`:
+Running `zeroback dev` (or `zeroback deploy` / `zeroback codegen`) generates three files in `zeroback/_generated/`:
 
 | File | Purpose |
 |------|---------|

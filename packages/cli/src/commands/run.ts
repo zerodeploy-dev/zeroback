@@ -14,7 +14,7 @@ export async function run(opts: {
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error(`Error: Could not connect to ${opts.url}\n  ${msg}\n\nIs \`vex dev\` running?`)
+    console.error(`Error: Could not connect to ${opts.url}\n  ${msg}\n\nIs \`zeroback dev\` running?`)
     process.exit(1)
   }
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@vex/react";
-import { api } from "../vex/_generated/api";
+import { useQuery, useMutation } from "@zeroback/react";
+import { api } from "../zeroback/_generated/api";
 
 interface Task {
   _id: string;

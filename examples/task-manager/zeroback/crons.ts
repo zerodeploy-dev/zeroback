@@ -1,4 +1,4 @@
-import { cronJobs } from "@vex/server";
+import { cronJobs } from "@zeroback/server";
 
 const crons = cronJobs();
 

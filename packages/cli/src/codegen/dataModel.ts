@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import type { SchemaJSON } from "@vex/server";
+import type { SchemaJSON } from "@zeroback/server";
 import { validatorTypeToTs, quotePropertyName } from "./utils.js";
 
 export function generateDataModel(schema: SchemaJSON, outputPath: string): void {

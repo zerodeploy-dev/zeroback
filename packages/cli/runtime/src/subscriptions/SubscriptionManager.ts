@@ -1,4 +1,4 @@
-import type { ReadSetEntry, FilterExpressionJSON } from "@vex/server";
+import type { ReadSetEntry, FilterExpressionJSON } from "@zeroback/server";
 import { evaluateFilter } from "../db/FilterEngine";
 
 export interface QueryDescriptor {

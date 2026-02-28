@@ -10,21 +10,21 @@ import { existsSync, mkdirSync } from "fs";
 import { prepareWorkerDir } from "./prepare.js";
 
 export interface DevConfig {
-  vexDir?: string;
+  functionsDir?: string;
   port?: number;
 }
 
-export async function buildAndGenerate(vexDir: string, workerDir: string): Promise<void> {
+export async function buildAndGenerate(functionsDir: string, workerDir: string): Promise<void> {
   // 1. Analyze
-  const schemaPath = path.join(vexDir, "schema.ts");
+  const schemaPath = path.join(functionsDir, "schema.ts");
   const schema = existsSync(schemaPath) ? extractSchema(schemaPath) : { tables: {} };
-  const manifest = extractFunctions(vexDir);
+  const manifest = extractFunctions(functionsDir);
 
   const fnCount = Object.keys(manifest).length;
   const tableCount = Object.keys(schema.tables).length;
 
   // 2. Codegen
-  const generatedDir = path.join(vexDir, "_generated");
+  const generatedDir = path.join(functionsDir, "_generated");
   mkdirSync(generatedDir, { recursive: true });
   generateApi(manifest, path.join(generatedDir, "api.ts"));
   generateServer(schema, path.join(generatedDir, "server.ts"));
@@ -32,26 +32,26 @@ export async function buildAndGenerate(vexDir: string, workerDir: string): Promi
 
   // 3. Bundle user functions + schema
   const outfile = path.join(workerDir, "src/_functions.generated.ts");
-  await bundle(vexDir, outfile, schema);
+  await bundle(functionsDir, outfile, schema);
 
   console.log(`  ✓ Bundled ${fnCount} functions, ${tableCount} tables`);
 }
 
 export async function dev(config: DevConfig = {}): Promise<void> {
-  const vexDir = path.resolve(config.vexDir || "./vex");
+  const functionsDir = path.resolve(config.functionsDir || "./zeroback");
   const workerDir = prepareWorkerDir();
   const port = config.port || 8788;
 
-  console.log("▲ vex dev\n");
+  console.log("▲ zeroback dev\n");
 
-  if (!existsSync(vexDir)) {
-    console.error(`Error: ${vexDir} not found. Create a vex/ directory with your functions.`);
+  if (!existsSync(functionsDir)) {
+    console.error(`Error: ${functionsDir} not found. Create a zeroback/ directory with your functions.`);
     process.exit(1);
   }
 
   // Initial build
   try {
-    await buildAndGenerate(vexDir, workerDir);
+    await buildAndGenerate(functionsDir, workerDir);
   } catch (e) {
     console.error("  ✗", e instanceof Error ? e.message : e);
   }
@@ -61,7 +61,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
   const wrangler = startWrangler(port);
 
   // Watch for changes
-  const watcher = chokidar.watch(vexDir, {
+  const watcher = chokidar.watch(functionsDir, {
     ignoreInitial: true,
     ignored: ["**/_generated/**", "**/node_modules/**"],
   });
@@ -69,7 +69,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
   watcher.on("all", async (event, filePath) => {
     console.log(`\n  ↺ ${event} ${path.relative(process.cwd(), filePath)}`);
     try {
-      await buildAndGenerate(vexDir, workerDir);
+      await buildAndGenerate(functionsDir, workerDir);
     } catch (e) {
       console.error("  ✗", e instanceof Error ? e.message : e);
     }

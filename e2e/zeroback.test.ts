@@ -1,19 +1,19 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { VexTestClient, sleep } from "./harness";
+import { ZerobackTestClient, sleep } from "./harness";
 import WS from "ws";
 // Polyfill WebSocket for Node so ConvexClient works in tests
 (globalThis as any).WebSocket = WS;
 import { ConvexClient, QueryStore } from "../packages/client/src/index";
 import type { LocalStore } from "../packages/client/src/index";
 
-let client: VexTestClient;
+let client: ZerobackTestClient;
 
 afterEach(() => {
   client?.close();
 });
 
-async function freshClient(): Promise<VexTestClient> {
-  const c = new VexTestClient();
+async function freshClient(): Promise<ZerobackTestClient> {
+  const c = new ZerobackTestClient();
   client = c;
   await c.connect();
   return c;
@@ -34,7 +34,7 @@ function taskArgs(overrides: Record<string, unknown> = {}) {
 /**
  * Wait briefly and assert no subscription update arrives.
  */
-async function expectNoUpdate(c: VexTestClient, subId: string, waitMs = 1000): Promise<void> {
+async function expectNoUpdate(c: ZerobackTestClient, subId: string, waitMs = 1000): Promise<void> {
   let gotUpdate = false;
   const cb = c.onNextUpdate(subId, () => { gotUpdate = true; });
   await sleep(waitMs);
@@ -295,7 +295,7 @@ describe("subscriptions", () => {
 // Multiple clients
 // ---------------------------------------------------------------------------
 describe("multiple clients", () => {
-  let client2: VexTestClient;
+  let client2: ZerobackTestClient;
 
   afterEach(() => {
     client2?.close();
@@ -303,7 +303,7 @@ describe("multiple clients", () => {
 
   it("client2 should see mutations from client1 via subscription", async () => {
     const c1 = await freshClient();
-    client2 = new VexTestClient();
+    client2 = new ZerobackTestClient();
     await client2.connect();
 
     const proj = `multi-${Date.now()}`;
@@ -320,7 +320,7 @@ describe("multiple clients", () => {
 
   it("both clients can query independently", async () => {
     const c1 = await freshClient();
-    client2 = new VexTestClient();
+    client2 = new ZerobackTestClient();
     await client2.connect();
 
     const proj = `multi-q-${Date.now()}`;

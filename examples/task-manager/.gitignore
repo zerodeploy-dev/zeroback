@@ -1,5 +1,5 @@
 node_modules/
-.vex/
+.zeroback/
 .wrangler/
 wrangler.toml
 _generated/

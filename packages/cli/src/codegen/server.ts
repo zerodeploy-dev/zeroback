@@ -1,11 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
-import type { SchemaJSON } from "@vex/server";
+import type { SchemaJSON } from "@zeroback/server";
 import { validatorTypeToTs, quotePropertyName } from "./utils.js";
 
 export function generateServer(schema: SchemaJSON, outputPath: string): void {
   const lines: string[] = [
-    `import { createQueryFactory, createMutationFactory, createActionFactory, createInternalQueryFactory, createInternalMutationFactory, createInternalActionFactory } from "@vex/server";`,
+    `import { createQueryFactory, createMutationFactory, createActionFactory, createInternalQueryFactory, createInternalMutationFactory, createInternalActionFactory } from "@zeroback/server";`,
     "",
   ];
 

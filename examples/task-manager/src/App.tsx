@@ -4,14 +4,14 @@ import {
   useQuery,
   useMutation,
   useConnectionState,
-} from "@vex/react";
-import { ConvexClient } from "@vex/client";
-import { api } from "../vex/_generated/api";
+} from "@zeroback/react";
+import { ConvexClient } from "@zeroback/client";
+import { api } from "../zeroback/_generated/api";
 import { Board } from "./Board";
 import { TaskDetail } from "./TaskDetail";
 import "./styles.css";
 
-const globalKey = "__vex_client__" as keyof typeof globalThis;
+const globalKey = "__zeroback_client__" as keyof typeof globalThis;
 if (!(globalThis as any)[globalKey]) {
   (globalThis as any)[globalKey] = new ConvexClient("ws://localhost:8788/ws");
 }

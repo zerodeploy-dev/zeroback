@@ -1,4 +1,4 @@
-import type { ReadSetEntry, WriteSetEntry, FilterExpressionJSON } from "@vex/server";
+import type { ReadSetEntry, WriteSetEntry, FilterExpressionJSON } from "@zeroback/server";
 
 export type TransactionMode = "query" | "mutation";
 

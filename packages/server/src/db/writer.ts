@@ -1,7 +1,7 @@
 import { ulid } from "ulidx";
 import { DatabaseReader } from "./reader.js";
 import type { DbOps } from "../types.js";
-import type { Id } from "@vex/values";
+import type { Id } from "@zeroback/values";
 
 export class DatabaseWriter<DataModel> extends DatabaseReader<DataModel> {
   async insert<T extends keyof DataModel & string>(
