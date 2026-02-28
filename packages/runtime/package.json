@@ -13,5 +13,8 @@
     "@zeroback/server": "workspace:^",
     "@zeroback/values": "workspace:^",
     "ulidx": "^2.4.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
