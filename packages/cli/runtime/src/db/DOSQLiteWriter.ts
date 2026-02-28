@@ -56,8 +56,8 @@ export class DOSQLiteWriter {
       const info = this.tableColumns.get(table);
       if (!info) continue;
 
-      // Column names: _id, _creationTime, _ts, ...userFields
-      const colNames = ["_id", "_creationTime", "_ts", ...info.orderedFieldNames.map((f) => `"${f}"`)];
+      // Column names: _id, _ts, ...userFields
+      const colNames = ["_id", "_ts", ...info.orderedFieldNames.map((f) => `"${f}"`)];
       const colList = colNames.join(", ");
       const numColumns = colNames.length;
       const rowPlaceholder = `(${colNames.map(() => "?").join(", ")})`;

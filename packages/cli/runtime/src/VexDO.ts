@@ -1,3 +1,4 @@
+import { ulid } from "ulidx";
 import { DurableObject } from "cloudflare:workers";
 import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON } from "@vex/server";
 import { DatabaseReader, DatabaseWriter } from "@vex/server";
@@ -46,12 +47,9 @@ export class VexDO extends DurableObject {
     this.sql = ctx.storage.sql;
     this.schemaInfo = bundledSchema as SchemaJSON;
 
-    // Inject default by_creation_time and by_id indexes on every table
+    // Inject default by_id index on every table
     for (const tableInfo of Object.values(this.schemaInfo.tables)) {
       if (!tableInfo.indexes) tableInfo.indexes = [];
-      if (!tableInfo.indexes.some((i) => i.name === "by_creation_time")) {
-        tableInfo.indexes.push({ name: "by_creation_time", fields: ["_creationTime"] });
-      }
       if (!tableInfo.indexes.some((i) => i.name === "by_id")) {
         tableInfo.indexes.push({ name: "by_id", fields: ["_id"] });
       }
@@ -329,7 +327,7 @@ export class VexDO extends DurableObject {
   private validateDocument(table: string, data: Record<string, unknown>): void {
     const tableInfo = this.schemaInfo.tables[table];
     if (!tableInfo) return;
-    const { _id, _creationTime, _ts, ...userFields } = data;
+    const { _id, _ts, ...userFields } = data;
     validate(userFields, { type: "object", value: tableInfo.fields });
   }
 
@@ -411,7 +409,7 @@ export class VexDO extends DurableObject {
         if (!tx) throw new Error("Invalid transaction");
         const existing = await this.reader.getDocument(table, id, tx.beginTs);
         if (!existing) throw new Error(`Document ${id} not found`);
-        const fullDoc = { ...(data as any), _id: id, _creationTime: (existing.data as any)._creationTime };
+        const fullDoc = { ...(data as any), _id: id };
         this.validateDocument(table, fullDoc);
         this.transactions.addWrite(txId, { table, documentId: id, data: fullDoc });
       },
@@ -798,7 +796,7 @@ export class VexDO extends DurableObject {
   }
 
   private async scheduleJob(runAt: number, fnName: string, args: unknown): Promise<string> {
-    const id = crypto.randomUUID();
+    const id = ulid();
     this.sql.exec(
       `INSERT INTO scheduled_jobs (id, run_at, fn_name, args, status) VALUES (?, ?, ?, ?, 'pending')`,
       id, runAt, fnName, JSON.stringify(args)
@@ -973,7 +971,7 @@ export class VexDO extends DurableObject {
       // FTS results ordered by relevance (rank), with _id tiebreaker
       orderClause = `ORDER BY fts.rank, ${colPrefix}_id ASC`;
     } else {
-      const effectiveSortField = orderField ?? "_creationTime";
+      const effectiveSortField = orderField ?? "_id";
       const dir = orderDirection === "desc" ? "DESC" : "ASC";
       orderClause = `ORDER BY ${colPrefix}"${effectiveSortField}" ${dir}, ${colPrefix}_id ${dir}`;
     }

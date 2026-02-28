@@ -1,3 +1,4 @@
+import { ulid } from "ulidx";
 import { DatabaseReader } from "./reader.js";
 import type { DbOps } from "../types.js";
 import type { Id } from "@vex/values";
@@ -7,9 +8,8 @@ export class DatabaseWriter<DataModel> extends DatabaseReader<DataModel> {
     table: T,
     doc: Omit<DataModel[T], "_id" | "_creationTime">
   ): Promise<Id<T>> {
-    const id = `${table}/${crypto.randomUUID()}` as Id<T>;
-    const now = Date.now();
-    const fullDoc = { ...(doc as any), _id: id, _creationTime: now };
+    const id = `${table}/${ulid()}` as Id<T>;
+    const fullDoc = { ...(doc as any), _id: id };
     await this.ops.insert(table, id, fullDoc);
     return id;
   }

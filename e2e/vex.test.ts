@@ -847,10 +847,10 @@ describe("nested directory functions", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Default Indexes (by_creation_time, by_id)
+// Default Indexes (by_id)
 // ---------------------------------------------------------------------------
 describe("default indexes", () => {
-  it("by_creation_time returns documents ordered by creation time", async () => {
+  it("by_id returns documents ordered by creation time (ULID)", async () => {
     const c = await freshClient();
     const proj = `default-idx-${Date.now()}`;
 
@@ -860,7 +860,7 @@ describe("default indexes", () => {
     await sleep(10);
     await c.mutation("tasks:create", taskArgs({ title: "third", projectId: proj }));
 
-    // recent uses by_creation_time index with order("desc")
+    // recent uses by_id index with order("desc")
     const { result } = await c.query("tasks:recent", { limit: 100 });
 
     // Should include our tasks (and possibly others) in desc creation order
@@ -870,7 +870,7 @@ describe("default indexes", () => {
     expect(ours[1].title).toBe("second");
     expect(ours[2].title).toBe("first");
 
-    // Verify _creationTime is monotonically decreasing
+    // Verify _creationTime is monotonically decreasing (derived from ULID)
     expect(ours[0]._creationTime).toBeGreaterThanOrEqual(ours[1]._creationTime);
     expect(ours[1]._creationTime).toBeGreaterThanOrEqual(ours[2]._creationTime);
   });

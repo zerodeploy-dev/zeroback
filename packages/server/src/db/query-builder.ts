@@ -148,7 +148,7 @@ export class QueryBuilder<Doc> {
     let continueCursor: string | null = null;
     if (hasMore && page.length > 0) {
       const lastDoc = page[page.length - 1] as any;
-      const sortField = this.orderField ?? "_creationTime";
+      const sortField = this.orderField ?? "_id";
       continueCursor = encodeKeysetCursor({
         sortValue: lastDoc[sortField],
         lastId: lastDoc._id,

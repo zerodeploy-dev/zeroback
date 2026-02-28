@@ -1,3 +1,4 @@
+import { decodeTime } from "ulidx";
 import type { ValidatorJSON, SchemaJSON } from "@vex/server";
 
 // ---------------------------------------------------------------------------
@@ -83,7 +84,6 @@ export function generateTableDDL(
   // Build column definitions
   const colDefs: string[] = [
     `_id TEXT PRIMARY KEY`,
-    `_creationTime REAL NOT NULL`,
     `_ts INTEGER NOT NULL`,
   ];
 
@@ -97,15 +97,10 @@ export function generateTableDDL(
     `CREATE TABLE IF NOT EXISTS "${tableName}" (\n  ${colDefs.join(",\n  ")}\n)`
   );
 
-  // Default index on _creationTime
-  stmts.push(
-    `CREATE INDEX IF NOT EXISTS "${tableName}_by_creation_time" ON "${tableName}" (_creationTime)`
-  );
-
   // User-defined indexes
   for (const index of tableInfo.indexes || []) {
-    if (index.name === "by_creation_time" || index.name === "by_id") continue;
-    const indexCols = [...index.fields.map((f) => `"${f}"`), "_creationTime"].join(", ");
+    if (index.name === "by_id") continue;
+    const indexCols = [...index.fields.map((f) => `"${f}"`), "_id"].join(", ");
     stmts.push(
       `CREATE INDEX IF NOT EXISTS "${tableName}_${index.name}" ON "${tableName}" (${indexCols})`
     );
@@ -164,7 +159,6 @@ export function buildTableColumns(
 
     // System columns
     columns.set("_id", { name: "_id", sqlType: "TEXT", nullable: false, isJsonColumn: false, isBoolean: false });
-    columns.set("_creationTime", { name: "_creationTime", sqlType: "REAL", nullable: false, isJsonColumn: false, isBoolean: false });
     columns.set("_ts", { name: "_ts", sqlType: "INTEGER", nullable: false, isJsonColumn: false, isBoolean: false });
 
     for (const [fieldName, validatorJSON] of Object.entries(tableInfo.fields)) {
@@ -186,7 +180,7 @@ export function buildTableColumns(
 
 /**
  * Convert a JS document to an array of SQL parameters matching column order:
- * [_id, _creationTime, _ts, ...userFields]
+ * [_id, _ts, ...userFields]
  */
 export function docToSQLParams(
   doc: Record<string, unknown>,
@@ -195,7 +189,6 @@ export function docToSQLParams(
 ): unknown[] {
   const params: unknown[] = [
     doc._id,
-    doc._creationTime,
     commitTs,
   ];
 
@@ -232,9 +225,11 @@ export function sqlRowToDoc(
   row: Record<string, unknown>,
   info: TableColumnInfo
 ): Record<string, unknown> {
+  const id = row._id as string;
+  const ulidPart = id.split("/")[1] ?? id;
   const doc: Record<string, unknown> = {
-    _id: row._id,
-    _creationTime: row._creationTime,
+    _id: id,
+    _creationTime: decodeTime(ulidPart),
   };
 
   for (const fieldName of info.orderedFieldNames) {
@@ -342,13 +337,10 @@ function computeDesiredIndexes(
 ): Map<string, string[]> {
   const indexes = new Map<string, string[]>();
 
-  // Default by_creation_time index
-  indexes.set(`${tableName}_by_creation_time`, ["_creationTime"]);
-
   // User-defined indexes (matching generateTableDDL naming)
   for (const index of tableInfo.indexes || []) {
-    if (index.name === "by_creation_time" || index.name === "by_id") continue;
-    indexes.set(`${tableName}_${index.name}`, [...index.fields, "_creationTime"]);
+    if (index.name === "by_id") continue;
+    indexes.set(`${tableName}_${index.name}`, [...index.fields, "_id"]);
   }
 
   return indexes;
@@ -393,7 +385,6 @@ function rebuildTable(
   // 2. Create temp table with new schema
   const colDefs: string[] = [
     `_id TEXT PRIMARY KEY`,
-    `_creationTime REAL NOT NULL`,
     `_ts INTEGER NOT NULL`,
   ];
   for (const [fieldName, validatorJSON] of Object.entries(tableInfo.fields)) {
@@ -407,8 +398,8 @@ function rebuildTable(
   const existingCols = getTableColumns(sql, tableName);
   const existingColNames = new Set(existingCols.map((c) => c.name));
 
-  const selectExprs: string[] = ["_id", "_creationTime", "_ts"];
-  const insertCols: string[] = ["_id", "_creationTime", "_ts"];
+  const selectExprs: string[] = ["_id", "_ts"];
+  const insertCols: string[] = ["_id", "_ts"];
 
   for (const [fieldName, validatorJSON] of Object.entries(tableInfo.fields)) {
     const { sqlType, nullable } = validatorToSQLType(validatorJSON);
@@ -493,7 +484,7 @@ function migrateSearchIndexes(
   }
 }
 
-const SYSTEM_COLS = new Set(["_id", "_creationTime", "_ts"]);
+const SYSTEM_COLS = new Set(["_id", "_ts"]);
 
 export function migrateSchema(sql: SqlApi, schema: SchemaJSON): void {
   const existingTables = new Set(getExistingUserTables(sql));
