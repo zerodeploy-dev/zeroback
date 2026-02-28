@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import type { FunctionManifest } from "../analyze/extract";
+import { validatorTypeToTs, quotePropertyName } from "./utils.js";
 
 export function generateApi(manifest: FunctionManifest, outputPath: string): void {
   const lines: string[] = [
@@ -25,7 +26,7 @@ export function generateApi(manifest: FunctionManifest, outputPath: string): voi
       fullName: fnName,
       type: fn.type,
       argsType: fn.args.type === "object" && fn.args.value
-        ? `{ ${Object.entries(fn.args.value as Record<string, any>).map(([k, v]) => `${k}: ${validatorTypeToTs(v)}`).join("; ")} }`
+        ? `{ ${Object.entries(fn.args.value as Record<string, any>).map(([k, v]) => v.type === "optional" ? `${quotePropertyName(k)}?: ${validatorTypeToTs(v.value)}` : `${quotePropertyName(k)}: ${validatorTypeToTs(v)}`).join("; ")} }`
         : "Record<string, never>",
     };
 
@@ -71,13 +72,13 @@ function generateNestedObject(fns: FnEntry[]): string {
 
     // Render child namespaces
     for (const [name, child] of Object.entries(node.children)) {
-      lines.push(`${inner}${name}: ${renderNode(child, inner)},`);
+      lines.push(`${inner}${quotePropertyName(name)}: ${renderNode(child, inner)},`);
     }
 
     // Render functions at this level
     for (const fn of node.fns) {
       const refType = `"${fn.type}"`;
-      lines.push(`${inner}${fn.funcName}: { _name: "${fn.modulePath}:${fn.funcName}" as const, _type: ${refType} as const } as FunctionReference<${refType}, ${fn.argsType}, any>,`);
+      lines.push(`${inner}${quotePropertyName(fn.funcName)}: { _name: "${fn.modulePath}:${fn.funcName}" as const, _type: ${refType} as const } as FunctionReference<${refType}, ${fn.argsType}, any>,`);
     }
 
     lines.push(`${indent}}`);
@@ -85,26 +86,4 @@ function generateNestedObject(fns: FnEntry[]): string {
   }
 
   return renderNode(root, "");
-}
-
-function validatorTypeToTs(json: any): string {
-  if (!json) return "unknown";
-  switch (json.type) {
-    case "string": return "string";
-    case "number": return "number";
-    case "boolean": return "boolean";
-    case "null": return "null";
-    case "any": return "any";
-    case "id": return "string";
-    case "literal": return typeof json.value === "string" ? `"${json.value}"` : `${json.value}`;
-    case "object": return "{ " + Object.entries(json.value || {}).map(([k, v]) => `${k}: ${validatorTypeToTs(v)}`).join("; ") + " }";
-    case "array": return `${validatorTypeToTs(json.value)}[]`;
-    case "union": return (json.value || []).map((v: any) => validatorTypeToTs(v)).join(" | ");
-    case "optional": return `${validatorTypeToTs(json.value)} | undefined`;
-    case "record": return `Record<${validatorTypeToTs(json.keys)}, ${validatorTypeToTs(json.values)}>`;
-    case "float64": return "number";
-    case "int64": return "bigint";
-    case "bytes": return "ArrayBuffer";
-    default: return "unknown";
-  }
 }

@@ -4,30 +4,43 @@ import type { SchemaJSON } from "@vex/server";
 
 function scanFiles(dir: string, rootDir: string): { relPath: string; moduleName: string }[] {
   const results: { relPath: string; moduleName: string }[] = [];
+  const seen = new Set<string>();
 
-  for (const entry of fs.readdirSync(dir)) {
-    if (entry.startsWith("_") || entry === "node_modules") continue;
-    const fullPath = path.join(dir, entry);
+  function walk(d: string): void {
+    for (const entry of fs.readdirSync(d)) {
+      if (entry.startsWith("_") || entry === "node_modules") continue;
+      const fullPath = path.join(d, entry);
 
-    if (fs.statSync(fullPath).isDirectory()) {
-      results.push(...scanFiles(fullPath, rootDir));
-      continue;
+      if (fs.statSync(fullPath).isDirectory()) {
+        walk(fullPath);
+        continue;
+      }
+
+      if (entry.endsWith(".d.ts") || entry.endsWith(".map")) continue;
+      if (!entry.endsWith(".ts") && !entry.endsWith(".js")) continue;
+      const baseName = path.basename(entry, path.extname(entry));
+
+      // Skip special top-level files (schema, http, crons) only at the root
+      if (d === rootDir) {
+        if (baseName === "schema" || baseName === "http" || baseName === "crons") continue;
+      }
+
+      const relPath = path.relative(rootDir, fullPath).replace(/\\/g, "/");
+      const moduleName = relPath.replace(/\.(ts|js)$/, "");
+
+      // Deduplicate: prefer .ts over .js
+      if (seen.has(moduleName)) continue;
+      seen.add(moduleName);
+      results.push({ relPath, moduleName });
     }
-
-    if (!entry.endsWith(".ts") && !entry.endsWith(".js")) continue;
-    const baseName = path.basename(entry, path.extname(entry));
-
-    // Skip special top-level files (schema, http, crons) only at the root
-    if (dir === rootDir) {
-      if (baseName === "schema" || baseName === "http" || baseName === "crons") continue;
-    }
-
-    const relPath = path.relative(rootDir, fullPath).replace(/\\/g, "/");
-    const moduleName = relPath.replace(/\.(ts|js)$/, "");
-    results.push({ relPath, moduleName });
   }
 
+  walk(dir);
   return results;
+}
+
+export function toSafeName(moduleName: string): string {
+  return moduleName.replace(/\//g, "$").replace(/[^a-zA-Z0-9_$]/g, "_");
 }
 
 /**
@@ -49,9 +62,16 @@ export async function bundle(vexDir: string, outfile: string, schema?: SchemaJSO
 
   const imports: string[] = [];
   const registrations: string[] = [];
+  const usedNames = new Set<string>();
 
   for (const { moduleName } of files) {
-    const safeName = moduleName.replace(/[^a-zA-Z0-9]/g, "_");
+    let safeName = toSafeName(moduleName);
+    if (usedNames.has(safeName)) {
+      let suffix = 2;
+      while (usedNames.has(`${safeName}_${suffix}`)) suffix++;
+      safeName = `${safeName}_${suffix}`;
+    }
+    usedNames.add(safeName);
     imports.push(`import * as ${safeName} from "${relVex}/${moduleName}";`);
     registrations.push(
       `for (const [name, fn] of Object.entries(${safeName})) {`,

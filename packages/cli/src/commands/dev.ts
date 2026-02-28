@@ -14,6 +14,29 @@ export interface DevConfig {
   port?: number;
 }
 
+export async function buildAndGenerate(vexDir: string, workerDir: string): Promise<void> {
+  // 1. Analyze
+  const schemaPath = path.join(vexDir, "schema.ts");
+  const schema = existsSync(schemaPath) ? extractSchema(schemaPath) : { tables: {} };
+  const manifest = extractFunctions(vexDir);
+
+  const fnCount = Object.keys(manifest).length;
+  const tableCount = Object.keys(schema.tables).length;
+
+  // 2. Codegen
+  const generatedDir = path.join(vexDir, "_generated");
+  mkdirSync(generatedDir, { recursive: true });
+  generateApi(manifest, path.join(generatedDir, "api.ts"));
+  generateServer(schema, path.join(generatedDir, "server.ts"));
+  generateDataModel(schema, path.join(generatedDir, "dataModel.ts"));
+
+  // 3. Bundle user functions + schema
+  const outfile = path.join(workerDir, "src/_functions.generated.ts");
+  await bundle(vexDir, outfile, schema);
+
+  console.log(`  ✓ Bundled ${fnCount} functions, ${tableCount} tables`);
+}
+
 export async function dev(config: DevConfig = {}): Promise<void> {
   const vexDir = path.resolve(config.vexDir || "./vex");
   const workerDir = path.resolve(config.workerDir || findWorkerDir());
@@ -26,35 +49,12 @@ export async function dev(config: DevConfig = {}): Promise<void> {
     process.exit(1);
   }
 
-  const buildAndGenerate = async () => {
-    try {
-      // 1. Analyze
-      const schemaPath = path.join(vexDir, "schema.ts");
-      const schema = existsSync(schemaPath) ? extractSchema(schemaPath) : { tables: {} };
-      const manifest = extractFunctions(vexDir);
-
-      const fnCount = Object.keys(manifest).length;
-      const tableCount = Object.keys(schema.tables).length;
-
-      // 2. Codegen
-      const generatedDir = path.join(vexDir, "_generated");
-      mkdirSync(generatedDir, { recursive: true });
-      generateApi(manifest, path.join(generatedDir, "api.ts"));
-      generateServer(schema, path.join(generatedDir, "server.ts"));
-      generateDataModel(schema, path.join(generatedDir, "dataModel.ts"));
-
-      // 3. Bundle user functions + schema
-      const outfile = path.join(workerDir, "src/_functions.generated.ts");
-      await bundle(vexDir, outfile, schema);
-
-      console.log(`  ✓ Bundled ${fnCount} functions, ${tableCount} tables`);
-    } catch (e) {
-      console.error("  ✗", e instanceof Error ? e.message : e);
-    }
-  };
-
   // Initial build
-  await buildAndGenerate();
+  try {
+    await buildAndGenerate(vexDir, workerDir);
+  } catch (e) {
+    console.error("  ✗", e instanceof Error ? e.message : e);
+  }
 
   // Start wrangler
   console.log(`  ⠋ Starting wrangler on port ${port}...`);
@@ -68,7 +68,11 @@ export async function dev(config: DevConfig = {}): Promise<void> {
 
   watcher.on("all", async (event, filePath) => {
     console.log(`\n  ↺ ${event} ${path.relative(process.cwd(), filePath)}`);
-    await buildAndGenerate();
+    try {
+      await buildAndGenerate(vexDir, workerDir);
+    } catch (e) {
+      console.error("  ✗", e instanceof Error ? e.message : e);
+    }
   });
 
   // Handle shutdown
@@ -82,7 +86,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
 }
 
 function startWrangler(workerDir: string, port: number): ChildProcess {
-  const child = spawn("npx", ["wrangler", "dev", "--port", String(port), "--persist-to", "../../.wrangler/state"], {
+  const child = spawn("bunx", ["wrangler", "dev", "--port", String(port), "--persist-to", "../../.wrangler/state"], {
     cwd: workerDir,
     stdio: "inherit",
     shell: true,
@@ -101,7 +105,7 @@ function startWrangler(workerDir: string, port: number): ChildProcess {
   return child;
 }
 
-function findWorkerDir(): string {
+export function findWorkerDir(): string {
   // Look for tenant-backend relative to common project structures
   const candidates = [
     "./cloudflare/tenant-backend",

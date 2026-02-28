@@ -220,8 +220,13 @@ function extractValidator(callExpr: ts.CallExpression, sf: ts.SourceFile): Valid
       return { type: "null" };
     case "v.any":
       return { type: "any" };
-    case "v.id":
-      return { type: "id", tableName: "unknown" };
+    case "v.id": {
+      let tableName = "unknown";
+      if (callExpr.arguments.length > 0 && ts.isStringLiteral(callExpr.arguments[0])) {
+        tableName = callExpr.arguments[0].text;
+      }
+      return { type: "id", tableName };
+    }
     case "v.object":
       if (callExpr.arguments.length > 0 && ts.isObjectLiteralExpression(callExpr.arguments[0])) {
         const value: Record<string, ValidatorJSON> = {};
@@ -245,6 +250,15 @@ function extractValidator(callExpr: ts.CallExpression, sf: ts.SourceFile): Valid
         return { type: "optional", value: extractValidator(callExpr.arguments[0], sf) };
       }
       return { type: "optional", value: { type: "any" } };
+    case "v.union": {
+      const variants: ValidatorJSON[] = [];
+      for (const arg of callExpr.arguments) {
+        if (ts.isCallExpression(arg)) {
+          variants.push(extractValidator(arg, sf));
+        }
+      }
+      return { type: "union", value: variants };
+    }
     case "v.literal":
       if (callExpr.arguments.length > 0) {
         const val = callExpr.arguments[0];

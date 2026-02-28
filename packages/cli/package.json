@@ -5,6 +5,12 @@
   "bin": {
     "vex": "./dist/index.js"
   },
+  "exports": {
+    ".": "./dist/index.js",
+    "./codegen": "./dist/codegen/utils.js",
+    "./analyze": "./dist/analyze/extract.js",
+    "./build": "./dist/build/bundle.js"
+  },
   "dependencies": {
     "@vex/values": "workspace:*",
     "@vex/server": "workspace:*",

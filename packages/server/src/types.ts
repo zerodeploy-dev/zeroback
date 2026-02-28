@@ -33,9 +33,9 @@ export type MutationCtx<DataModel> = {
 };
 
 export type ActionCtx<DataModel> = {
-  runQuery(fnName: string, args?: unknown): Promise<any>;
-  runMutation(fnName: string, args?: unknown): Promise<any>;
-  runAction(fnName: string, args?: unknown): Promise<any>;
+  runQuery<T>(fnName: string, args?: Record<string, unknown>): Promise<T>;
+  runMutation<T>(fnName: string, args?: Record<string, unknown>): Promise<T>;
+  runAction<T>(fnName: string, args?: Record<string, unknown>): Promise<T>;
   scheduler: Scheduler;
 };
 
