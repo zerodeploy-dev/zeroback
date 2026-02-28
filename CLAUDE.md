@@ -68,3 +68,8 @@ bun run typecheck
 - Wrangler for Cloudflare Workers CLI
 - No semicolons in most files (follow existing style per-file)
 - Exports from package entry points (`src/index.ts`) define the public API surface
+
+## Publishing
+
+- **Fixed versioning**: all packages share the same version number. When any package changes, bump all packages to the same new version before publishing.
+- Always use `bun publish` (not `npm publish`) — it resolves `workspace:^` to real version numbers in the published tarball.
