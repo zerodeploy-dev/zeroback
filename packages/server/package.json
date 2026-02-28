@@ -2,12 +2,17 @@
   "name": "@zeroback/server",
   "version": "0.0.1",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
+  "files": ["dist"],
   "dependencies": {
-    "@zeroback/values": "workspace:*",
+    "@zeroback/values": "workspace:^",
     "ulidx": "^2.4.1"
   },
   "scripts": {

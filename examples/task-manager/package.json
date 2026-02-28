@@ -8,11 +8,11 @@
     "deploy": "zeroback deploy"
   },
   "dependencies": {
-    "@zeroback/client": "workspace:*",
-    "@zeroback/react": "workspace:*",
-    "@zeroback/server": "workspace:*",
-    "@zeroback/values": "workspace:*",
-    "@zeroback/cli": "workspace:*",
+    "@zeroback/client": "workspace:^",
+    "@zeroback/react": "workspace:^",
+    "@zeroback/server": "workspace:^",
+    "@zeroback/values": "workspace:^",
+    "@zeroback/cli": "workspace:^",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },

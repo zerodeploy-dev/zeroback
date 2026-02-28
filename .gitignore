@@ -11,8 +11,9 @@ build/
 _generated/
 *.tgz
 
-# TypeScript build output
+# TypeScript build output (except scripts/)
 *.js
+!scripts/*.js
 *.js.map
 *.d.ts
 *.d.ts.map

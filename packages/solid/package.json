@@ -2,13 +2,18 @@
   "name": "@zeroback/solid",
   "version": "0.0.1",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
+  "files": ["dist"],
   "dependencies": {
-    "@zeroback/client": "workspace:*",
-    "@zeroback/server": "workspace:*"
+    "@zeroback/client": "workspace:^",
+    "@zeroback/server": "workspace:^"
   },
   "peerDependencies": {
     "solid-js": "^1.8.0"

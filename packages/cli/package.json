@@ -5,19 +5,30 @@
   "bin": {
     "zeroback": "./dist/index.js"
   },
-  "files": [
-    "dist",
-    "runtime"
-  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./codegen": "./src/codegen/utils.ts",
-    "./analyze": "./src/analyze/extract.ts",
-    "./build": "./src/build/bundle.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./codegen": {
+      "types": "./dist/codegen/utils.d.ts",
+      "import": "./dist/codegen/utils.js"
+    },
+    "./analyze": {
+      "types": "./dist/analyze/extract.d.ts",
+      "import": "./dist/analyze/extract.js"
+    },
+    "./build": {
+      "types": "./dist/build/bundle.d.ts",
+      "import": "./dist/build/bundle.js"
+    }
   },
+  "files": ["dist", "runtime"],
   "dependencies": {
-    "@zeroback/server": "workspace:*",
-    "@zeroback/values": "workspace:*",
+    "@zeroback/server": "workspace:^",
+    "@zeroback/values": "workspace:^",
     "chokidar": "^3.6.0",
     "typescript": "^5.6.0",
     "ulidx": "^2.4.1"

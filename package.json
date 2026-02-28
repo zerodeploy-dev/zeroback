@@ -8,11 +8,12 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "bun run --filter='*:*' build",
-    "dev": "bun run --filter='*:*' dev",
-    "typecheck": "bun run --filter='*:*' typecheck",
+    "build": "bun run --filter '*' build",
+    "dev": "bun run --filter '*' dev",
+    "typecheck": "bun run --filter '*' typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "publish:all": "bun scripts/publish.js"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
