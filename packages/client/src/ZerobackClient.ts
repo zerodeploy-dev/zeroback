@@ -1,5 +1,5 @@
 import { SubscriptionRegistry } from "./SubscriptionRegistry";
-import { Backoff } from "./Backoff";
+import { Backoff, type BackoffOptions } from "./Backoff";
 import { QueryStore } from "./QueryStore";
 import type { LocalStore, QueryKey } from "./QueryStore";
 import type { ClientMessage, ServerMessage } from "./Protocol";
@@ -13,6 +13,7 @@ export interface ZerobackClientOptions {
   persistence?: boolean | PersistenceAdapter;
   maxCacheAge?: number;
   schemaVersion?: string;
+  backoff?: BackoffOptions;
 }
 
 export class ZerobackClient {
@@ -23,7 +24,7 @@ export class ZerobackClient {
     reject: (reason: unknown) => void;
   }>();
   private url: string;
-  private backoff = new Backoff();
+  private backoff: Backoff;
   private isConnecting = false;
   private messageQueue: ClientMessage[] = [];
   private closed = false;
@@ -43,6 +44,7 @@ export class ZerobackClient {
   constructor(url: string, options?: ZerobackClientOptions) {
     this.url = url;
     this.options = options ?? {};
+    this.backoff = new Backoff(options?.backoff);
     this.subscriptions = new SubscriptionRegistry();
 
     if (this.options.persistence) {

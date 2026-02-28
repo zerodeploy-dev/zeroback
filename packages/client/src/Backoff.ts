@@ -1,8 +1,20 @@
+export interface BackoffOptions {
+  baseMs?: number;
+  maxMs?: number;
+  maxAttempts?: number;
+}
+
 export class Backoff {
   private attempt = 0;
-  private maxAttempts = 10;
-  private baseMs = 100;
-  private maxMs = 10000;
+  private maxAttempts: number;
+  private baseMs: number;
+  private maxMs: number;
+
+  constructor(opts?: BackoffOptions) {
+    this.baseMs = opts?.baseMs ?? 1000;
+    this.maxMs = opts?.maxMs ?? 30000;
+    this.maxAttempts = opts?.maxAttempts ?? 5;
+  }
 
   next(): number {
     const delay = Math.min(

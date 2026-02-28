@@ -1,7 +1,7 @@
 export { ZerobackClient } from "./ZerobackClient.js";
 export type { ConnectionState, ZerobackClientOptions } from "./ZerobackClient.js";
 export { SubscriptionRegistry } from "./SubscriptionRegistry.js";
-export { Backoff } from "./Backoff.js";
+export { Backoff, type BackoffOptions } from "./Backoff.js";
 export { QueryStore } from "./QueryStore.js";
 export type { LocalStore } from "./QueryStore.js";
 export type { ClientMessage, ServerMessage } from "./Protocol.js";
