@@ -144,7 +144,7 @@ This will:
 │  Cloudflare Worker                              │
 │  Routes requests to Durable Object              │
 │ ┌─────────────────────────────────────────────┐ │
-│ │  ZerobackDO (Durable Object)                     │ │
+│ │  ZerobackDO (Durable Object)                │ │
 │ │                                             │ │
 │ │  ┌──────────┐ ┌────────────┐ ┌───────────┐ │ │
 │ │  │ User     │ │ Transaction│ │Subscription│ │ │
@@ -160,9 +160,22 @@ This will:
 └─────────────────────────────────────────────────┘
 ```
 
-**Single Durable Object per tenant.** All queries, mutations, subscriptions, and WebSocket connections go through one DO instance. This gives you strong consistency without distributed coordination.
+**Single Durable Object.** Everything — queries, mutations, subscriptions, and WebSocket connections — runs inside one Durable Object instance. This gives you strong consistency without distributed coordination, but it also means your app is bound by the limits of a single DO.
 
 **User functions run in-process.** Your `zeroback/` functions are bundled into the worker and executed directly inside the Durable Object — no inter-service RPCs.
+
+### Limits of a single Durable Object
+
+Zeroback runs entirely within one Cloudflare Durable Object. This keeps the architecture simple and strongly consistent, but comes with inherent platform constraints:
+
+| Limit | Value | Notes |
+|-------|-------|-------|
+| **Concurrent WebSocket connections** | ~1,000 | Self-imposed (`MAX_CONNECTIONS`). The real bottleneck is the single-threaded CPU — each message is processed sequentially |
+| **SQLite storage** | 10 GB | Cloudflare Durable Object storage limit |
+| **CPU per request** | 30s (Workers paid plan) | Each mutation/query must complete within this budget |
+| **Single-threaded execution** | 1 core | All queries, mutations, and subscription invalidations share one thread |
+
+For many apps (internal tools, collaborative docs, moderate-traffic SaaS), these limits are more than enough. If you need to scale beyond a single DO, you would need to shard across multiple Durable Objects — this is not built-in today.
 
 ## Packages
 
