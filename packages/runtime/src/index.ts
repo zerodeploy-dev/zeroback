@@ -89,13 +89,13 @@ export const workerHandler = {
     forwardUrl.pathname = tenant.forwardPath;
     const headers = new Headers(request.headers);
     headers.set("X-Zeroback-Base-Url", baseUrl);
-    const forwardReq = new Request(forwardUrl.toString(), {
+    const init = {
       method: request.method,
       headers,
       body: request.body,
-      // @ts-ignore — CF Workers support duplex
-      duplex: request.body ? "half" : undefined,
-    });
+      duplex: request.body ? ("half" as const) : undefined,
+    };
+    const forwardReq = new Request(forwardUrl.toString(), init);
 
     return doStub.fetch(forwardReq);
   },
