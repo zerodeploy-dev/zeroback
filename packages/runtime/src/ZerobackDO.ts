@@ -31,7 +31,9 @@ export interface RuntimeConfig {
   cronJobsDef: any | null;
 }
 
-export function createZerobackDO(config: RuntimeConfig) {
+export function createZerobackDO(config: RuntimeConfig): {
+  new (ctx: DurableObjectState, env: Env): DurableObject<Env>;
+} {
   return class ZerobackDO extends DurableObject<Env> {
   private latestTs: number = 0;
   private transactions: TransactionStore;
@@ -250,7 +252,7 @@ export function createZerobackDO(config: RuntimeConfig) {
         result = await executeMutation(this.mutationDeps, fnName, args);
       } else {
         const txId = crypto.randomUUID();
-        this.transactions.begin(txId, this.latestTs, fn.type);
+        this.transactions.begin(txId, this.latestTs, "query");
         try {
           const invoked = await this.invokeFunction(fnName, args, txId);
           result = invoked.result;
