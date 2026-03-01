@@ -136,6 +136,7 @@ export type WriteSetEntry = {
 export type FunctionManifest = {
   [fnName: string]: {
     type: "query" | "mutation" | "action";
+    isInternal: boolean;
     args: ValidatorJSON;
     returnsTypeString: string;
   };

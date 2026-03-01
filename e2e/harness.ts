@@ -1,14 +1,7 @@
 import WebSocket from "ws";
+import type { ServerMessage } from "@zeroback/values";
 
 const PORT = 8788;
-
-type ServerMessage =
-  | { type: "result"; id: string; result: any }
-  | { type: "update"; id: string; result: any }
-  | { type: "updates"; items: { id: string; result: any }[] }
-  | { type: "mutationResult"; id: string; result: any }
-  | { type: "error"; id?: string; code: string; message: string }
-  | { type: "reset" };
 
 export class ZerobackTestClient {
   private ws!: WebSocket;

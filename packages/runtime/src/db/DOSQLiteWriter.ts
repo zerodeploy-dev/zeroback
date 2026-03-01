@@ -1,20 +1,14 @@
+import type { WriteSetEntry } from "@zeroback/server";
 import type { TableColumnInfo } from "./SchemaMapper";
 import { docToSQLParams } from "./SchemaMapper";
-
-export interface WriteSetEntry {
-  table: string;
-  documentId: string;
-  data: unknown | null;
-}
-
-/** Max bound parameters per SQL statement on Cloudflare DO SQLite. */
-const MAX_PARAMS = 100;
+import { MAX_PARAMS } from "../constants";
+import type { SqlApi } from "../types";
 
 export class DOSQLiteWriter {
-  private sql: any;
+  private sql: SqlApi;
   private tableColumns: Map<string, TableColumnInfo>;
 
-  constructor(sql: any, tableColumns: Map<string, TableColumnInfo>) {
+  constructor(sql: SqlApi, tableColumns: Map<string, TableColumnInfo>) {
     this.sql = sql;
     this.tableColumns = tableColumns;
   }

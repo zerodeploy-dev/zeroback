@@ -1,43 +1,8 @@
 import * as ts from "typescript";
 import * as path from "path";
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
-
-export type ValidatorJSON =
-  | { type: "string" }
-  | { type: "number" }
-  | { type: "boolean" }
-  | { type: "null" }
-  | { type: "id"; tableName: string }
-  | { type: "object"; value: Record<string, ValidatorJSON> }
-  | { type: "array"; value: ValidatorJSON }
-  | { type: "union"; value: ValidatorJSON[] }
-  | { type: "literal"; value: string | number | boolean }
-  | { type: "any" }
-  | { type: "optional"; value: ValidatorJSON }
-  | { type: "record"; keys: ValidatorJSON; values: ValidatorJSON }
-  | { type: "float64" }
-  | { type: "int64" }
-  | { type: "bytes" };
-
-export type FunctionManifest = {
-  [fnName: string]: {
-    type: "query" | "mutation" | "action";
-    isInternal: boolean;
-    args: ValidatorJSON;
-    returnsTypeString: string;
-  };
-};
-
-export type SchemaJSON = {
-  tables: Record<
-    string,
-    {
-      fields: Record<string, ValidatorJSON>;
-      indexes: { name: string; fields: string[] }[];
-      searchIndexes?: { name: string; searchField: string }[];
-    }
-  >;
-};
+import type { ValidatorJSON } from "@zeroback/values";
+import type { FunctionManifest, SchemaJSON } from "@zeroback/server";
 
 export function extractFunctions(vexDir: string): FunctionManifest {
   const manifest: FunctionManifest = {};

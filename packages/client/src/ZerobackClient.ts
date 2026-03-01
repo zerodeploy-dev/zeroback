@@ -2,7 +2,7 @@ import { SubscriptionRegistry } from "./SubscriptionRegistry";
 import { Backoff, type BackoffOptions } from "./Backoff";
 import { QueryStore } from "./QueryStore";
 import type { LocalStore, QueryKey } from "./QueryStore";
-import type { ClientMessage, ServerMessage } from "./Protocol";
+import type { ClientMessage, ServerMessage } from "@zeroback/values";
 import type { PersistenceAdapter } from "./persistence/PersistenceAdapter.js";
 import { IDBPersistence } from "./persistence/IDBPersistence.js";
 import { MutationQueue } from "./persistence/MutationQueue.js";

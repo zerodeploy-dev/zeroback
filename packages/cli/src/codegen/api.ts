@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import type { FunctionManifest } from "../analyze/extract.js";
+import type { FunctionManifest } from "@zeroback/server";
 import { validatorTypeToTs, quotePropertyName } from "./utils.js";
 
 export function generateApi(manifest: FunctionManifest, outputPath: string): void {

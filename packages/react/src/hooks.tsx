@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useContext, createContext, useSyncExternalStore, useRef } from "react";
-import { ZerobackClient, QueryStore } from "@zeroback/client";
-import type { ConnectionState, LocalStore } from "@zeroback/client";
-import type { FunctionReference } from "@zeroback/server";
+import { ZerobackClient, QueryStore, subscribePaginationPages, computeStatus } from "@zeroback/client";
+import type { ConnectionState, LocalStore, FunctionReference, PaginationStatus } from "@zeroback/client";
 
 const ZerobackContext = createContext<ZerobackClient | null>(null);
 
@@ -114,7 +113,7 @@ export function useConnectionState(): ConnectionState {
 
 export type UsePaginatedQueryResult<T> = {
   results: T[];
-  status: "LoadingFirstPage" | "CanLoadMore" | "Exhausted";
+  status: PaginationStatus;
   loadMore: (numItems: number) => void;
 };
 
@@ -145,45 +144,10 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
   // Subscribe to each page
   const pageCount = numItemsPerPage.length;
   useEffect(() => {
-    const unsubscribes: (() => void)[] = [];
-
-    for (let i = 0; i < pageCount; i++) {
-      const cursor = cursors[i] ?? null;
-      // Skip pages we don't have a cursor for yet (except page 0)
-      if (i > 0 && cursor === undefined) break;
-
-      const pageArgs: Record<string, unknown> = { ...JSON.parse(argsKey), numItems: numItemsPerPage[i] };
-      if (cursor !== null && cursor !== undefined) {
-        pageArgs.cursor = cursor;
-      }
-      const pageIndex = i;
-
-      const unsub = client.subscribe(ref._name, pageArgs, (data: unknown) => {
-        const result = data as { page: any[]; continueCursor: string | null; isDone: boolean };
-        setPages((prev) => {
-          const updated = [...prev];
-          updated[pageIndex] = result.page;
-          return updated;
-        });
-
-        // Update cursor for the next page
-        if (pageIndex === cursors.length - 1 || result.continueCursor !== cursors[pageIndex + 1]) {
-          setCursors((prev) => {
-            const updated = [...prev];
-            updated[pageIndex + 1] = result.continueCursor;
-            return updated;
-          });
-        }
-
-        if (result.isDone) {
-          setIsDone(true);
-        } else if (pageIndex === pageCount - 1) {
-          setIsDone(false);
-        }
-      });
-
-      unsubscribes.push(unsub);
-    }
+    const unsubscribes = subscribePaginationPages(
+      client, ref._name, argsKey, pageCount, cursors, numItemsPerPage,
+      { setPages, setCursors, setIsDone, setNumItemsPerPage },
+    );
 
     return () => {
       for (const unsub of unsubscribes) unsub();
@@ -191,13 +155,7 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
   }, [client, ref._name, argsKey, pageCount, JSON.stringify(cursors.slice(0, pageCount)), JSON.stringify(numItemsPerPage)]);
 
   const results = pages.flat();
-
-  const status: UsePaginatedQueryResult<any>["status"] =
-    pages.length === 0
-      ? "LoadingFirstPage"
-      : isDone
-        ? "Exhausted"
-        : "CanLoadMore";
+  const status = computeStatus(pages, isDone);
 
   const loadMore = useCallback((numItems: number) => {
     setNumItemsPerPage((prev) => [...prev, numItems]);

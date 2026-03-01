@@ -1,10 +1,6 @@
-import type { ReadSetEntry, FilterExpressionJSON } from "@zeroback/server";
+import type { ReadSetEntry } from "@zeroback/server";
+import type { QueryDescriptor } from "../transaction/TransactionStore";
 import { evaluateFilter } from "../db/FilterEngine";
-
-export interface QueryDescriptor {
-  table: string;
-  filter: FilterExpressionJSON | null;
-}
 
 export interface Subscription {
   id: string;

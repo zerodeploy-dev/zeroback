@@ -1,5 +1,7 @@
 import { decodeTime } from "ulidx";
 import type { ValidatorJSON, SchemaJSON } from "@zeroback/server";
+import { ulidFromId } from "@zeroback/values";
+import type { SqlApi } from "../types";
 
 // ---------------------------------------------------------------------------
 // Column metadata types
@@ -72,6 +74,34 @@ function isBooleanValidator(v: ValidatorJSON): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** Build column definition SQL fragments for a table schema. */
+function buildColumnDefs(tableInfo: SchemaJSON["tables"][string]): string[] {
+  const colDefs: string[] = [
+    `_id TEXT PRIMARY KEY`,
+    `_ts INTEGER NOT NULL`,
+  ];
+  for (const [fieldName, validatorJSON] of Object.entries(tableInfo.fields)) {
+    const { sqlType, nullable } = validatorToSQLType(validatorJSON);
+    const nullConstraint = nullable ? "" : " NOT NULL";
+    colDefs.push(`"${fieldName}" ${sqlType}${nullConstraint}`);
+  }
+  return colDefs;
+}
+
+/** Drop all FTS tables and triggers associated with a content table. */
+function dropFtsForTable(sql: SqlApi, tableName: string): void {
+  const ftsNames = getExistingFtsTables(sql).filter((n) => n.startsWith(`${tableName}_`));
+  for (const ftsName of ftsNames) {
+    sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ai"`);
+    sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ad"`);
+    sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // DDL generation
 // ---------------------------------------------------------------------------
 
@@ -81,18 +111,7 @@ export function generateTableDDL(
 ): string[] {
   const stmts: string[] = [];
 
-  // Build column definitions
-  const colDefs: string[] = [
-    `_id TEXT PRIMARY KEY`,
-    `_ts INTEGER NOT NULL`,
-  ];
-
-  for (const [fieldName, validatorJSON] of Object.entries(tableInfo.fields)) {
-    const { sqlType, nullable } = validatorToSQLType(validatorJSON);
-    const nullConstraint = nullable ? "" : " NOT NULL";
-    colDefs.push(`"${fieldName}" ${sqlType}${nullConstraint}`);
-  }
-
+  const colDefs = buildColumnDefs(tableInfo);
   stmts.push(
     `CREATE TABLE IF NOT EXISTS "${tableName}" (\n  ${colDefs.join(",\n  ")}\n)`
   );
@@ -226,7 +245,7 @@ export function sqlRowToDoc(
   info: TableColumnInfo
 ): Record<string, unknown> {
   const id = row._id as string;
-  const ulidPart = id.split(":")[1] ?? id;
+  const ulidPart = ulidFromId(id);
   const doc: Record<string, unknown> = {
     _id: id,
     _creationTime: decodeTime(ulidPart),
@@ -281,10 +300,6 @@ type PragmaIndexInfoEntry = {
   seqno: number;
   cid: number;
   name: string;
-};
-
-type SqlApi = {
-  exec(query: string, ...bindings: unknown[]): { toArray(): Record<string, unknown>[] };
 };
 
 const SYSTEM_TABLES = new Set(["scheduled_jobs", "cron_jobs", "_storage"]);
@@ -383,15 +398,7 @@ function rebuildTable(
   sql.exec(`DROP TABLE IF EXISTS "${tempName}"`);
 
   // 2. Create temp table with new schema
-  const colDefs: string[] = [
-    `_id TEXT PRIMARY KEY`,
-    `_ts INTEGER NOT NULL`,
-  ];
-  for (const [fieldName, validatorJSON] of Object.entries(tableInfo.fields)) {
-    const { sqlType, nullable } = validatorToSQLType(validatorJSON);
-    const nullConstraint = nullable ? "" : " NOT NULL";
-    colDefs.push(`"${fieldName}" ${sqlType}${nullConstraint}`);
-  }
+  const colDefs = buildColumnDefs(tableInfo);
   sql.exec(`CREATE TABLE "${tempName}" (\n  ${colDefs.join(",\n  ")}\n)`);
 
   // 3. Copy data: common columns get values, new columns get defaults
@@ -470,6 +477,7 @@ function migrateSearchIndexes(
     }
   }
 
+
   const existingSet = new Set(existingFts);
 
   // Create missing FTS tables + triggers
@@ -537,12 +545,7 @@ export function migrateSchema(sql: SqlApi, schema: SchemaJSON): void {
 
     if (needsRebuild) {
       // Drop all FTS tables/triggers before rebuild (they reference the old table)
-      const ftsForTable = getExistingFtsTables(sql).filter((n) => n.startsWith(`${tableName}_`));
-      for (const ftsName of ftsForTable) {
-        sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ai"`);
-        sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ad"`);
-        sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
-      }
+      dropFtsForTable(sql, tableName);
       rebuildTable(sql, tableName, tableInfo);
     } else if (addableCols.length > 0) {
       // Simple ALTER TABLE ADD COLUMN for new nullable columns
@@ -561,13 +564,7 @@ export function migrateSchema(sql: SqlApi, schema: SchemaJSON): void {
   // Drop tables no longer in schema (including their FTS tables/triggers)
   for (const tableName of existingTables) {
     if (!desiredTables.has(tableName)) {
-      // Drop any FTS tables associated with this table
-      const ftsForTable = getExistingFtsTables(sql).filter((n) => n.startsWith(`${tableName}_`));
-      for (const ftsName of ftsForTable) {
-        sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ai"`);
-        sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ad"`);
-        sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
-      }
+      dropFtsForTable(sql, tableName);
       sql.exec(`DROP TABLE IF EXISTS "${tableName}"`);
     }
   }

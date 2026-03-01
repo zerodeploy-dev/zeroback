@@ -1,41 +1,86 @@
 import type { ValidatorJSON } from "./types.js";
 
-export function validatorToTypeString(json: ValidatorJSON): string {
+const JS_IDENTIFIER_RE = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+const JS_RESERVED_WORDS = new Set([
+  "break", "case", "catch", "continue", "debugger", "default", "delete", "do",
+  "else", "finally", "for", "function", "if", "in", "instanceof", "new",
+  "return", "switch", "this", "throw", "try", "typeof", "var", "void",
+  "while", "with", "class", "const", "enum", "export", "extends", "import",
+  "super", "implements", "interface", "let", "package", "private", "protected",
+  "public", "static", "yield", "await", "async",
+]);
+
+/**
+ * Returns `name` unchanged if it's a valid JS identifier, otherwise wraps in quotes.
+ */
+export function quotePropertyName(name: string): string {
+  if (JS_IDENTIFIER_RE.test(name) && !JS_RESERVED_WORDS.has(name)) {
+    return name;
+  }
+  return JSON.stringify(name);
+}
+
+/**
+ * Escapes special characters in a string for use inside a JS string literal.
+ */
+export function escapeStringLiteral(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t");
+}
+
+/**
+ * Converts ValidatorJSON to a TypeScript type string.
+ * Handles all 15 ValidatorJSON types with proper edge-case handling:
+ * - Parenthesizes union types inside arrays: `(A | B)[]`
+ * - Quotes non-identifier property names
+ * - Escapes special characters in string literals
+ */
+export function validatorToTypeString(json: ValidatorJSON | null | undefined): string {
+  if (!json) return "unknown";
   switch (json.type) {
-    case "string":
-      return "string";
-    case "number":
-      return "number";
-    case "boolean":
-      return "boolean";
-    case "null":
-      return "null";
-    case "any":
-      return "any";
-    case "id":
-      return `string`;
-    case "literal":
-      return typeof json.value === "string" ? `"${json.value}"` : `${json.value}`;
-    case "object":
-      return `{ ${Object.entries(json.value)
-        .map(([key, val]) => `${key}: ${validatorToTypeString(val)}`)
-        .join(", ")} }`;
-    case "array":
-      return `${validatorToTypeString(json.value)}[]`;
-    case "union":
-      return json.value.map((v) => validatorToTypeString(v)).join(" | ");
-    case "optional":
-      return `${validatorToTypeString(json.value)} | undefined`;
-    case "record":
-      return `Record<${validatorToTypeString(json.keys)}, ${validatorToTypeString(json.values)}>`;
-    case "float64":
-      return "number";
-    case "int64":
-      return "bigint";
-    case "bytes":
-      return "ArrayBuffer";
-    default:
-      return "any";
+    case "string": return "string";
+    case "number": return "number";
+    case "boolean": return "boolean";
+    case "null": return "null";
+    case "any": return "any";
+    case "id": return "string";
+    case "float64": return "number";
+    case "int64": return "bigint";
+    case "bytes": return "ArrayBuffer";
+    case "literal": {
+      if (typeof json.value === "string") {
+        return `"${escapeStringLiteral(json.value)}"`;
+      }
+      return `${json.value}`;
+    }
+    case "object": {
+      const entries = Object.entries(json.value || {});
+      if (entries.length === 0) return "{}";
+      const fields = entries.map(([k, v]) =>
+        `${quotePropertyName(k)}: ${validatorToTypeString(v)}`
+      );
+      return `{ ${fields.join(", ")} }`;
+    }
+    case "array": {
+      const inner = validatorToTypeString(json.value);
+      // Wrap union types in parens so `(A | B)[]` not `A | B[]`
+      if (json.value && json.value.type === "union") {
+        return `(${inner})[]`;
+      }
+      return `${inner}[]`;
+    }
+    case "union": {
+      const variants = json.value || [];
+      if (variants.length === 0) return "never";
+      return variants.map((v) => validatorToTypeString(v)).join(" | ");
+    }
+    case "optional": return `${validatorToTypeString(json.value)} | undefined`;
+    case "record": return `Record<${validatorToTypeString(json.keys)}, ${validatorToTypeString(json.values)}>`;
+    default: return "unknown";
   }
 }
 

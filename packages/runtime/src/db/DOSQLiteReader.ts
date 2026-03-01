@@ -1,14 +1,13 @@
 import type { TableColumnInfo } from "./SchemaMapper";
 import { sqlRowToDoc } from "./SchemaMapper";
-
-/** Max bound parameters per SQL statement on Cloudflare DO SQLite. */
-const MAX_PARAMS = 100;
+import { MAX_PARAMS } from "../constants";
+import type { SqlApi } from "../types";
 
 export class DOSQLiteReader {
-  private sql: any;
+  private sql: SqlApi;
   private tableColumns: Map<string, TableColumnInfo>;
 
-  constructor(sql: any, tableColumns: Map<string, TableColumnInfo>) {
+  constructor(sql: SqlApi, tableColumns: Map<string, TableColumnInfo>) {
     this.sql = sql;
     this.tableColumns = tableColumns;
   }

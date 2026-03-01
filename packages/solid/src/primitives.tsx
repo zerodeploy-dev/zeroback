@@ -8,9 +8,8 @@ import {
   onCleanup,
 } from "solid-js";
 import type { JSX, Accessor } from "solid-js";
-import { ZerobackClient, QueryStore } from "@zeroback/client";
-import type { ConnectionState, LocalStore } from "@zeroback/client";
-import type { FunctionReference } from "@zeroback/server";
+import { ZerobackClient, QueryStore, subscribePaginationPages, computeStatus } from "@zeroback/client";
+import type { ConnectionState, LocalStore, FunctionReference, PaginationStatus } from "@zeroback/client";
 
 const ZerobackContext = createContext<ZerobackClient>();
 
@@ -145,7 +144,7 @@ export function createConnectionState(): Accessor<ConnectionState> {
 
 export type CreatePaginatedQueryResult<T> = {
   results: Accessor<T[]>;
-  status: Accessor<"LoadingFirstPage" | "CanLoadMore" | "Exhausted">;
+  status: Accessor<PaginationStatus>;
   loadMore: (numItems: number) => void;
 };
 
@@ -190,57 +189,10 @@ export function createPaginatedQuery<Ref extends FunctionReference<"query", any,
         itemsSnapshot: JSON.stringify(numItemsPerPage()),
       }),
       ({ argsKey, pageCount }) => {
-        const unsubscribes: (() => void)[] = [];
-        const currentCursors = cursors();
-        const currentNumItems = numItemsPerPage();
-
-        for (let i = 0; i < pageCount; i++) {
-          const cursor = currentCursors[i] ?? null;
-          // Skip pages we don't have a cursor for yet (except page 0)
-          if (i > 0 && cursor === undefined) break;
-
-          const pageArgs: Record<string, unknown> = {
-            ...JSON.parse(argsKey),
-            numItems: currentNumItems[i],
-          };
-          if (cursor !== null && cursor !== undefined) {
-            pageArgs.cursor = cursor;
-          }
-          const pageIndex = i;
-
-          const unsub = client.subscribe(ref._name, pageArgs, (data: unknown) => {
-            const result = data as {
-              page: any[];
-              continueCursor: string | null;
-              isDone: boolean;
-            };
-            setPages((prev) => {
-              const updated = [...prev];
-              updated[pageIndex] = result.page;
-              return updated;
-            });
-
-            // Update cursor for the next page
-            if (
-              pageIndex === currentCursors.length - 1 ||
-              result.continueCursor !== currentCursors[pageIndex + 1]
-            ) {
-              setCursors((prev) => {
-                const updated = [...prev];
-                updated[pageIndex + 1] = result.continueCursor;
-                return updated;
-              });
-            }
-
-            if (result.isDone) {
-              setIsDone(true);
-            } else if (pageIndex === pageCount - 1) {
-              setIsDone(false);
-            }
-          });
-
-          unsubscribes.push(unsub);
-        }
+        const unsubscribes = subscribePaginationPages(
+          client, ref._name, argsKey, pageCount, cursors(), numItemsPerPage(),
+          { setPages, setCursors, setIsDone, setNumItemsPerPage },
+        );
 
         onCleanup(() => {
           for (const unsub of unsubscribes) unsub();
@@ -250,12 +202,7 @@ export function createPaginatedQuery<Ref extends FunctionReference<"query", any,
   );
 
   const results = createMemo(() => pages().flat());
-
-  const status = createMemo<"LoadingFirstPage" | "CanLoadMore" | "Exhausted">(() => {
-    if (pages().length === 0) return "LoadingFirstPage";
-    if (isDone()) return "Exhausted";
-    return "CanLoadMore";
-  });
+  const status = createMemo<PaginationStatus>(() => computeStatus(pages(), isDone()));
 
   const loadMore = (numItems: number) => {
     setNumItemsPerPage((prev) => [...prev, numItems]);
