@@ -1,4 +1,7 @@
-# Database API
+---
+title: Database
+description: Query and mutate data with indexed lookups, full-text search, and cursor-based pagination.
+---
 
 The database API is available through `ctx.db` in queries and mutations. Queries receive a `DatabaseReader` (read-only), while mutations receive a `DatabaseWriter` (read + write).
 

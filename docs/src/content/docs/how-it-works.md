@@ -1,4 +1,7 @@
-# How It Works
+---
+title: How It Works
+description: Architecture internals — real-time subscriptions, query invalidation, and optimistic concurrency control.
+---
 
 ## Real-Time Subscriptions
 

@@ -1,0 +1,41 @@
+---
+title: Zeroback
+description: Open-source real-time backend for Cloudflare. Convex-style DX on your own infrastructure.
+template: splash
+hero:
+  tagline: "Open-source real-time backend for Cloudflare.<br/>Convex-style DX on infrastructure you own."
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/zerodeploy-dev/zeroback
+      icon: external
+      variant: minimal
+---
+
+```ts
+// Define a schema
+export default defineSchema({
+  messages: defineTable({
+    channel: v.string(),
+    author: v.string(),
+    body: v.string(),
+  }).index("by_channel", ["channel"]),
+});
+
+// Write a query — it's reactive by default
+export const list = query({
+  args: { channel: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_channel", (q) => q.eq("channel", args.channel))
+      .collect();
+  },
+});
+
+// Use from React — auto-updates across all clients
+const messages = useQuery(api.messages.list, { channel });
+```

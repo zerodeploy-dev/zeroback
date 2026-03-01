@@ -1,4 +1,7 @@
-# Authentication
+---
+title: Authentication
+description: Authentication design and external provider integration (Clerk, Auth0). Built-in auth coming soon.
+---
 
 > **Status: Not yet implemented** — Design document.
 

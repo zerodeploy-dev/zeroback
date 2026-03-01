@@ -19,3 +19,4 @@ _generated/
 *.d.ts
 *.d.ts.map
 tsconfig.tsbuildinfo
+docs/.astro/

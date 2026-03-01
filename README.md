@@ -305,17 +305,8 @@ const client = new ZerobackClient("wss://your-worker.your-subdomain.workers.dev/
 ### Building Packages
 
 ```bash
-npx tsc --build
+bunx tsc --build
 ```
-
-## Tech Stack
-
-- **Runtime**: Cloudflare Workers + Durable Objects
-- **Database**: SQLite (via Durable Object storage)
-- **Transport**: WebSocket (real-time push)
-- **Language**: TypeScript
-- **Build**: Wrangler, TypeScript compiler
-- **Package manager**: Bun
 
 ## License
 

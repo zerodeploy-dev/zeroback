@@ -1,4 +1,7 @@
-# Functions
+---
+title: Functions
+description: Write queries, mutations, actions, and internal functions with full type safety.
+---
 
 Functions are the server-side logic of your Zeroback application. They are defined in `.ts` files inside the `zeroback/` directory and are automatically discovered and bundled by the CLI.
 

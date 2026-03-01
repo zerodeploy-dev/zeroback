@@ -1,4 +1,7 @@
-# Feature Status
+---
+title: Feature Status
+description: Current implementation status of all Zeroback features.
+---
 
 ## Functions
 

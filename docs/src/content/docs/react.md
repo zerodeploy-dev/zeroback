@@ -1,4 +1,7 @@
-# React Hooks
+---
+title: React
+description: React hooks for real-time queries, mutations, actions, and paginated data.
+---
 
 The `@zeroback/react` package provides React hooks for building real-time UIs with Zeroback.
 

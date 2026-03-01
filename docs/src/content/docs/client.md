@@ -1,4 +1,7 @@
-# Client SDK
+---
+title: Client
+description: Type-safe WebSocket client with auto-reconnect, optimistic updates, and offline persistence.
+---
 
 The `@zeroback/client` package provides `ZerobackClient` — a WebSocket-based client for connecting to your Zeroback backend from the browser or any JavaScript environment.
 
@@ -30,6 +33,9 @@ interface ZerobackClientOptions {
   persistence?: boolean | PersistenceAdapter;
   maxCacheAge?: number;
   schemaVersion?: string;
+  backoff?: BackoffOptions;
+  heartbeatIntervalMs?: number;
+  requestTimeoutMs?: number;
 }
 ```
 
@@ -38,6 +44,19 @@ interface ZerobackClientOptions {
 | `persistence` | `boolean \| PersistenceAdapter` | `undefined` (disabled) | Enable IndexedDB caching. Pass `true` for the built-in adapter, or a custom `PersistenceAdapter`. |
 | `maxCacheAge` | `number` | `604800000` (7 days) | Maximum cache age in milliseconds. Entries older than this are discarded on hydration. |
 | `schemaVersion` | `string` | `undefined` | When changed, the entire cache is cleared. Use this to invalidate stale data after schema changes. |
+| `backoff` | `BackoffOptions` | See below | Configure reconnection backoff behavior. |
+| `heartbeatIntervalMs` | `number` | `30000` (30s) | How often the client sends a ping to keep the connection alive. |
+| `requestTimeoutMs` | `number` | `60000` (60s) | How long to wait for a mutation/action response before timing out. |
+
+#### `BackoffOptions`
+
+```ts
+interface BackoffOptions {
+  baseMs?: number;       // Default: 1000
+  maxMs?: number;        // Default: 30000
+  maxAttempts?: number;  // Default: 5
+}
+```
 
 When persistence is **disabled** (default), the client connects immediately on construction.
 When persistence is **enabled**, you must call `client.init()` before using the client.

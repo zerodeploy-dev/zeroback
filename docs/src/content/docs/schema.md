@@ -1,4 +1,7 @@
-# Schema & Validators
+---
+title: Schema
+description: Define your data model with tables, validators, indexes, and search indexes.
+---
 
 ## Defining a Schema
 
@@ -9,7 +12,7 @@ Define your data model in `zeroback/schema.ts`. The schema declares tables, thei
 import { defineSchema, defineTable } from "@zeroback/server";
 import { v } from "@zeroback/values";
 
-export const schema = defineSchema({
+export default defineSchema({
   projects: defineTable({
     name: v.string(),
     description: v.string(),

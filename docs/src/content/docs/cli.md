@@ -1,4 +1,7 @@
-# CLI
+---
+title: CLI
+description: Scaffold, develop, deploy, and test your Zeroback backend from the terminal.
+---
 
 The `zeroback` CLI manages development, code generation, and deployment of your Zeroback application.
 

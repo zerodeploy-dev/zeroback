@@ -1,0 +1,105 @@
+---
+title: Getting Started
+description: Set up Zeroback — an open-source real-time backend for Cloudflare — in under 2 minutes.
+---
+
+import { Steps, Code, Tabs, TabItem } from "@astrojs/starlight/components";
+
+Zeroback is an open-source, self-hosted [Convex](https://convex.dev) alternative that runs on Cloudflare Workers and Durable Objects. Real-time queries, type-safe codegen, and reactive subscriptions — on infrastructure you own.
+
+## Quick Start
+
+<Steps>
+
+1. **Scaffold a new project**
+
+   ```bash
+   npx @zeroback/cli init my-app
+   cd my-app
+   ```
+
+2. **Define your schema** in `zeroback/schema.ts`
+
+   ```ts
+   import { defineSchema, defineTable } from "@zeroback/server";
+   import { v } from "@zeroback/values";
+
+   export default defineSchema({
+     tasks: defineTable({
+       title: v.string(),
+       completed: v.boolean(),
+     }),
+   });
+   ```
+
+3. **Write a query and mutation** in `zeroback/tasks.ts`
+
+   ```ts
+   import { query, mutation } from "./_generated/server";
+   import { v } from "@zeroback/values";
+
+   export const list = query({
+     args: {},
+     handler: async (ctx) => {
+       return await ctx.db.query("tasks").collect();
+     },
+   });
+
+   export const create = mutation({
+     args: { title: v.string() },
+     handler: async (ctx, args) => {
+       await ctx.db.insert("tasks", { title: args.title, completed: false });
+     },
+   });
+   ```
+
+4. **Start the dev server**
+
+   ```bash
+   zeroback dev
+   ```
+
+</Steps>
+
+That's it. Your backend is running locally with real-time subscriptions, type-safe codegen, and SQLite persistence — all on a single Durable Object.
+
+## Use with React
+
+```tsx
+import { useQuery, useMutation } from "@zeroback/react";
+import { api } from "./zeroback/_generated/api";
+
+function App() {
+  const tasks = useQuery(api.tasks.list);
+  const createTask = useMutation(api.tasks.create);
+
+  return (
+    <div>
+      <button onClick={() => createTask({ title: "New task" })}>Add</button>
+      <ul>
+        {tasks?.map((task) => (
+          <li key={task._id}>{task.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+Queries auto-subscribe over WebSocket. When data changes, every connected client updates instantly.
+
+## Deploy
+
+```bash
+zeroback deploy
+```
+
+Deploys to your Cloudflare account using Wrangler. Your data stays on your infrastructure.
+
+## Next Steps
+
+- [Schema](/schema/) — Define tables, indexes, and validators
+- [Functions](/functions/) — Write queries, mutations, and actions
+- [Database](/database/) — Query and mutate data
+- [React](/react/) — Hooks for real-time UI
+- [How It Works](/how-it-works/) — Architecture and real-time internals
