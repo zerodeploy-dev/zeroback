@@ -11,6 +11,10 @@ import type { JSX, Accessor } from "solid-js";
 import { ZerobackClient, QueryStore, subscribePaginationPages, computeStatus } from "@zeroback/client";
 import type { ConnectionState, LocalStore, FunctionReference, PaginationStatus } from "@zeroback/client";
 
+function resolveAccessor<T>(accessor: Accessor<T> | T): () => T {
+  return typeof accessor === "function" ? (accessor as Accessor<T>) : () => accessor;
+}
+
 const ZerobackContext = createContext<ZerobackClient>();
 
 export interface ZerobackProviderProps {
@@ -39,11 +43,8 @@ export function createQuery<Ref extends FunctionReference<"query", any, any>>(
   argsAccessor?: Accessor<Ref["_args"]> | Ref["_args"],
 ): Accessor<Ref["_returns"] | undefined> {
   const client = useZerobackClient();
-
-  const resolveArgs = (): Ref["_args"] => {
-    const raw = typeof argsAccessor === "function" ? (argsAccessor as Accessor<Ref["_args"]>)() : argsAccessor;
-    return raw ?? {};
-  };
+  const getArgs = resolveAccessor(argsAccessor);
+  const resolveArgs = (): Ref["_args"] => getArgs() ?? {};
 
   const [result, setResult] = createSignal<Ref["_returns"] | undefined>(undefined);
 
@@ -82,11 +83,8 @@ export function createQueryWithStatus<Ref extends FunctionReference<"query", any
 ): { data: Accessor<Ref["_returns"] | undefined>; isStale: Accessor<boolean>; isLoading: Accessor<boolean> } {
   const client = useZerobackClient();
   const data = createQuery(ref, argsAccessor);
-
-  const resolveArgs = (): Ref["_args"] => {
-    const raw = typeof argsAccessor === "function" ? (argsAccessor as Accessor<Ref["_args"]>)() : argsAccessor;
-    return raw ?? {};
-  };
+  const getArgs = resolveAccessor(argsAccessor);
+  const resolveArgs = (): Ref["_args"] => getArgs() ?? {};
 
   const isLoading = createMemo(() => data() === undefined);
   const isStale = createMemo(() => {
@@ -154,11 +152,8 @@ export function createPaginatedQuery<Ref extends FunctionReference<"query", any,
   opts: { initialNumItems: number },
 ): CreatePaginatedQueryResult<any> {
   const client = useZerobackClient();
-
-  const resolveArgs = () => {
-    const raw = typeof argsAccessor === "function" ? (argsAccessor as Accessor<Record<string, unknown>>)() : argsAccessor;
-    return raw ?? {};
-  };
+  const getArgs = resolveAccessor(argsAccessor);
+  const resolveArgs = () => getArgs() ?? {};
 
   const [pages, setPages] = createSignal<any[][]>([]);
   const [cursors, setCursors] = createSignal<(string | null)[]>([null]);

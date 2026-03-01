@@ -4,7 +4,7 @@ import type { QueryDescriptor } from "./transaction/TransactionStore";
 import type { SubscriptionManager } from "./subscriptions/SubscriptionManager";
 import type { DOSQLiteReader } from "./db/DOSQLiteReader";
 import type { DOSQLiteWriter } from "./db/DOSQLiteWriter";
-import { MAX_PARAMS } from "./constants";
+import { sqlChunks, sqlPlaceholders } from "./db/sql-utils";
 import type { SqlApi } from "./types";
 
 export type InvokeResult = {
@@ -126,13 +126,9 @@ function checkConflicts(
   }
 
   for (const [table, ids] of byTable) {
-    // Chunk to stay under param limit (1 param for beginTs + N ids)
-    const chunkSize = MAX_PARAMS - 1;
-    for (let i = 0; i < ids.length; i += chunkSize) {
-      const chunk = ids.slice(i, i + chunkSize);
-      const placeholders = chunk.map(() => "?").join(", ");
+    for (const chunk of sqlChunks(ids, 1)) {
       const results = sql.exec(
-        `SELECT 1 FROM "${table}" WHERE _ts > ? AND _id IN (${placeholders}) LIMIT 1`,
+        `SELECT 1 FROM "${table}" WHERE _ts > ? AND _id IN (${sqlPlaceholders(chunk.length)}) LIMIT 1`,
         beginTs, ...chunk
       ).toArray();
       if (results.length > 0) return true;

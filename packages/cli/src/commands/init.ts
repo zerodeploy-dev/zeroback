@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync, appendFileSync } from "fs";
 import * as path from "path";
-import { WRANGLER_TEMPLATE, ENTRY_TEMPLATE } from "./prepare.js";
+import { prepareWorkerDir } from "./prepare.js";
 
 export async function init(projectDir: string = "."): Promise<void> {
   console.log("▲ zeroback init\n");
@@ -66,21 +66,8 @@ export const mutation = createMutationFactory<any>();
 `
   );
 
-  // wrangler.toml at project root
-  const wranglerPath = path.join(resolved, "wrangler.toml");
-  if (!existsSync(wranglerPath)) {
-    writeFileSync(wranglerPath, WRANGLER_TEMPLATE);
-    console.log("  ✓ wrangler.toml");
-  }
-
-  // .zeroback/entry.ts — worker entry point
-  const dotZeroback = path.join(resolved, ".zeroback");
-  mkdirSync(dotZeroback, { recursive: true });
-  const entryPath = path.join(dotZeroback, "entry.ts");
-  if (!existsSync(entryPath)) {
-    writeFileSync(entryPath, ENTRY_TEMPLATE);
-    console.log("  ✓ .zeroback/entry.ts");
-  }
+  // Scaffold wrangler.toml + .zeroback/entry.ts
+  prepareWorkerDir(resolved);
 
   // Add .zeroback/ to .gitignore (but allow .zeroback/entry.ts to be committed)
   const gitignorePath = path.join(resolved, ".gitignore");

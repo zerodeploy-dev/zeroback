@@ -32,15 +32,17 @@ export default workerHandler
  * Prepare the .zeroback/ worker directory:
  * 1. Ensure the .zeroback/ output directory exists
  * 2. Scaffold wrangler.toml at project root if missing
+ * 3. Scaffold .zeroback/entry.ts if missing
  *
  * Returns the absolute path to the .zeroback/ directory.
  */
-export function prepareWorkerDir(): string {
-  const dotZeroback = path.resolve(".zeroback");
+export function prepareWorkerDir(projectDir: string = "."): string {
+  const resolved = path.resolve(projectDir);
+  const dotZeroback = path.join(resolved, ".zeroback");
   mkdirSync(dotZeroback, { recursive: true });
 
   // Scaffold wrangler.toml at project root if missing
-  const wranglerPath = path.resolve("wrangler.toml");
+  const wranglerPath = path.join(resolved, "wrangler.toml");
   if (!existsSync(wranglerPath)) {
     writeFileSync(wranglerPath, WRANGLER_TEMPLATE);
     console.log("  ✓ Created wrangler.toml");

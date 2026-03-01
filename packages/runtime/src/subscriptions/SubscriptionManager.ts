@@ -76,58 +76,27 @@ export class SubscriptionManager {
 
     if (affected.length === 0) return;
 
-    // 3. Deduplicate: group subscriptions by (fnName, args) so identical
-    //    queries are only executed once
-    const groups = new Map<string, Subscription[]>();
-    for (const sub of affected) {
-      const key = sub.fnName + "\0" + stableStringify(sub.args);
-      let group = groups.get(key);
-      if (!group) {
-        group = [];
-        groups.set(key, group);
-      }
-      group.push(sub);
-    }
-
-    // 4. Execute each unique query in parallel, collect pending sends
-    const pendingSends: { ws: WebSocket; id: string; resultJSON: string }[] = [];
-
-    const executions = Array.from(groups.entries()).map(
-      async ([_key, subs]) => {
-        const representative = subs[0];
-        try {
-          const newResult = await invokeFunction(representative.fnName, representative.args);
-          const newResultJSON = JSON.stringify(newResult.result);
-
-          for (const sub of subs) {
-            this.deindexSubscription(sub);
-            sub.readSet = newResult.readSet;
-            sub.queryDescriptors = newResult.queryDescriptors;
-            this.indexSubscription(sub);
-
-            if (newResultJSON !== sub.lastResultJSON) {
-              sub.lastResultJSON = newResultJSON;
-              pendingSends.push({ ws: sub.ws, id: sub.id, resultJSON: newResultJSON });
-            }
-          }
-        } catch (e) {
-          console.error("Failed to re-run subscription:", e);
-        }
-      }
-    );
-
-    await Promise.allSettled(executions);
-
-    // 5. Coalesce sends: one WS frame per connection instead of per subscription
-    flushSends(pendingSends);
+    await this.rerunAndFlush(affected, invokeFunction, false);
   }
 
   async invalidateAll(
     invokeFunction: (fnName: string, args: unknown) => Promise<{ result: unknown; readSet: ReadSetEntry[]; queryDescriptors: QueryDescriptor[] }>
   ): Promise<void> {
-    // Group all subscriptions by (fnName, args) for deduplication
+    await this.rerunAndFlush(this.subs.values(), invokeFunction, true);
+  }
+
+  /**
+   * Shared invalidation logic: group subscriptions by (fnName, args),
+   * re-execute each unique query in parallel, and flush WS sends.
+   * When alwaysSend is false, only sends when the result has changed.
+   */
+  private async rerunAndFlush(
+    subscriptions: Iterable<Subscription>,
+    invokeFunction: (fnName: string, args: unknown) => Promise<{ result: unknown; readSet: ReadSetEntry[]; queryDescriptors: QueryDescriptor[] }>,
+    alwaysSend: boolean
+  ): Promise<void> {
     const groups = new Map<string, Subscription[]>();
-    for (const sub of this.subs.values()) {
+    for (const sub of subscriptions) {
       const key = sub.fnName + "\0" + stableStringify(sub.args);
       let group = groups.get(key);
       if (!group) {
@@ -147,13 +116,15 @@ export class SubscriptionManager {
           const newResultJSON = JSON.stringify(newResult.result);
 
           for (const sub of subs) {
-            sub.lastResultJSON = newResultJSON;
             this.deindexSubscription(sub);
             sub.readSet = newResult.readSet;
             sub.queryDescriptors = newResult.queryDescriptors;
             this.indexSubscription(sub);
 
-            pendingSends.push({ ws: sub.ws, id: sub.id, resultJSON: newResultJSON });
+            if (alwaysSend || newResultJSON !== sub.lastResultJSON) {
+              sub.lastResultJSON = newResultJSON;
+              pendingSends.push({ ws: sub.ws, id: sub.id, resultJSON: newResultJSON });
+            }
           }
         } catch (e) {
           console.error("Failed to re-run subscription:", e);

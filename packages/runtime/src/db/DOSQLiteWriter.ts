@@ -1,7 +1,7 @@
 import type { WriteSetEntry } from "@zeroback/server";
 import type { TableColumnInfo } from "./SchemaMapper";
 import { docToSQLParams } from "./SchemaMapper";
-import { MAX_PARAMS } from "../constants";
+import { sqlChunks, sqlRowChunks, sqlPlaceholders } from "./sql-utils";
 import type { SqlApi } from "../types";
 
 export class DOSQLiteWriter {
@@ -34,12 +34,9 @@ export class DOSQLiteWriter {
 
     // 1. Batch deletes per table
     for (const [table, ids] of deletesByTable) {
-      const chunkSize = MAX_PARAMS;
-      for (let i = 0; i < ids.length; i += chunkSize) {
-        const chunk = ids.slice(i, i + chunkSize);
-        const placeholders = chunk.map(() => "?").join(", ");
+      for (const chunk of sqlChunks(ids)) {
         this.sql.exec(
-          `DELETE FROM "${table}" WHERE _id IN (${placeholders})`,
+          `DELETE FROM "${table}" WHERE _id IN (${sqlPlaceholders(chunk.length)})`,
           ...chunk
         );
       }
@@ -53,12 +50,9 @@ export class DOSQLiteWriter {
       // Column names: _id, _ts, ...userFields
       const colNames = ["_id", "_ts", ...info.orderedFieldNames.map((f) => `"${f}"`)];
       const colList = colNames.join(", ");
-      const numColumns = colNames.length;
-      const rowPlaceholder = `(${colNames.map(() => "?").join(", ")})`;
-      const chunkSize = Math.max(1, Math.floor(MAX_PARAMS / numColumns));
+      const rowPlaceholder = `(${sqlPlaceholders(colNames.length)})`;
 
-      for (let i = 0; i < entries.length; i += chunkSize) {
-        const chunk = entries.slice(i, i + chunkSize);
+      for (const chunk of sqlRowChunks(entries, colNames.length)) {
         const values = chunk.map(() => rowPlaceholder).join(", ");
         const params = chunk.flatMap((e) => docToSQLParams(e.doc, info, commitTs));
         this.sql.exec(

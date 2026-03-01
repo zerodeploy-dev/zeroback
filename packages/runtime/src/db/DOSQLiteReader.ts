@@ -1,6 +1,6 @@
 import type { TableColumnInfo } from "./SchemaMapper";
 import { sqlRowToDoc } from "./SchemaMapper";
-import { MAX_PARAMS } from "../constants";
+import { sqlChunks, sqlPlaceholders } from "./sql-utils";
 import type { SqlApi } from "../types";
 
 export class DOSQLiteReader {
@@ -46,13 +46,9 @@ export class DOSQLiteReader {
     const info = this.tableColumns.get(table);
     if (!info) return out;
 
-    // Chunk to stay under 100 param limit (1 param for _ts + N ids)
-    const chunkSize = MAX_PARAMS - 1;
-    for (let i = 0; i < documentIds.length; i += chunkSize) {
-      const chunk = documentIds.slice(i, i + chunkSize);
-      const placeholders = chunk.map(() => "?").join(", ");
+    for (const chunk of sqlChunks(documentIds, 1)) {
       const results = this.sql.exec(
-        `SELECT * FROM "${table}" WHERE _ts <= ? AND _id IN (${placeholders})`,
+        `SELECT * FROM "${table}" WHERE _ts <= ? AND _id IN (${sqlPlaceholders(chunk.length)})`,
         asOfTs, ...chunk
       ).toArray() as Record<string, unknown>[];
 
