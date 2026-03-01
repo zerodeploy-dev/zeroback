@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { executeMutation } from "./MutationExecutor"
+import { executeMutation, createMutationLock } from "./MutationExecutor"
 import type { MutationDeps } from "./MutationExecutor"
 import { TransactionStore } from "./transaction/TransactionStore"
 import { SubscriptionManager } from "./subscriptions/SubscriptionManager"
@@ -15,6 +15,7 @@ function makeDeps(overrides: Partial<MutationDeps> = {}): MutationDeps {
     sql: {
       exec: vi.fn().mockReturnValue({ toArray: () => [] }),
     } as unknown as SqlApi,
+    lock: createMutationLock(),
     getLatestTs: vi.fn().mockReturnValue(100),
     setLatestTs: vi.fn(),
     saveLatestTs: vi.fn().mockResolvedValue(undefined),

@@ -13,7 +13,7 @@ import { ConnectionManager } from "./websocket/ConnectionManager";
 import { queryTable } from "./QueryPlanner";
 import { StorageManager } from "./StorageManager";
 import { CronManager } from "./CronManager";
-import { executeMutation, type MutationDeps } from "./MutationExecutor";
+import { executeMutation, createMutationLock, type MutationDeps } from "./MutationExecutor";
 import { ErrorCode, errorMessage, sendError } from "./errors";
 
 export type FunctionDef = {
@@ -89,6 +89,7 @@ export function createZerobackDO(config: RuntimeConfig): {
       reader: this.reader,
       writer: this.writer,
       sql: this.sql,
+      lock: createMutationLock(),
       getLatestTs: () => this.latestTs,
       setLatestTs: (ts) => { this.latestTs = ts; },
       saveLatestTs: () => this.saveLatestTs(),
