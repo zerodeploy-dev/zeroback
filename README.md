@@ -1,10 +1,25 @@
 # Zeroback
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An open-source [Convex](https://convex.dev)-style backend you deploy to your own Cloudflare account. Real-time queries, mutations, type-safe codegen — all running on Cloudflare Workers, Durable Objects, and SQLite.
+
+> 📖 [Why I Built Zeroback](https://zeroback.dev/blog/why-i-built-zeroback) — the backstory
 
 <p align="center">
   <img src="docs/assets/demo.gif" alt="Zeroback demo — real-time sync across two browser windows" width="960" />
 </p>
+
+## Get Started
+
+```bash
+npx @zeroback/cli init my-app
+cd my-app
+bun add @zeroback/server @zeroback/values @zeroback/runtime @zeroback/client @zeroback/react
+zeroback dev
+```
+
+Edit `zeroback/schema.ts` and `zeroback/messages.ts`, open your app, and you have a real-time backend.
 
 ## Why Zeroback?
 
@@ -20,12 +35,32 @@ Convex introduced a great developer experience: define your backend as plain Typ
 - **Single Durable Object** — all state, transactions, and WebSocket connections in one place for strong consistency
 - **Offline support** — opt-in IndexedDB persistence for instant cached renders, offline reads, and mutation replay
 
+### How Zeroback Compares to Convex
+
+| | Convex | Zeroback |
+|-|--------|-----|
+| **Hosting** | Convex Cloud | Your Cloudflare account |
+| **Real-time queries** | Yes | Yes |
+| **Type-safe codegen** | Yes | Yes |
+| **ACID transactions** | Yes | Yes (OCC) |
+| **Database indexes** | Yes | Yes |
+| **Full-text search** | Yes | Yes (SQLite FTS5) |
+| **Pagination** | Yes | Yes (cursor-based) |
+| **Database** | Custom | SQLite (Durable Objects) |
+| **Subscriptions** | Server-push | Server-push (WebSocket) |
+| **Offline/cache** | No | Yes (IndexedDB persistence) |
+| **Edge runtime** | Convex runtime | Cloudflare Workers |
+| **Pricing** | Per-function call | Cloudflare Workers pricing |
+| **Open source** | No | Yes |
+
 ## Quick Start
 
-### 1. Install dependencies
+### 1. Scaffold a new project
 
 ```bash
-bun install
+npx @zeroback/cli init my-app
+cd my-app
+bun add @zeroback/server @zeroback/values @zeroback/runtime @zeroback/client @zeroback/react
 ```
 
 ### 2. Define your schema
@@ -229,24 +264,6 @@ your-project/
 Both `wrangler.toml` and `.zeroback/entry.ts` are scaffolded once by `zeroback init` and owned by the user — you can customize them freely. The entry file imports from `zeroback/_generated/manifest.ts` (regenerated on every build), which wires your functions and schema to the `@zeroback/runtime`.
 
 The `wrangler.toml` at project root points to `.zeroback/entry.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
-
-## How Zeroback Compares to Convex
-
-| | Convex | Zeroback |
-|-|--------|-----|
-| **Hosting** | Convex Cloud | Your Cloudflare account |
-| **Real-time queries** | Yes | Yes |
-| **Type-safe codegen** | Yes | Yes |
-| **ACID transactions** | Yes | Yes (OCC) |
-| **Database indexes** | Yes | Yes |
-| **Full-text search** | Yes | Yes (SQLite FTS5) |
-| **Pagination** | Yes | Yes (cursor-based) |
-| **Database** | Custom | SQLite (Durable Objects) |
-| **Subscriptions** | Server-push | Server-push (WebSocket) |
-| **Offline/cache** | No | Yes (IndexedDB persistence) |
-| **Edge runtime** | Convex runtime | Cloudflare Workers |
-| **Pricing** | Per-function call | Cloudflare Workers pricing |
-| **Open source** | No | Yes |
 
 ## Development
 
