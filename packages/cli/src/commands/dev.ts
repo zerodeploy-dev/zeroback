@@ -74,20 +74,23 @@ export async function dev(config: DevConfig = {}): Promise<void> {
     }
   });
 
-  // Handle shutdown
+  // Handle shutdown: SIGINT from Ctrl+C, or wrangler exiting on its own
   const cleanup = () => {
-    wrangler?.kill();
+    wrangler.kill("SIGTERM");
     watcher.close();
     process.exit(0);
   };
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
+  wrangler.on("exit", () => {
+    watcher.close();
+    process.exit(0);
+  });
 }
 
 function startWrangler(port: number): ChildProcess {
-  const child = spawn("bunx", ["wrangler", "dev", "--port", String(port), "--persist-to", ".wrangler/state"], {
-    stdio: "inherit",
-    shell: true,
+  const child = spawn("npx", ["wrangler", "dev", "--port", String(port), "--persist-to", ".wrangler/state"], {
+    stdio: ["ignore", "inherit", "inherit"],
   });
 
   child.on("error", (err) => {
