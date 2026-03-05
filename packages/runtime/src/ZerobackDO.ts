@@ -80,6 +80,7 @@ export function createZerobackDO(config: RuntimeConfig): {
 
     // Initialize subsystems
     this.storage = new StorageManager(this.sql, ctx, env as any);
+    this.restoreBaseUrl();
     this.cron = new CronManager(this.sql, ctx);
 
     // Build mutation deps (shared between handleMutation and createActionCtx)
@@ -161,6 +162,12 @@ export function createZerobackDO(config: RuntimeConfig): {
     }
   }
 
+  private restoreBaseUrl(): void {
+    this.ctx.storage.get<string>("baseUrl").then((url) => {
+      if (url) this.storage.setBaseUrl(url);
+    });
+  }
+
   private async loadLatestTs(): Promise<void> {
     const stored = await this.ctx.storage.get<number>("latestTs");
     this.latestTs = stored ?? 0;
@@ -174,9 +181,13 @@ export function createZerobackDO(config: RuntimeConfig): {
     const url = new URL(req.url);
     const path = url.pathname;
 
-    // Capture base URL from Worker header (used for storage URLs)
+    // Capture base URL from Worker header (used for storage URLs).
+    // Persist to KV so it survives DO hibernation.
     const headerBaseUrl = req.headers.get("X-Zeroback-Base-Url");
-    if (headerBaseUrl) this.storage.setBaseUrl(headerBaseUrl);
+    if (headerBaseUrl && !this.storage.getBaseUrl()) {
+      this.storage.setBaseUrl(headerBaseUrl);
+      this.ctx.storage.put("baseUrl", headerBaseUrl);
+    }
 
     if (path === "/ws") return this.handleWebSocketUpgrade(req);
     if (path === "/health") return new Response("OK");

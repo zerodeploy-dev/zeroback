@@ -11,12 +11,12 @@ import type { ServerMessage } from "@zeroback/values"
 
 // ---------- Mock MutationQueue (IDB dependency) ----------
 vi.mock("./persistence/MutationQueue.js", () => ({
-  MutationQueue: vi.fn().mockImplementation(() => ({
-    add: vi.fn().mockResolvedValue(undefined),
-    remove: vi.fn().mockResolvedValue(undefined),
-    getAll: vi.fn().mockResolvedValue([]),
-    clear: vi.fn().mockResolvedValue(undefined),
-  })),
+  MutationQueue: class MockMutationQueue {
+    add = vi.fn().mockResolvedValue(undefined)
+    remove = vi.fn().mockResolvedValue(undefined)
+    getAll = vi.fn().mockResolvedValue([])
+    clear = vi.fn().mockResolvedValue(undefined)
+  },
 }))
 
 // ---------- MockWebSocket ----------
