@@ -2,6 +2,10 @@
 
 An open-source [Convex](https://convex.dev)-style backend you deploy to your own Cloudflare account. Real-time queries, mutations, type-safe codegen — all running on Cloudflare Workers, Durable Objects, and SQLite.
 
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Zeroback demo — real-time sync across two browser windows" width="960" />
+</p>
+
 ## Why Zeroback?
 
 Convex introduced a great developer experience: define your backend as plain TypeScript functions, get real-time subscriptions and a type-safe client for free. Zeroback brings that same model to Cloudflare's edge infrastructure — giving you full control over your data and deployment.
