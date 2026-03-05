@@ -1,6 +1,6 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
-import gruvbox from "starlight-theme-gruvbox";
+import starlightThemeObsidian from "starlight-theme-obsidian";
 
 export default defineConfig({
   site: "https://zeroback.dev",
@@ -10,7 +10,10 @@ export default defineConfig({
       description:
         "Open-source real-time backend for Cloudflare. Convex-style DX on your own infrastructure.",
       plugins: [
-        gruvbox(),
+        starlightThemeObsidian({
+          backlinks: false,
+          graph: false,
+        }),
       ],
       social: [
         {
@@ -30,10 +33,7 @@ export default defineConfig({
           items: [
             { label: "Getting Started", slug: "getting-started" },
             { label: "How It Works", slug: "how-it-works" },
-            {
-              label: "Why I Built Zeroback",
-              link: "/blog/why-i-built-zeroback",
-            },
+            { label: "Why I Built Zeroback", slug: "blog/why-i-built-zeroback" },
           ],
         },
         {
@@ -55,6 +55,7 @@ export default defineConfig({
         {
           label: "Features",
           items: [
+            { label: "Authentication", slug: "authentication" },
             { label: "Scheduling", slug: "scheduling" },
             { label: "File Storage", slug: "storage" },
           ],
@@ -64,7 +65,8 @@ export default defineConfig({
           items: [{ label: "CLI", slug: "cli" }],
         },
       ],
-      customCss: [],
+      tableOfContents: false,
+      customCss: ["./src/styles/custom.css"],
       head: [
         {
           tag: "meta",
