@@ -315,17 +315,33 @@ function isSystemTable(name: string): boolean {
 
 function getExistingFtsTables(sql: SqlApi): string[] {
   const rows = sql
-    .exec(`SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE '%fts5%'`)
+    .exec(`SELECT name FROM sqlite_master WHERE sql LIKE '%fts5%'`)
     .toArray() as { name: string }[];
   return rows.map((r) => r.name);
 }
 
+function getAllFtsRelatedNames(sql: SqlApi): Set<string> {
+  const ftsNames = getExistingFtsTables(sql);
+  const all = new Set(ftsNames);
+  // FTS5 shadow tables follow the pattern: <fts_table>_<suffix>
+  // They appear in sqlite_master with type='table' but sql IS NULL
+  // Also include trigger names
+  for (const ftsName of ftsNames) {
+    for (const suffix of ["_data", "_idx", "_content", "_docsize", "_config"]) {
+      all.add(ftsName + suffix);
+    }
+    all.add(ftsName + "_ai");
+    all.add(ftsName + "_ad");
+  }
+  return all;
+}
+
 function getExistingUserTables(sql: SqlApi): string[] {
-  const ftsNames = new Set(getExistingFtsTables(sql));
+  const ftsRelated = getAllFtsRelatedNames(sql);
   const rows = sql
     .exec(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
     .toArray() as { name: string }[];
-  return rows.map((r) => r.name).filter((n) => !isSystemTable(n) && !ftsNames.has(n));
+  return rows.map((r) => r.name).filter((n) => !isSystemTable(n) && !ftsRelated.has(n));
 }
 
 function getTableColumns(sql: SqlApi, tableName: string): PragmaColumnInfo[] {
