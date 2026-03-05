@@ -130,6 +130,20 @@ Runs the same build step as `zeroback dev` (analyze, codegen, bundle) but exits 
 zeroback codegen
 ```
 
+### `zeroback reset`
+
+Reset the local development database.
+
+```
+zeroback reset
+```
+
+Deletes the `.wrangler/state` directory, which contains all local Durable Object and SQLite data. Restart `zeroback dev` afterwards to start with a fresh database.
+
+```bash
+zeroback reset
+```
+
 ### `zeroback run <functionName> [jsonArgs] [--url <url>]`
 
 Invoke a function (query, mutation, or action) on the running dev server.

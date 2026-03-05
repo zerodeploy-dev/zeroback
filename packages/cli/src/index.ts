@@ -5,6 +5,7 @@ import { deploy } from "./commands/deploy.js";
 import { init } from "./commands/init.js";
 import { prepareWorkerDir } from "./commands/prepare.js";
 import { run } from "./commands/run.js";
+import { reset } from "./commands/reset.js";
 import * as path from "path";
 
 function parseDeployArgs(argv: string[]): {
@@ -97,16 +98,22 @@ switch (command) {
     break;
   }
 
+  case "reset": {
+    reset();
+    break;
+  }
+
   default:
     console.log(`
 zeroback - Open-source backend on Cloudflare
 
 Usage:
   zeroback init [dir]                          Scaffold a new project
-  zeroback dev [functionsDir]                        Start development server
-  zeroback codegen [functionsDir]                    Run codegen without starting dev server
+  zeroback dev [functionsDir]                  Start development server
+  zeroback codegen [functionsDir]              Run codegen without starting dev server
   zeroback deploy [functionsDir] [--dry-run] [-- …]  Codegen + wrangler deploy
   zeroback run <fn> [jsonArgs] [--url <url>]   Invoke a function on the dev server
+  zeroback reset                               Reset local database
 `);
     process.exit(command ? 1 : 0);
 }
