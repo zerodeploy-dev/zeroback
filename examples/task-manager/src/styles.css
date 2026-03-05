@@ -660,6 +660,17 @@ body {
   background: #fef2f2;
 }
 
+/* Small viewport: task detail takes full screen */
+@media (max-width: 768px) {
+  .detail-panel {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    z-index: 50;
+    border-left: none;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
