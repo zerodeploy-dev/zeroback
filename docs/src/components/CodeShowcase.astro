@@ -1,9 +1,13 @@
 ---
+import { Code } from "astro:components";
+import githubDark from "shiki/themes/github-dark.mjs";
+
 const steps = [
   {
     step: "01",
     label: "Define your schema",
     file: "zeroback/schema.ts",
+    lang: "ts",
     code: `import { defineSchema, defineTable } from "@zeroback/server"
 import { v } from "@zeroback/values"
 
@@ -19,7 +23,11 @@ export default defineSchema({
     step: "02",
     label: "Write functions",
     file: "zeroback/messages.ts",
-    code: `export const list = query({
+    lang: "ts",
+    code: `import { query } from "./_generated/server"
+import { v } from "@zeroback/values"
+
+export const list = query({
   args: { channel: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -34,7 +42,11 @@ export default defineSchema({
     step: "03",
     label: "Use from React",
     file: "src/Chat.tsx",
-    code: `function Chat({ channel }: { channel: string }) {
+    lang: "tsx",
+    code: `import { useQuery, useMutation } from "@zeroback/react"
+import { api } from "../zeroback/_generated/api"
+
+function Chat({ channel }: { channel: string }) {
   const messages = useQuery(api.messages.list,
     { channel }
   )
@@ -68,7 +80,7 @@ export default defineSchema({
             </div>
             <span class="code-filename">{s.file}</span>
           </div>
-          <pre><code>{s.code}</code></pre>
+          <Code code={s.code} lang={s.lang} theme={githubDark} />
         </div>
       </div>
     ))}
@@ -77,8 +89,20 @@ export default defineSchema({
 
 <style>
   .showcase {
-    margin: 0 auto;
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
     padding: 4rem 1.5rem;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .showcase > * {
+    max-width: 1200px;
+    margin-inline: auto;
   }
 
   .showcase-header {
@@ -184,25 +208,42 @@ export default defineSchema({
     color: var(--sl-color-gray-3);
   }
 
-  pre {
-    margin: 0;
-    padding: 1rem;
+  .code-window pre {
+    margin: 0 !important;
+    padding: 1rem !important;
     overflow-x: auto;
+    border-radius: 0 !important;
+    border: none !important;
+    background: transparent !important;
   }
 
-  code {
-    font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 0.72rem;
-    line-height: 1.6;
-    color: var(--sl-color-gray-2);
+  .code-window code {
+    font-family: "JetBrains Mono", "Fira Code", monospace !important;
+    font-size: 0.72rem !important;
+    line-height: 1.6 !important;
     word-break: keep-all;
   }
 
   @media (max-width: 900px) {
+    .showcase {
+      padding: 3rem 1rem;
+    }
     .steps {
       grid-template-columns: 1fr;
+      grid-template-rows: auto;
       max-width: 32rem;
       margin: 0 auto;
+    }
+    .step-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .step-meta {
+      grid-row: auto;
+    }
+    .code-window {
+      grid-row: auto;
     }
     .showcase-header h2 {
       font-size: 1.6rem;

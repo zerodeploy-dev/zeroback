@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "deploy": "astro build && zerodeploy deploy --org zerodeploy"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.34.0",
     "astro": "^5.7.0",
     "sharp": "^0.33.0",
+    "shiki": "^4.0.1",
     "starlight-site-graph": "^0.5.0",
     "starlight-theme-obsidian": "^0.4.1"
   }
