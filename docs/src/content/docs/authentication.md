@@ -4,7 +4,7 @@ description: Bring your own authentication to Zeroback. Verify users in your Wor
 sidebar:
   badge:
     text: BYOA
-    variant: note
+    variant: caution
 ---
 
 Zeroback does not (yet) include a built-in auth system. Instead, you **bring your own authentication** — verify users in your Worker's `fetch()` handler before forwarding requests to the Durable Object.

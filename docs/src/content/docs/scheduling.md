@@ -4,7 +4,7 @@ description: Schedule one-off functions and recurring cron jobs backed by Durabl
 sidebar:
   badge:
     text: Beta
-    variant: note
+    variant: caution
 ---
 
 Zeroback provides two mechanisms for running functions in the future: the **Scheduler** for one-off scheduled calls, and **Cron Jobs** for recurring schedules.

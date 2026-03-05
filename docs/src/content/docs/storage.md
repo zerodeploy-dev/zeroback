@@ -4,7 +4,7 @@ description: Upload, store, and serve files using Cloudflare R2 with signed uplo
 sidebar:
   badge:
     text: Beta
-    variant: note
+    variant: caution
 ---
 
 Zeroback provides file storage backed by Cloudflare R2. The storage API is available through `ctx.storage` with different access levels depending on the function type.
