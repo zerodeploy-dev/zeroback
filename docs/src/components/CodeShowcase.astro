@@ -1,0 +1,211 @@
+---
+const steps = [
+  {
+    step: "01",
+    label: "Define your schema",
+    file: "zeroback/schema.ts",
+    code: `import { defineSchema, defineTable } from "@zeroback/server"
+import { v } from "@zeroback/values"
+
+export default defineSchema({
+  messages: defineTable({
+    channel: v.string(),
+    author: v.string(),
+    body: v.string(),
+  }).index("by_channel", ["channel"]),
+})`,
+  },
+  {
+    step: "02",
+    label: "Write functions",
+    file: "zeroback/messages.ts",
+    code: `export const list = query({
+  args: { channel: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_channel",
+        (q) => q.eq("channel", args.channel))
+      .collect()
+  },
+})`,
+  },
+  {
+    step: "03",
+    label: "Use from React",
+    file: "src/Chat.tsx",
+    code: `function Chat({ channel }: { channel: string }) {
+  const messages = useQuery(api.messages.list,
+    { channel }
+  )
+  const send = useMutation(api.messages.send)
+
+  // Auto-updates when anyone sends a message
+  // No polling. No refetch. No boilerplate.
+}`,
+  },
+];
+---
+
+<section class="showcase not-content">
+  <div class="showcase-header">
+    <p class="showcase-label">Developer Experience</p>
+    <h2>Schema to screen<br/>in three steps</h2>
+  </div>
+  <div class="steps">
+    {steps.map((s) => (
+      <div class="step-card">
+        <div class="step-meta">
+          <span class="step-number">{s.step}</span>
+          <span class="step-label">{s.label}</span>
+        </div>
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dots">
+              <span class="dot dot-red" />
+              <span class="dot dot-yellow" />
+              <span class="dot dot-green" />
+            </div>
+            <span class="code-filename">{s.file}</span>
+          </div>
+          <pre><code>{s.code}</code></pre>
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .showcase {
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+
+  .showcase-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .showcase-label {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--sl-color-accent);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+
+  .showcase-header h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--sl-color-white);
+    margin: 0;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto 1fr;
+    gap: 1rem 1rem;
+  }
+
+  .step-card {
+    display: contents;
+  }
+
+  .step-meta {
+    grid-row: 1;
+  }
+
+  .code-window {
+    grid-row: 2;
+  }
+
+  .step-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .step-number {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low, rgba(124, 58, 237, 0.1));
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  .step-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+
+  .code-window {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-6, #1a1a2e);
+    flex: 1;
+  }
+
+  .code-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    background: var(--sl-color-gray-6, #16162a);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+
+  .code-dots {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .dot-red { background: #ff5f57; }
+  .dot-yellow { background: #febc2e; }
+  .dot-green { background: #28c840; }
+
+  .code-filename {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.72rem;
+    color: var(--sl-color-gray-3);
+  }
+
+  pre {
+    margin: 0;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+
+  code {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--sl-color-gray-2);
+    word-break: keep-all;
+  }
+
+  @media (max-width: 900px) {
+    .steps {
+      grid-template-columns: 1fr;
+      max-width: 32rem;
+      margin: 0 auto;
+    }
+    .showcase-header h2 {
+      font-size: 1.6rem;
+    }
+  }
+</style>

@@ -1,3 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 :root {
-  --sl-content-width: 75rem;
+  --sl-content-width: 90rem;
+}
+
+/* === Hero === */
+.hero {
+  padding-block: 4rem 2rem !important;
+  position: relative;
+  grid-template-columns: 1fr !important;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -2rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, var(--sl-color-accent-low, rgba(124, 58, 237, 0.08)) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Center the stack and copy */
+.hero .stack {
+  align-items: center !important;
+}
+
+.hero .copy {
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.hero h1 {
+  font-size: 3.5rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em;
+  line-height: 1.1 !important;
+  text-align: center !important;
+  width: 100%;
+}
+
+.hero .tagline {
+  font-size: 1.15rem !important;
+  max-width: 38rem;
+  color: var(--sl-color-gray-2);
+  line-height: 1.7 !important;
+  text-align: center !important;
+}
+
+.hero .actions {
+  justify-content: center !important;
+}
+
+/* Remove top padding on splash page */
+.main-frame {
+  padding-top: 0 !important;
 }

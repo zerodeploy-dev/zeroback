@@ -8,7 +8,7 @@ export default defineConfig({
     starlight({
       title: "Zeroback",
       description:
-        "Open-source real-time backend for Cloudflare. Convex-style DX on your own infrastructure.",
+        "Open-source real-time backend for Cloudflare. Type-safe functions, reactive queries, your infrastructure.",
       plugins: [
         starlightThemeObsidian({
           backlinks: false,

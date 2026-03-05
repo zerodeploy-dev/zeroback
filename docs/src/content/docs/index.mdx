@@ -1,9 +1,9 @@
 ---
 title: Zeroback
-description: Open-source real-time backend for Cloudflare. Convex-style DX on your own infrastructure.
+description: Open-source real-time backend for Cloudflare. Type-safe functions, reactive queries, your infrastructure.
 template: splash
 hero:
-  tagline: "Open-source real-time backend for Cloudflare.<br/>Convex-style DX on infrastructure you own."
+  tagline: "Open-source real-time backend for Cloudflare.<br/>Type-safe functions, reactive queries, your infrastructure."
   actions:
     - text: Get Started
       link: /getting-started/
@@ -15,27 +15,12 @@ hero:
       variant: minimal
 ---
 
-```ts
-// Define a schema
-export default defineSchema({
-  messages: defineTable({
-    channel: v.string(),
-    author: v.string(),
-    body: v.string(),
-  }).index("by_channel", ["channel"]),
-});
+import CodeShowcase from "../../components/CodeShowcase.astro";
+import Features from "../../components/Features.astro";
+import Architecture from "../../components/Architecture.astro";
+import BottomCTA from "../../components/BottomCTA.astro";
 
-// Write a query — it's reactive by default
-export const list = query({
-  args: { channel: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("messages")
-      .withIndex("by_channel", (q) => q.eq("channel", args.channel))
-      .collect();
-  },
-});
-
-// Use from React — auto-updates across all clients
-const messages = useQuery(api.messages.list, { channel });
-```
+<CodeShowcase />
+<Features />
+<Architecture />
+<BottomCTA />

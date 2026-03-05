@@ -1,0 +1,142 @@
+---
+const features = [
+  {
+    icon: "⚡",
+    title: "Real-Time Queries",
+    description: "Queries auto-subscribe over WebSocket. When data changes, affected clients update instantly.",
+  },
+  {
+    icon: "🔒",
+    title: "Type-Safe End-to-End",
+    description: "Schema and functions generate a typed API object. From database to React hook — zero gaps, zero guesswork.",
+  },
+  {
+    icon: "🏗️",
+    title: "Your Infrastructure",
+    description: "Runs on your Cloudflare account. Workers + Durable Objects + SQLite. Your data never leaves your control.",
+  },
+  {
+    icon: "📡",
+    title: "Offline-First",
+    description: "IndexedDB persistence. Your app renders from cache instantly, even before the WebSocket connects.",
+  },
+  {
+    icon: "🧩",
+    title: "Batteries Included",
+    description: "File storage, scheduled jobs, cron, full-text search, pagination. Everything you need, nothing you don't.",
+  },
+  {
+    icon: "⚙️",
+    title: "One Command Setup",
+    description: "npx @zeroback/cli init scaffolds your project. zeroback dev starts the server. You're building in under two minutes.",
+  },
+];
+---
+
+<section class="features not-content">
+  <div class="features-header">
+    <p class="features-label">Why Zeroback</p>
+    <h2>Everything you need.<br/>Nothing in the way.</h2>
+  </div>
+  <div class="features-grid">
+    {features.map((f, i) => (
+      <div class="feature-card" style={`--delay: ${i * 0.05}s`}>
+        <div class="feature-icon">{f.icon}</div>
+        <h3>{f.title}</h3>
+        <p>{f.description}</p>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .features {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 2rem;
+  }
+
+  .features-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .features-label {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--sl-color-accent);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+
+  .features-header h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--sl-color-white);
+    margin: 0;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 1rem;
+  }
+
+  .feature-card {
+    padding: 1.75rem;
+    border-radius: 10px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-7, var(--sl-color-gray-6));
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .feature-card:hover {
+    border-color: var(--sl-color-gray-4);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .feature-icon {
+    font-size: 1.3rem;
+    margin-bottom: 0.75rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--sl-color-accent-low, rgba(124, 58, 237, 0.08));
+  }
+
+  .feature-card h3 {
+    font-size: 1.05rem;
+    font-weight: 650;
+    margin: 0 0 0.5rem;
+    color: var(--sl-color-white);
+  }
+
+  .feature-card p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--sl-color-gray-2);
+    margin: 0;
+  }
+
+  @media (max-width: 800px) {
+    .features-grid {
+      grid-template-columns: 1fr;
+    }
+    .features-header h2 {
+      font-size: 1.6rem;
+    }
+  }
+
+  @media (min-width: 801px) and (max-width: 1100px) {
+    .features-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

@@ -1,0 +1,245 @@
+---
+---
+
+<section class="arch not-content">
+  <div class="arch-header">
+    <p class="arch-label">Architecture</p>
+    <h2>One Durable Object.<br/>Everything you need.</h2>
+    <p class="arch-desc">
+      A single Durable Object gives you SQLite for persistence, WebSockets for real-time,
+      and strong consistency by default. No distributed coordination. No cache invalidation.
+    </p>
+  </div>
+
+  <div class="arch-diagram">
+    <div class="arch-flow">
+      <div class="arch-node client-node">
+        <div class="node-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <span class="node-label">React Client</span>
+        <span class="node-sub">useQuery &middot; useMutation</span>
+      </div>
+
+      <div class="arch-connector">
+        <div class="connector-line"></div>
+        <span class="connector-label">WebSocket</span>
+      </div>
+
+      <div class="arch-node worker-node">
+        <div class="node-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="node-label">Worker</span>
+        <span class="node-sub">Auth &middot; CORS &middot; Routing</span>
+      </div>
+
+      <div class="arch-connector">
+        <div class="connector-line"></div>
+        <span class="connector-label">Internal</span>
+      </div>
+
+      <div class="arch-node do-node">
+        <div class="node-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+            <path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"/>
+            <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+          </svg>
+        </div>
+        <span class="node-label">Durable Object</span>
+        <span class="node-sub">SQLite &middot; Subscriptions &middot; OCC</span>
+      </div>
+    </div>
+
+    <div class="arch-badges">
+      <div class="badge">
+        <span class="badge-value">&lt; 50ms</span>
+        <span class="badge-label">Query latency</span>
+      </div>
+      <div class="badge">
+        <span class="badge-value">~10 GB</span>
+        <span class="badge-label">SQLite storage</span>
+      </div>
+      <div class="badge">
+        <span class="badge-value">1,000</span>
+        <span class="badge-label">Concurrent connections</span>
+      </div>
+      <div class="badge">
+        <span class="badge-value">MIT</span>
+        <span class="badge-label">Open source</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .arch {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+
+  .arch-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .arch-label {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--sl-color-accent);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+
+  .arch-header h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--sl-color-white);
+    margin: 0 0 1rem;
+  }
+
+  .arch-desc {
+    font-size: 1.05rem;
+    color: var(--sl-color-gray-2);
+    max-width: 40rem;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  .arch-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 2.5rem 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 12px;
+    background: var(--sl-color-gray-7, var(--sl-color-gray-6));
+  }
+
+  .arch-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 1.25rem 2rem;
+    border-radius: 10px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-bg);
+    min-width: 10rem;
+    text-align: center;
+  }
+
+  .node-icon {
+    color: var(--sl-color-accent);
+    margin-bottom: 0.25rem;
+  }
+
+  .node-label {
+    font-weight: 650;
+    font-size: 0.95rem;
+    color: var(--sl-color-white);
+  }
+
+  .node-sub {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.7rem;
+    color: var(--sl-color-gray-3);
+  }
+
+  .arch-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0 0.75rem;
+    min-width: 6rem;
+  }
+
+  .connector-line {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--sl-color-gray-4), var(--sl-color-accent), var(--sl-color-gray-4));
+    border-radius: 1px;
+  }
+
+  .connector-label {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.65rem;
+    color: var(--sl-color-gray-3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .arch-badges {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .badge {
+    padding: 1.25rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-gray-7, var(--sl-color-gray-6));
+  }
+
+  .badge-value {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+
+  .badge-label {
+    font-size: 0.78rem;
+    color: var(--sl-color-gray-3);
+  }
+
+  @media (max-width: 800px) {
+    .arch-flow {
+      flex-direction: column;
+      gap: 0;
+    }
+    .arch-connector {
+      padding: 0.5rem 0;
+      min-width: unset;
+      width: 6rem;
+    }
+    .connector-line {
+      width: 2px;
+      height: 2rem;
+      background: linear-gradient(180deg, var(--sl-color-gray-4), var(--sl-color-accent), var(--sl-color-gray-4));
+    }
+    .arch-badges {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+    .arch-header h2 {
+      font-size: 1.6rem;
+    }
+  }
+</style>
