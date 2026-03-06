@@ -26,6 +26,9 @@
     }
   },
   "files": ["dist"],
+  "peerDependencies": {
+    "@zeroback/runtime": "workspace:^"
+  },
   "dependencies": {
     "@zeroback/server": "workspace:^",
     "@zeroback/values": "workspace:^",
