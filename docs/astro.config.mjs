@@ -7,6 +7,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Zeroback",
+      favicon: "/favicon.svg",
       description:
         "Open-source real-time backend for Cloudflare. Type-safe functions, reactive queries, your infrastructure.",
       plugins: [
@@ -34,6 +35,7 @@ export default defineConfig({
             { label: "Getting Started", slug: "getting-started" },
             { label: "How It Works", slug: "how-it-works" },
             { label: "Why I Built Zeroback", slug: "blog/why-i-built-zeroback" },
+            { label: "Deployment", slug: "deployment" },
           ],
         },
         {

@@ -91,17 +91,30 @@ zeroback deploy [functionsDir] [--dry-run] [-- wranglerArgs...]
 | `--dry-run` | `false` | Run codegen only, skip wrangler deploy |
 | `-- args...` | — | Extra arguments passed through to `wrangler deploy` |
 
+**Prerequisites:**
+
+You must be authenticated with Cloudflare before deploying. Either:
+
+- Run `wrangler login` to log in via your browser (recommended for local development)
+- Set the `CLOUDFLARE_API_TOKEN` environment variable (recommended for CI/CD)
+
+The deploy command will check authentication before deploying and provide guidance if you're not logged in.
+
 **Behavior:**
 
 1. Runs codegen (same as `zeroback dev` build step)
 2. If `--dry-run`: stops after codegen
-3. Otherwise: runs `wrangler deploy` with any extra arguments
+3. Verifies Cloudflare authentication
+4. Runs `wrangler deploy` with any extra arguments
 
 Requires `wrangler.toml` at the project root.
 
 **Examples:**
 
 ```bash
+# First-time setup: log in to Cloudflare
+wrangler login
+
 # Deploy
 zeroback deploy
 
@@ -110,6 +123,9 @@ zeroback deploy --dry-run
 
 # Pass args to wrangler
 zeroback deploy -- --env production
+
+# CI/CD: use an API token instead of interactive login
+CLOUDFLARE_API_TOKEN=your-token zeroback deploy
 ```
 
 ### `zeroback codegen [functionsDir]`
