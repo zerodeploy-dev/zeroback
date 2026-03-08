@@ -91,13 +91,20 @@ function buildColumnDefs(tableInfo: SchemaJSON["tables"][string]): string[] {
   return colDefs;
 }
 
-/** Drop all FTS tables and triggers associated with a content table. */
-function dropFtsForTable(sql: SqlApi, tableName: string): void {
+/** Drop only the FTS triggers for a content table (leaves virtual + shadow tables intact). */
+function dropFtsTriggersForTable(sql: SqlApi, tableName: string): void {
   const ftsNames = getExistingFtsTables(sql).filter((n) => n.startsWith(`${tableName}_`));
   for (const ftsName of ftsNames) {
     sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ai"`);
     sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ad"`);
-    sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
+  }
+}
+
+/** Rebuild FTS indexes for a content table by repopulating from the content table data. */
+function rebuildFtsForTable(sql: SqlApi, tableName: string): void {
+  const ftsNames = getExistingFtsTables(sql).filter((n) => n.startsWith(`${tableName}_`));
+  for (const ftsName of ftsNames) {
+    sql.exec(`INSERT INTO "${ftsName}"("${ftsName}") VALUES ('rebuild')`);
   }
 }
 
@@ -320,14 +327,15 @@ function getExistingFtsTables(sql: SqlApi): string[] {
   return rows.map((r) => r.name);
 }
 
+const FTS5_SHADOW_SUFFIXES = ["_data", "_idx", "_content", "_docsize", "_config"];
+
 function getAllFtsRelatedNames(sql: SqlApi): Set<string> {
   const ftsNames = getExistingFtsTables(sql);
   const all = new Set(ftsNames);
   // FTS5 shadow tables follow the pattern: <fts_table>_<suffix>
-  // They appear in sqlite_master with type='table' but sql IS NULL
   // Also include trigger names
   for (const ftsName of ftsNames) {
-    for (const suffix of ["_data", "_idx", "_content", "_docsize", "_config"]) {
+    for (const suffix of FTS5_SHADOW_SUFFIXES) {
       all.add(ftsName + suffix);
     }
     all.add(ftsName + "_ai");
@@ -336,12 +344,44 @@ function getAllFtsRelatedNames(sql: SqlApi): Set<string> {
   return all;
 }
 
+/**
+ * Detect orphaned FTS5 shadow tables — shadow tables whose parent virtual
+ * table no longer exists (e.g. from a previous partial migration).
+ * We identify them by looking for groups of tables that share a common prefix
+ * and end with known FTS5 shadow suffixes (_data, _idx, _content, _docsize, _config).
+ * If 3+ such siblings exist, they are almost certainly orphaned shadow tables.
+ */
+function detectOrphanedFtsShadowTables(allTableNames: Set<string>): Set<string> {
+  const orphaned = new Set<string>();
+  const checked = new Set<string>();
+
+  for (const name of allTableNames) {
+    if (checked.has(name)) continue;
+    for (const suffix of FTS5_SHADOW_SUFFIXES) {
+      if (!name.endsWith(suffix)) continue;
+      const prefix = name.slice(0, -suffix.length);
+      const siblings = FTS5_SHADOW_SUFFIXES.filter((s) => allTableNames.has(prefix + s));
+      if (siblings.length >= 3) {
+        for (const s of siblings) {
+          orphaned.add(prefix + s);
+          checked.add(prefix + s);
+        }
+      }
+      break;
+    }
+  }
+
+  return orphaned;
+}
+
 function getExistingUserTables(sql: SqlApi): string[] {
   const ftsRelated = getAllFtsRelatedNames(sql);
   const rows = sql
     .exec(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
     .toArray() as { name: string }[];
-  return rows.map((r) => r.name).filter((n) => !isSystemTable(n) && !ftsRelated.has(n));
+  const allNames = new Set(rows.map((r) => r.name));
+  const orphanedShadow = detectOrphanedFtsShadowTables(allNames);
+  return rows.map((r) => r.name).filter((n) => !isSystemTable(n) && !ftsRelated.has(n) && !orphanedShadow.has(n));
 }
 
 function getTableColumns(sql: SqlApi, tableName: string): PragmaColumnInfo[] {
@@ -489,7 +529,12 @@ function migrateSearchIndexes(
     if (!desiredFts.has(ftsName)) {
       sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ai"`);
       sql.exec(`DROP TRIGGER IF EXISTS "${ftsName}_ad"`);
-      sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
+      try {
+        sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
+      } catch {
+        // Cloudflare's SQLITE_DBCONFIG_DEFENSIVE may prevent dropping shadow tables
+        // via cascade. The stale FTS table becomes inert (no triggers) and harmless.
+      }
     }
   }
 
@@ -560,9 +605,13 @@ export function migrateSchema(sql: SqlApi, schema: SchemaJSON): void {
     }
 
     if (needsRebuild) {
-      // Drop all FTS tables/triggers before rebuild (they reference the old table)
-      dropFtsForTable(sql, tableName);
+      // Drop FTS triggers before rebuild so they don't fire during data migration.
+      // We keep the FTS virtual table + shadow tables intact because Cloudflare's
+      // SQLITE_DBCONFIG_DEFENSIVE prevents dropping shadow tables.
+      dropFtsTriggersForTable(sql, tableName);
       rebuildTable(sql, tableName, tableInfo);
+      // Rebuild FTS indexes from the new content table data
+      rebuildFtsForTable(sql, tableName);
     } else if (addableCols.length > 0) {
       // Simple ALTER TABLE ADD COLUMN for new nullable columns
       for (const col of addableCols) {
@@ -580,8 +629,21 @@ export function migrateSchema(sql: SqlApi, schema: SchemaJSON): void {
   // Drop tables no longer in schema (including their FTS tables/triggers)
   for (const tableName of existingTables) {
     if (!desiredTables.has(tableName)) {
-      dropFtsForTable(sql, tableName);
-      sql.exec(`DROP TABLE IF EXISTS "${tableName}"`);
+      // Drop FTS triggers, then try to drop the virtual table (may fail under defensive mode)
+      dropFtsTriggersForTable(sql, tableName);
+      const ftsNames = getExistingFtsTables(sql).filter((n) => n.startsWith(`${tableName}_`));
+      for (const ftsName of ftsNames) {
+        try {
+          sql.exec(`DROP TABLE IF EXISTS "${ftsName}"`);
+        } catch {
+          // Cloudflare's SQLITE_DBCONFIG_DEFENSIVE prevents shadow table cascade — ignore
+        }
+      }
+      try {
+        sql.exec(`DROP TABLE IF EXISTS "${tableName}"`);
+      } catch (e) {
+        console.warn(`[migration] skipping drop of "${tableName}":`, e);
+      }
     }
   }
 }
