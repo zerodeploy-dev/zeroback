@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import * as path from "path";
 
-export const WRANGLER_TEMPLATE = `name = "zeroback-backend"
+function wranglerTemplate(projectName: string): string {
+  return `name = "${projectName}"
 main = ".zeroback/entry.ts"
-compatibility_date = "2024-09-23"
+compatibility_date = "2026-02-24"
 
 [durable_objects]
 bindings = [{ name = "ZEROBACK_DO", class_name = "ZerobackDO" }]
@@ -19,7 +20,19 @@ new_sqlite_classes = ["ZerobackDO"]
 # [[r2_buckets]]
 # binding = "ZEROBACK_STORAGE"
 # bucket_name = "my-zeroback-storage"
-`;
+
+# Custom domain: uncomment and set your domain to serve traffic on it
+# routes = [{ pattern = "api.example.com", custom_domain = true }]
+
+# Environments: uncomment to configure separate staging/production deploys
+# [env.production]
+# name = "${projectName}-production"
+# routes = [{ pattern = "api.example.com", custom_domain = true }]
+#
+# [env.staging]
+# name = "${projectName}-staging"
+`
+}
 
 export const ENTRY_TEMPLATE = `import { createZerobackDO, workerHandler } from "@zeroback/runtime"
 import { functions, schema, httpRouter, cronJobsDef } from "../zeroback/_generated/manifest"
@@ -44,7 +57,8 @@ export function prepareWorkerDir(projectDir: string = "."): string {
   // Scaffold wrangler.toml at project root if missing
   const wranglerPath = path.join(resolved, "wrangler.toml");
   if (!existsSync(wranglerPath)) {
-    writeFileSync(wranglerPath, WRANGLER_TEMPLATE);
+    const projectName = path.basename(resolved).replace(/[^a-z0-9-]/gi, "-").toLowerCase()
+    writeFileSync(wranglerPath, wranglerTemplate(projectName));
     console.log("  ✓ Created wrangler.toml");
   }
 

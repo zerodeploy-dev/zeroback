@@ -8,6 +8,7 @@ import { generateDataModel } from "../codegen/dataModel.js";
 import { bundle } from "../build/bundle.js";
 import { existsSync, mkdirSync } from "fs";
 import { prepareWorkerDir } from "./prepare.js";
+import { detectPkgRunner } from "./pkg-manager.js";
 
 export interface DevConfig {
   functionsDir?: string;
@@ -89,7 +90,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
 }
 
 function startWrangler(port: number): ChildProcess {
-  const child = spawn("npx", ["wrangler", "dev", "--port", String(port), "--persist-to", ".wrangler/state"], {
+  const child = spawn(detectPkgRunner(), ["wrangler", "dev", "--port", String(port), "--persist-to", ".wrangler/state"], {
     stdio: ["ignore", "inherit", "inherit"],
   });
 
