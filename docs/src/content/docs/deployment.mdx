@@ -3,6 +3,8 @@ title: Deployment
 description: Deploy your Zeroback backend to Cloudflare Workers.
 ---
 
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
 Zeroback deploys to Cloudflare Workers with Durable Objects and SQLite. This guide walks through everything you need to go from local development to production.
 
 ## Prerequisites
@@ -16,9 +18,28 @@ Before deploying, authenticate with Cloudflare:
 
 **Interactive (local development):**
 
-```bash
-npx wrangler login
-```
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    npx wrangler login
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    bunx wrangler login
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpx wrangler login
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    npx wrangler login
+    ```
+  </TabItem>
+</Tabs>
 
 This opens your browser, prompts you to log in, and stores an OAuth token locally.
 
@@ -32,9 +53,28 @@ export CLOUDFLARE_API_TOKEN=your-token-here
 
 ## Deploy
 
-```bash
-zeroback deploy
-```
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    npx @zeroback/cli deploy
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    bunx @zeroback/cli deploy
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpx @zeroback/cli deploy
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    npx @zeroback/cli deploy
+    ```
+  </TabItem>
+</Tabs>
 
 This runs codegen and then `wrangler deploy`. On first deploy, Cloudflare provisions a Worker and Durable Object namespace automatically.
 
@@ -123,9 +163,28 @@ Each environment gets its own Worker, Durable Object, and SQLite database.
 
 If your app uses file storage, create an R2 bucket and add the binding:
 
-```bash
-npx wrangler r2 bucket create my-app-storage
-```
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    npx wrangler r2 bucket create my-app-storage
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    bunx wrangler r2 bucket create my-app-storage
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpx wrangler r2 bucket create my-app-storage
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    npx wrangler r2 bucket create my-app-storage
+    ```
+  </TabItem>
+</Tabs>
 
 ```toml
 [[r2_buckets]]
@@ -159,9 +218,28 @@ jobs:
 
 To verify codegen without deploying:
 
-```bash
-zeroback deploy --dry-run
-```
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    npx @zeroback/cli deploy --dry-run
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    bunx @zeroback/cli deploy --dry-run
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpx @zeroback/cli deploy --dry-run
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    npx @zeroback/cli deploy --dry-run
+    ```
+  </TabItem>
+</Tabs>
 
 ## Troubleshooting
 
