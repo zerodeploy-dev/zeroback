@@ -117,11 +117,13 @@ export type UsePaginatedQueryResult<T> = {
   loadMore: (numItems: number) => void;
 };
 
+type ElementType<T> = T extends (infer E)[] ? E : T;
+
 export function usePaginatedQuery<Ref extends FunctionReference<"query", any, any>>(
   ref: Ref,
   args: Omit<Ref["_args"], "cursor" | "numItems">,
   opts: { initialNumItems: number }
-): UsePaginatedQueryResult<any> {
+): UsePaginatedQueryResult<ElementType<Ref["_returns"]>> {
   const client = useZerobackClient();
   const [pages, setPages] = useState<any[][]>([]);
   const [cursors, setCursors] = useState<(string | null)[]>([null]);

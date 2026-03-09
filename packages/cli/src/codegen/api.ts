@@ -11,7 +11,7 @@ export function generateApi(manifest: FunctionManifest, outputPath: string): voi
   ];
 
   // Collect all functions with their module path and function name
-  type FnEntry = { modulePath: string; funcName: string; fullName: string; type: "query" | "mutation" | "action"; argsType: string };
+  type FnEntry = { modulePath: string; funcName: string; fullName: string; type: "query" | "mutation" | "action"; argsType: string; returnsType: string };
   const publicFns: FnEntry[] = [];
   const internalFns: FnEntry[] = [];
 
@@ -28,6 +28,7 @@ export function generateApi(manifest: FunctionManifest, outputPath: string): voi
       argsType: fn.args.type === "object" && fn.args.value
         ? `{ ${Object.entries(fn.args.value as Record<string, any>).map(([k, v]) => v.type === "optional" ? `${quotePropertyName(k)}?: ${validatorTypeToTs(v.value)}` : `${quotePropertyName(k)}: ${validatorTypeToTs(v)}`).join("; ")} }`
         : "Record<string, never>",
+      returnsType: fn.returnsTypeString !== "unknown" ? fn.returnsTypeString : "any",
     };
 
     (fn.isInternal ? internalFns : publicFns).push(entry);
@@ -46,7 +47,7 @@ export function generateApi(manifest: FunctionManifest, outputPath: string): voi
   fs.writeFileSync(outputPath, lines.join("\n") + "\n");
 }
 
-type FnEntry = { modulePath: string; funcName: string; fullName: string; type: "query" | "mutation" | "action"; argsType: string };
+type FnEntry = { modulePath: string; funcName: string; fullName: string; type: "query" | "mutation" | "action"; argsType: string; returnsType: string };
 
 function generateNestedObject(fns: FnEntry[]): string {
   // Build a tree: { segment: { segment: { __fns: [entries] } } }
@@ -78,7 +79,7 @@ function generateNestedObject(fns: FnEntry[]): string {
     // Render functions at this level
     for (const fn of node.fns) {
       const refType = `"${fn.type}"`;
-      lines.push(`${inner}${quotePropertyName(fn.funcName)}: { _name: "${fn.modulePath}:${fn.funcName}" as const, _type: ${refType} as const } as FunctionReference<${refType}, ${fn.argsType}, any>,`);
+      lines.push(`${inner}${quotePropertyName(fn.funcName)}: { _name: "${fn.modulePath}:${fn.funcName}" as const, _type: ${refType} as const } as FunctionReference<${refType}, ${fn.argsType}, ${fn.returnsType}>,`);
     }
 
     lines.push(`${indent}}`);

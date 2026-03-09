@@ -165,4 +165,87 @@ describe("extractFunctions", () => {
       });
     });
   });
+
+  it("extracts returns type string from returns validator", () => {
+    withTempVexDir({
+      "tasks.ts": `
+        import { query } from "./server";
+        import { v } from "@zeroback/values";
+        export const list = query({
+          args: {},
+          returns: v.array(v.object({ _id: v.string(), text: v.string(), isCompleted: v.boolean() })),
+          handler: async (ctx) => {
+            return await ctx.db.query("tasks").collect();
+          },
+        });
+      `,
+    }, (vexDir) => {
+      const manifest = extractFunctions(vexDir);
+      const fn = manifest["tasks:list"];
+      expect(fn).toBeDefined();
+      expect(fn.returnsTypeString).toBe("{ _id: string, text: string, isCompleted: boolean }[]");
+    });
+  });
+
+  it("extracts simple returns type", () => {
+    withTempVexDir({
+      "tasks.ts": `
+        import { query } from "./server";
+        import { v } from "@zeroback/values";
+        export const count = query({
+          args: {},
+          returns: v.number(),
+          handler: async (ctx) => {
+            return 42;
+          },
+        });
+      `,
+    }, (vexDir) => {
+      const manifest = extractFunctions(vexDir);
+      const fn = manifest["tasks:count"];
+      expect(fn).toBeDefined();
+      expect(fn.returnsTypeString).toBe("number");
+    });
+  });
+
+  it("extracts null returns type", () => {
+    withTempVexDir({
+      "tasks.ts": `
+        import { mutation } from "./server";
+        import { v } from "@zeroback/values";
+        export const create = mutation({
+          args: { text: v.string() },
+          returns: v.null(),
+          handler: async (ctx, args) => {
+            await ctx.db.insert("tasks", { text: args.text });
+          },
+        });
+      `,
+    }, (vexDir) => {
+      const manifest = extractFunctions(vexDir);
+      const fn = manifest["tasks:create"];
+      expect(fn).toBeDefined();
+      expect(fn.returnsTypeString).toBe("null");
+    });
+  });
+
+  it("defaults to unknown when no returns validator is specified", () => {
+    withTempVexDir({
+      "tasks.ts": `
+        import { query } from "./server";
+        import { v } from "@zeroback/values";
+        export const list = query({
+          args: {},
+          handler: async (ctx) => {
+            return await ctx.db.query("tasks").collect();
+          },
+        });
+      `,
+    }, (vexDir) => {
+      const manifest = extractFunctions(vexDir);
+      const fn = manifest["tasks:list"];
+      expect(fn).toBeDefined();
+      expect(fn.returnsTypeString).toBe("unknown");
+    });
+  });
 });

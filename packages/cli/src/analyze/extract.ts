@@ -2,6 +2,7 @@ import * as ts from "typescript";
 import * as path from "path";
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import type { ValidatorJSON } from "@zeroback/values";
+import { validatorToTypeString as validatorTypeToTs } from "@zeroback/values";
 import type { FunctionManifest, SchemaJSON } from "@zeroback/server";
 
 export function extractFunctions(vexDir: string): FunctionManifest {
@@ -67,11 +68,12 @@ function extractFunctionsFromFile(filePath: string, moduleName: string, manifest
             const fnInfo = fnTypeMap[fnText];
             if (fnInfo) {
               const args = extractArgs(init, sourceFile);
+              const returns = extractReturns(init, sourceFile);
               manifest[`${moduleName}:${name}`] = {
                 type: fnInfo.type,
                 isInternal: fnInfo.isInternal,
                 args: args ?? { type: "object", value: {} },
-                returnsTypeString: "unknown",
+                returnsTypeString: returns ? validatorTypeToTs(returns) : "unknown",
               };
             }
           }
@@ -285,6 +287,19 @@ function extractArgs(callExpr: ts.CallExpression, sf: ts.SourceFile): ValidatorJ
             }
           }
           return { type: "object", value };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function extractReturns(callExpr: ts.CallExpression, sf: ts.SourceFile): ValidatorJSON | null {
+  if (callExpr.arguments.length > 0 && ts.isObjectLiteralExpression(callExpr.arguments[0])) {
+    for (const prop of callExpr.arguments[0].properties) {
+      if (ts.isPropertyAssignment(prop) && prop.name && ts.isIdentifier(prop.name) && prop.name.text === "returns") {
+        if (prop.initializer && ts.isCallExpression(prop.initializer)) {
+          return extractValidator(prop.initializer, sf);
         }
       }
     }

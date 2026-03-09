@@ -41,6 +41,7 @@ import { v } from "@zeroback/values";
 
 export const list = query({
   args: {},
+  returns: v.array(v.object({ _id: v.string(), _creationTime: v.number(), text: v.string(), isCompleted: v.boolean() })),
   handler: async (ctx) => {
     return await ctx.db.query("tasks").collect();
   },
@@ -48,6 +49,7 @@ export const list = query({
 
 export const create = mutation({
   args: { text: v.string() },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.insert("tasks", { text: args.text, isCompleted: false });
   },
@@ -55,6 +57,7 @@ export const create = mutation({
 
 export const toggle = mutation({
   args: { id: v.id("tasks") },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
     if (task) {
