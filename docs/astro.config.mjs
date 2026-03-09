@@ -33,6 +33,7 @@ export default defineConfig({
           label: "Start Here",
           items: [
             { label: "Getting Started", slug: "getting-started" },
+            { label: "Quickstart: React", slug: "quickstart-react" },
             { label: "How It Works", slug: "how-it-works" },
             { label: "Why I Built Zeroback", slug: "blog/why-i-built-zeroback" },
             { label: "Deployment", slug: "deployment" },

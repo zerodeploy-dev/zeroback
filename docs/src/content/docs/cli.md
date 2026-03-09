@@ -23,12 +23,14 @@ zeroback init [dir]
 
 | File | Description |
 |------|-------------|
-| `zeroback/schema.ts` | Starter schema with a `messages` table |
-| `zeroback/messages.ts` | Example query and mutation functions |
+| `zeroback/schema.ts` | Starter schema with a `tasks` table |
+| `zeroback/tasks.ts` | Example query and mutation functions |
 | `zeroback/_generated/server.ts` | Stub file so imports resolve before first codegen |
 | `wrangler.toml` | Cloudflare Workers configuration (if not present) |
 | `.zeroback/entry.ts` | Worker entry point — imports manifest and wires to runtime |
 | `.gitignore` | Ignores `.zeroback/*` except `entry.ts` (creates or appends) |
+
+After scaffolding, `init` automatically installs backend dependencies (`@zeroback/server`, `@zeroback/values`, `@zeroback/runtime`) using the detected package manager.
 
 Skips scaffolding if the `zeroback/` directory already exists.
 
@@ -37,7 +39,7 @@ Skips scaffolding if the `zeroback/` directory already exists.
 ```bash
 mkdir my-app && cd my-app
 npm init -y
-zeroback init
+npx @zeroback/cli init
 ```
 
 ### `zeroback dev [functionsDir]`

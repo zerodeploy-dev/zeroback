@@ -1,105 +1,32 @@
 ---
 title: Getting Started
-description: Set up Zeroback — an open-source real-time backend for Cloudflare — in under 2 minutes.
+description: Set up Zeroback — an open-source real-time backend for Cloudflare — in under 5 minutes.
 ---
 
-import { Steps, Code, Tabs, TabItem } from "@astrojs/starlight/components";
+import { LinkCard, CardGrid } from "@astrojs/starlight/components";
 
-Zeroback is an open-source, self-hosted [Convex](https://convex.dev) alternative that runs on Cloudflare Workers and Durable Objects. Real-time queries, type-safe codegen, and reactive subscriptions — on infrastructure you own.
+Zeroback is an open-source real-time backend that runs on Cloudflare Workers and Durable Objects. Type-safe functions, reactive queries, and transactional mutations — on infrastructure you own.
 
-## Quick Start
+## Quickstarts
 
-<Steps>
+Pick your framework and follow the step-by-step guide:
 
-1. **Scaffold a new project**
+<CardGrid>
+  <LinkCard title="React" description="Build a real-time todo app with Vite + React." href="/quickstart-react/" />
+  <LinkCard title="Solid.js" description="Coming soon" href="/solid/" />
+</CardGrid>
 
-   ```bash
-   npx @zeroback/cli init my-app
-   cd my-app
-   ```
+## How it works
 
-2. **Define your schema** in `zeroback/schema.ts`
+1. **Define your schema** — Declare tables and validators in TypeScript. Zeroback generates types and SQL automatically.
+2. **Write functions** — Queries, mutations, and actions are plain TypeScript. They run on Cloudflare with transactional guarantees.
+3. **Connect your frontend** — Bind your UI to live data with a single hook. Queries re-render automatically when data changes — no polling.
+4. **Deploy** — `zeroback deploy` ships to your Cloudflare account. Your data stays on your infrastructure.
 
-   ```ts
-   import { defineSchema, defineTable } from "@zeroback/server";
-   import { v } from "@zeroback/values";
+## Learn more
 
-   export default defineSchema({
-     tasks: defineTable({
-       title: v.string(),
-       completed: v.boolean(),
-     }),
-   });
-   ```
-
-3. **Write a query and mutation** in `zeroback/tasks.ts`
-
-   ```ts
-   import { query, mutation } from "./_generated/server";
-   import { v } from "@zeroback/values";
-
-   export const list = query({
-     args: {},
-     handler: async (ctx) => {
-       return await ctx.db.query("tasks").collect();
-     },
-   });
-
-   export const create = mutation({
-     args: { title: v.string() },
-     handler: async (ctx, args) => {
-       await ctx.db.insert("tasks", { title: args.title, completed: false });
-     },
-   });
-   ```
-
-4. **Start the dev server**
-
-   ```bash
-   zeroback dev
-   ```
-
-</Steps>
-
-That's it. Your backend is running locally with real-time subscriptions, type-safe codegen, and SQLite persistence — all on a single Durable Object.
-
-## Use with React
-
-```tsx
-import { useQuery, useMutation } from "@zeroback/react";
-import { api } from "./zeroback/_generated/api";
-
-function App() {
-  const tasks = useQuery(api.tasks.list);
-  const createTask = useMutation(api.tasks.create);
-
-  return (
-    <div>
-      <button onClick={() => createTask({ title: "New task" })}>Add</button>
-      <ul>
-        {tasks?.map((task) => (
-          <li key={task._id}>{task.title}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-```
-
-Queries auto-subscribe over WebSocket. When data changes, every connected client updates instantly.
-
-## Deploy
-
-```bash
-zeroback deploy
-```
-
-Deploys to your Cloudflare account using Wrangler. Your data stays on your infrastructure.
-
-## Next Steps
-
-- [Schema](/schema/) — Define tables, indexes, and validators
-- [Functions](/functions/) — Write queries, mutations, and actions
-- [Database](/database/) — Query and mutate data
-- [React](/react/) — Hooks for real-time UI
+- [Schema](/schema/) — Tables, indexes, validators, and search indexes
+- [Functions](/functions/) — Queries, mutations, actions, HTTP routes, cron jobs
+- [Database](/database/) — Filters, pagination, full-text search
 - [How It Works](/how-it-works/) — Architecture and real-time internals
+- [CLI](/cli/) — `init`, `dev`, `deploy`, `codegen`, `run`, `reset`

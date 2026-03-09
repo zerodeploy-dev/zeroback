@@ -11,7 +11,7 @@ head:
       content: "I built Zeroback — an open-source, self-hosted Convex alternative running on Cloudflare Durable Objects. Real-time queries, type-safe codegen, your infrastructure."
 ---
 
-By [Ran Yefet](https://x.com/ranyefet)
+*March 27, 2026* · By [Ran Yefet](https://x.com/ranyefet)
 
 Cloudflare has everything you need to build a backend. Workers for compute. D1 for SQL. R2 for storage. Durable Objects for stateful coordination. I built an entire [hosting platform](https://zerodeploy.dev) on Cloudflare without a single external service.
 
