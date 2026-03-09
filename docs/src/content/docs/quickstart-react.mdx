@@ -94,9 +94,17 @@ Build a real-time todo app with React and Zeroback in under 5 minutes.
      </TabItem>
    </Tabs>
 
-4. **Wire up the React client**
+4. **Start the Zeroback dev server**
 
-   Replace `src/App.tsx`:
+   ```bash
+   npx @zeroback/cli dev
+   ```
+
+   This starts a local Cloudflare Worker and generates typed APIs into `zeroback/_generated/`. Keep this running.
+
+5. **Wire up the React client**
+
+   In a second terminal, replace `src/App.tsx`:
 
    ```tsx
    import { ZerobackClient, ZerobackProvider, useQuery, useMutation } from "@zeroback/react"
@@ -163,17 +171,9 @@ Build a real-time todo app with React and Zeroback in under 5 minutes.
    }
    ```
 
-5. **Start the backend and frontend**
-
-   Run these in two terminals:
+6. **Start the frontend**
 
    ```bash
-   # Terminal 1: Zeroback dev server
-   npx @zeroback/cli dev
-   ```
-
-   ```bash
-   # Terminal 2: Vite dev server
    npm run dev
    ```
 
