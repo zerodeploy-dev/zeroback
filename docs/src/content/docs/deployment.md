@@ -17,7 +17,7 @@ Before deploying, authenticate with Cloudflare:
 **Interactive (local development):**
 
 ```bash
-wrangler login
+npx wrangler login
 ```
 
 This opens your browser, prompts you to log in, and stores an OAuth token locally.
@@ -39,6 +39,31 @@ zeroback deploy
 This runs codegen and then `wrangler deploy`. On first deploy, Cloudflare provisions a Worker and Durable Object namespace automatically.
 
 Your backend will be available at `https://<worker-name>.<your-subdomain>.workers.dev`.
+
+### Connect your client
+
+Update your `ZerobackClient` to point to the production Worker URL. Replace `ws://localhost:8788/ws` with the deployed URL, using `wss://` for secure WebSocket:
+
+```ts
+const client = new ZerobackClient(
+  process.env.NODE_ENV === "production"
+    ? "wss://<worker-name>.<your-subdomain>.workers.dev/ws"
+    : "ws://localhost:8788/ws"
+)
+```
+
+Or use an environment variable (e.g. with Vite):
+
+```ts
+const client = new ZerobackClient(
+  import.meta.env.VITE_ZEROBACK_URL ?? "ws://localhost:8788/ws"
+)
+```
+
+```bash
+# .env.production
+VITE_ZEROBACK_URL=wss://<worker-name>.<your-subdomain>.workers.dev/ws
+```
 
 ## Configuration
 
@@ -99,7 +124,7 @@ Each environment gets its own Worker, Durable Object, and SQLite database.
 If your app uses file storage, create an R2 bucket and add the binding:
 
 ```bash
-wrangler r2 bucket create my-app-storage
+npx wrangler r2 bucket create my-app-storage
 ```
 
 ```toml
@@ -141,7 +166,7 @@ zeroback deploy --dry-run
 ## Troubleshooting
 
 **"Not logged in to Cloudflare"**
-Run `wrangler login` or set `CLOUDFLARE_API_TOKEN`.
+Run `npx wrangler login` or set `CLOUDFLARE_API_TOKEN`.
 
 **"No wrangler.toml found"**
 Run `zeroback init` to scaffold the config, or create it manually.
