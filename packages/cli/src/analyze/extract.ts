@@ -8,8 +8,13 @@ import type { FunctionManifest, SchemaJSON } from "@zeroback/server";
 export function extractFunctions(vexDir: string): FunctionManifest {
   const manifest: FunctionManifest = {};
 
-  for (const { filePath, moduleName } of scanFunctionFiles(vexDir, vexDir)) {
-    extractFunctionsFromFile(filePath, moduleName, manifest);
+  const files = scanFunctionFiles(vexDir, vexDir);
+
+  // Infer return types using the TypeScript type checker
+  const inferredTypes = inferReturnTypes(vexDir, files);
+
+  for (const { filePath, moduleName } of files) {
+    extractFunctionsFromFile(filePath, moduleName, manifest, inferredTypes);
   }
 
   return manifest;
@@ -40,13 +45,82 @@ function scanFunctionFiles(dir: string, rootDir: string): { filePath: string; mo
   return results;
 }
 
-function extractFunctionsFromFile(filePath: string, moduleName: string, manifest: FunctionManifest): void {
+type TypeInferenceMap = Map<string, Map<string, string>>;
+
+/**
+ * Create a TypeScript program and infer return types for all registered functions.
+ * Returns a map of filePath -> exportName -> returnTypeString.
+ */
+function inferReturnTypes(vexDir: string, files: { filePath: string; moduleName: string }[]): TypeInferenceMap {
+  const result: TypeInferenceMap = new Map();
+
+  try {
+    const projectRoot = path.dirname(vexDir);
+    const tsconfigPath = ts.findConfigFile(projectRoot, ts.sys.fileExists, "tsconfig.json");
+    if (!tsconfigPath) return result;
+
+    const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+    if (configFile.error) return result;
+
+    const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, path.dirname(tsconfigPath));
+    const program = ts.createProgram(files.map(f => f.filePath), parsedConfig.options);
+    const checker = program.getTypeChecker();
+
+    for (const { filePath } of files) {
+      const sourceFile = program.getSourceFile(filePath);
+      if (!sourceFile) continue;
+
+      const fileMap = new Map<string, string>();
+      const symbol = checker.getSymbolAtLocation(sourceFile);
+      if (!symbol?.exports) continue;
+
+      symbol.exports.forEach((exportSymbol, exportName) => {
+        try {
+          const decls = exportSymbol.declarations;
+          if (!decls || decls.length === 0) return;
+          const decl = decls[0];
+
+          const type = checker.getTypeOfSymbolAtLocation(exportSymbol, decl);
+          const returnsSymbol = type.getProperty("_returns");
+          if (!returnsSymbol) return;
+
+          const returnsType = checker.getTypeOfSymbolAtLocation(returnsSymbol, decl);
+          const typeStr = checker.typeToString(
+            returnsType,
+            undefined,
+            ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.WriteArrayAsGenericType
+          );
+
+          // Reject unhelpful inferred types
+          if (typeStr === "unknown" || typeStr === "any" || typeStr === "void") return;
+
+          // Normalize Array<T> to T[]
+          fileMap.set(exportName as string, typeStr.replace(/^Array<(.+)>$/, "$1[]"));
+        } catch {
+          // Skip this export on any error
+        }
+      });
+
+      if (fileMap.size > 0) {
+        result.set(filePath, fileMap);
+      }
+    }
+  } catch {
+    // Fall back gracefully — return empty map
+  }
+
+  return result;
+}
+
+function extractFunctionsFromFile(filePath: string, moduleName: string, manifest: FunctionManifest, inferredTypes: TypeInferenceMap): void {
   const sourceFile = ts.createSourceFile(
-    path.basename(filePath),
+    filePath,
     readFileSync(filePath, "utf-8"),
     ts.ScriptTarget.ESNext,
     true
   );
+
+  const fileInferred = inferredTypes.get(filePath);
 
   function visit(node: ts.Node) {
     // Match: export const name = query({...}) or mutation({...})
@@ -68,12 +142,25 @@ function extractFunctionsFromFile(filePath: string, moduleName: string, manifest
             const fnInfo = fnTypeMap[fnText];
             if (fnInfo) {
               const args = extractArgs(init, sourceFile);
+
+              // Priority: explicit returns validator > type inference > "unknown"
+              let returnsTypeString = "unknown";
+
               const returns = extractReturns(init, sourceFile);
+              if (returns) {
+                returnsTypeString = validatorTypeToTs(returns);
+              } else if (fileInferred) {
+                const inferred = fileInferred.get(name);
+                if (inferred) {
+                  returnsTypeString = inferred;
+                }
+              }
+
               manifest[`${moduleName}:${name}`] = {
                 type: fnInfo.type,
                 isInternal: fnInfo.isInternal,
                 args: args ?? { type: "object", value: {} },
-                returnsTypeString: returns ? validatorTypeToTs(returns) : "unknown",
+                returnsTypeString,
               };
             }
           }

@@ -248,4 +248,20 @@ describe("extractFunctions", () => {
       expect(fn.returnsTypeString).toBe("unknown");
     });
   });
+
+  it("infers return types from the example app via type checker", () => {
+    const exampleVexDir = path.resolve(__dirname, "../../../../examples/task-manager/zeroback");
+    const manifest = extractFunctions(exampleVexDir);
+
+    // Query returning array should be inferred
+    expect(manifest["tasks:listByProject"].returnsTypeString).not.toBe("unknown");
+    expect(manifest["tasks:listByProject"].returnsTypeString).toContain("title");
+    expect(manifest["tasks:listByProject"].returnsTypeString).toContain("[]");
+
+    // Query returning number should be inferred
+    expect(manifest["tasks:countByProject"].returnsTypeString).toBe("number");
+
+    // Query returning string should be inferred
+    expect(manifest["projects:create"].returnsTypeString).toBe("string");
+  });
 });
