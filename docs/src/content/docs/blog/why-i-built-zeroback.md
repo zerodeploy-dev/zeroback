@@ -50,8 +50,7 @@ I started experimenting. And it worked.
 Zeroback is an open-source Convex alternative that runs on Cloudflare Durable Objects. You define a schema:
 
 ```typescript
-import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/server";
+import { defineSchema, defineTable, v } from "@zeroback/server";
 
 export default defineSchema({
   messages: defineTable({

@@ -8,7 +8,7 @@ The `@zeroback/solid` package provides Solid.js primitives for building real-tim
 ## Installation
 
 ```bash
-npm install @zeroback/solid @zeroback/client
+npm install @zeroback/solid
 ```
 
 ## Setup
@@ -16,8 +16,7 @@ npm install @zeroback/solid @zeroback/client
 Wrap your app with `ZerobackProvider` and pass a `ZerobackClient` instance:
 
 ```tsx
-import { ZerobackClient } from "@zeroback/client";
-import { ZerobackProvider } from "@zeroback/solid";
+import { ZerobackClient, ZerobackProvider } from "@zeroback/solid";
 
 const client = new ZerobackClient("ws://localhost:8788/ws");
 

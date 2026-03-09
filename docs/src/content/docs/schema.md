@@ -9,8 +9,7 @@ Define your data model in `zeroback/schema.ts`. The schema declares tables, thei
 
 ```ts
 // zeroback/schema.ts
-import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/server";
+import { defineSchema, defineTable, v } from "@zeroback/server";
 
 export default defineSchema({
   projects: defineTable({

@@ -9,8 +9,7 @@ const steps = [
     description: "Declare your tables, fields, and indexes in TypeScript. Zeroback generates types and SQL from your schema automatically.",
     file: "zeroback/schema.ts",
     lang: "ts",
-    code: `import { defineSchema, defineTable } from "@zeroback/server"
-import { v } from "@zeroback/server"
+    code: `import { defineSchema, defineTable, v } from "@zeroback/server"
 
 export default defineSchema({
   messages: defineTable({
