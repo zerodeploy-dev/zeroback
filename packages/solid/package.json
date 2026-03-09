@@ -1,5 +1,6 @@
 {
   "name": "@zeroback/solid",
+  "author": "Ran Yefet <ran@yefet.net>",
   "version": "0.0.15",
   "type": "module",
   "main": "./dist/index.js",

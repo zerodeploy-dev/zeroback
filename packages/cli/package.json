@@ -1,5 +1,6 @@
 {
   "name": "@zeroback/cli",
+  "author": "Ran Yefet <ran@yefet.net>",
   "version": "0.0.15",
   "type": "module",
   "bin": {

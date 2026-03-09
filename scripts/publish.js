@@ -5,7 +5,6 @@ import { readFileSync, writeFileSync } from "node:fs"
 const packages = [
   "packages/values",
   "packages/server",
-  "packages/runtime",
   "packages/client",
   "packages/react",
   "packages/solid",

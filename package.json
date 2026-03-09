@@ -2,6 +2,7 @@
   "name": "zeroback",
   "version": "0.0.8",
   "description": "An open-source Convex-style backend you deploy to your own Cloudflare account. Real-time queries, mutations, type-safe codegen — all running on Cloudflare Workers, Durable Objects, and SQLite.",
+  "author": "Ran Yefet <ran@yefet.net>",
   "private": true,
   "type": "module",
   "workspaces": [

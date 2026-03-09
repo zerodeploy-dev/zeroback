@@ -12,7 +12,6 @@ packages/
   server/     - Server APIs: schema, functions, database, queries, http, crons, storage
   client/     - ZerobackClient: WebSocket client with subscriptions, optimistic updates, persistence
   react/      - React hooks: useQuery, useMutation, useAction, usePaginatedQuery
-  runtime/    - Backwards-compat stub that re-exports @zeroback/server/runtime
   cli/        - CLI (zeroback init/dev/deploy/codegen)
   solid/      - SolidJS bindings (experimental)
 examples/
@@ -24,7 +23,7 @@ docs/         - API documentation
 ## Key Architecture
 
 - **Runtime engine** lives in `packages/server/src/runtime/` (exported as `@zeroback/server/runtime`). The static `.zeroback/entry.ts` (scaffolded by `init`, user-owned) imports from `zeroback/_generated/manifest.ts` (regenerated on every build) to wire user functions to the runtime.
-- **ZerobackDO** (`packages/runtime/src/ZerobackDO.ts`) is the main Durable Object, created via `createZerobackDO(config)`. It handles all state, transactions, subscriptions, and WebSocket connections.
+- **ZerobackDO** (`packages/server/src/runtime/ZerobackDO.ts`) is the main Durable Object, created via `createZerobackDO(config)`. It handles all state, transactions, subscriptions, and WebSocket connections.
 - **Codegen** analyzes user's `zeroback/` directory and generates typed API references, function factories, DataModel types, and a manifest into `zeroback/_generated/`.
 - All filters compile to SQL WHERE clauses via `json_extract` for efficiency.
 - IDs are ULID-based in `"tableName:ULID"` format. `_creationTime` is derived from the ULID.
