@@ -16,7 +16,7 @@ An open-source [Convex](https://convex.dev)-style backend you deploy to your own
 npx @zeroback/cli init my-app
 cd my-app
 bun add @zeroback/server @zeroback/values @zeroback/runtime @zeroback/client @zeroback/react
-zeroback dev
+npx @zeroback/cli dev
 ```
 
 Edit `zeroback/schema.ts` and `zeroback/messages.ts`, open your app, and you have a real-time backend.
@@ -160,7 +160,7 @@ function App() {
 ### 5. Start development
 
 ```bash
-zeroback dev
+npx @zeroback/cli dev
 ```
 
 This will:
@@ -279,7 +279,7 @@ The `wrangler.toml` at project root points to `.zeroback/entry.ts` as the Worker
 bun install
 
 # Start the backend (from your app directory)
-zeroback dev
+npx @zeroback/cli dev
 
 # In another terminal, start the frontend
 cd examples/task-manager
@@ -307,14 +307,14 @@ Tests cover mutations, index queries, pagination, real-time subscriptions, multi
 Deploy your Zeroback backend to Cloudflare with a single command:
 
 ```bash
-zeroback deploy
+npx @zeroback/cli deploy
 ```
 
 This runs codegen and then `wrangler deploy`. You can pass flags through to wrangler:
 
 ```bash
-zeroback deploy --dry-run                    # codegen only, skip deploy
-zeroback deploy -- --env production          # pass flags to wrangler
+npx @zeroback/cli deploy --dry-run                    # codegen only, skip deploy
+npx @zeroback/cli deploy -- --env production          # pass flags to wrangler
 ```
 
 Then point your client to the production URL:
