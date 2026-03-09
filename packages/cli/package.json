@@ -1,6 +1,6 @@
 {
   "name": "@zeroback/cli",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "type": "module",
   "bin": {
     "zeroback": "./dist/index.js"
