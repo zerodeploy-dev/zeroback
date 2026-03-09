@@ -83,7 +83,7 @@ Your Worker's `fetch()` handler verifies auth before forwarding to the Durable O
 
 ```typescript
 // index.ts
-import { createZerobackDO } from "@zeroback/runtime"
+import { createZerobackDO } from "@zeroback/server/runtime"
 import { functions, schema, httpRouter, cronJobsDef } from "./zeroback/_generated/manifest"
 import { verifyAuth } from "./auth"
 

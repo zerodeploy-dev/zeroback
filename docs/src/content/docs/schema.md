@@ -10,7 +10,7 @@ Define your data model in `zeroback/schema.ts`. The schema declares tables, thei
 ```ts
 // zeroback/schema.ts
 import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/values";
+import { v } from "@zeroback/server";
 
 export default defineSchema({
   projects: defineTable({
@@ -135,10 +135,10 @@ defineTable({
 
 ## Validators (`v`)
 
-Import validators from `@zeroback/values`:
+Import validators from `@zeroback/server`:
 
 ```ts
-import { v } from "@zeroback/values";
+import { v } from "@zeroback/server";
 ```
 
 Validators are used in three places:
@@ -212,7 +212,7 @@ v.record(v.string(), v.number())  // Record<string, number>
 The `Infer` type helper extracts the TypeScript type from a validator:
 
 ```ts
-import type { Infer } from "@zeroback/values";
+import type { Infer } from "@zeroback/server";
 
 const taskValidator = v.object({
   title: v.string(),

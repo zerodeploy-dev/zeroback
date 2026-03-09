@@ -15,7 +15,7 @@ An open-source [Convex](https://convex.dev)-style backend you deploy to your own
 ```bash
 npx @zeroback/cli init my-app
 cd my-app
-bun add @zeroback/server @zeroback/values @zeroback/runtime @zeroback/client @zeroback/react
+bun add @zeroback/server @zeroback/react
 npx @zeroback/cli dev
 ```
 
@@ -60,7 +60,7 @@ Convex introduced a great developer experience: define your backend as plain Typ
 ```bash
 npx @zeroback/cli init my-app
 cd my-app
-bun add @zeroback/server @zeroback/values @zeroback/runtime @zeroback/client @zeroback/react
+bun add @zeroback/server @zeroback/react
 ```
 
 ### 2. Define your schema
@@ -225,7 +225,6 @@ For many apps (internal tools, collaborative docs, moderate-traffic SaaS), these
 | `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
 | `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery` |
 | `@zeroback/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
-| `@zeroback/runtime` | Runtime engine: Durable Object, DB, subscriptions, WebSocket handling |
 | `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen` — scaffold, develop, deploy |
 
 ## Documentation
@@ -261,7 +260,7 @@ your-project/
     └── entry.ts              # Scaffolded by zeroback init, user can customize
 ```
 
-Both `wrangler.toml` and `.zeroback/entry.ts` are scaffolded once by `zeroback init` and owned by the user — you can customize them freely. The entry file imports from `zeroback/_generated/manifest.ts` (regenerated on every build), which wires your functions and schema to the `@zeroback/runtime`.
+Both `wrangler.toml` and `.zeroback/entry.ts` are scaffolded once by `zeroback init` and owned by the user — you can customize them freely. The entry file imports from `zeroback/_generated/manifest.ts` (regenerated on every build), which wires your functions and schema to the `@zeroback/server/runtime`.
 
 The `wrangler.toml` at project root points to `.zeroback/entry.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
 

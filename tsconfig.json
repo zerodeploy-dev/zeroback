@@ -23,6 +23,7 @@
       "@zeroback/client/*": ["./packages/client/src/*"],
       "@zeroback/react": ["./packages/react/src"],
       "@zeroback/react/*": ["./packages/react/src/*"],
+      "@zeroback/server/runtime": ["./packages/server/src/runtime"],
       "@zeroback/runtime": ["./packages/runtime/src"],
       "@zeroback/runtime/*": ["./packages/runtime/src/*"],
       "@zeroback/cli": ["./packages/cli/src"],

@@ -1,5 +1,6 @@
 export * from "./types.js";
 export type { ValidatorJSON } from "@zeroback/values";
+export { v } from "@zeroback/values";
 export * from "./schema.js";
 export * from "./functions.js";
 export * from "./context.js";

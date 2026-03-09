@@ -51,7 +51,7 @@ Zeroback is an open-source Convex alternative that runs on Cloudflare Durable Ob
 
 ```typescript
 import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/values";
+import { v } from "@zeroback/server";
 
 export default defineSchema({
   messages: defineTable({

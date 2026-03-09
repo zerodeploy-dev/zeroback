@@ -10,7 +10,7 @@ const steps = [
     file: "zeroback/schema.ts",
     lang: "ts",
     code: `import { defineSchema, defineTable } from "@zeroback/server"
-import { v } from "@zeroback/values"
+import { v } from "@zeroback/server"
 
 export default defineSchema({
   messages: defineTable({
@@ -27,7 +27,7 @@ export default defineSchema({
     file: "zeroback/messages.ts",
     lang: "ts",
     code: `import { query } from "./_generated/server"
-import { v } from "@zeroback/values"
+import { v } from "@zeroback/server"
 
 export const list = query({
   args: { channel: v.string() },

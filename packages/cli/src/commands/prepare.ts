@@ -34,7 +34,7 @@ new_sqlite_classes = ["ZerobackDO"]
 `
 }
 
-export const ENTRY_TEMPLATE = `import { createZerobackDO, workerHandler } from "@zeroback/runtime"
+export const ENTRY_TEMPLATE = `import { createZerobackDO, workerHandler } from "@zeroback/server/runtime"
 import { functions, schema, httpRouter, cronJobsDef } from "../zeroback/_generated/manifest"
 
 export const ZerobackDO = createZerobackDO({ functions, schema, httpRouter, cronJobsDef })

@@ -22,7 +22,7 @@ export async function init(projectDir: string = "."): Promise<void> {
   writeFileSync(
     path.join(vexDir, "schema.ts"),
     `import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/values";
+import { v } from "@zeroback/server";
 
 export const schema = defineSchema({
   tasks: defineTable({
@@ -37,7 +37,7 @@ export const schema = defineSchema({
   writeFileSync(
     path.join(vexDir, "tasks.ts"),
     `import { query, mutation } from "./_generated/server";
-import { v } from "@zeroback/values";
+import { v } from "@zeroback/server";
 
 export const list = query({
   args: {},
@@ -99,7 +99,7 @@ export const mutation = createMutationFactory<any>();
 
   // Auto-install backend dependencies
   const installCmd = detectPkgInstall(resolved)
-  const deps = "@zeroback/server @zeroback/values @zeroback/runtime"
+  const deps = "@zeroback/server"
   console.log(`\n  Installing dependencies...\n`)
   try {
     execSync(`${installCmd} ${deps}`, { cwd: resolved, stdio: "inherit" })
