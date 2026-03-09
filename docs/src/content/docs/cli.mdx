@@ -3,6 +3,8 @@ title: CLI
 description: Scaffold, develop, deploy, and test your Zeroback backend from the terminal.
 ---
 
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
 The `zeroback` CLI manages development, code generation, and deployment of your Zeroback application.
 
 ## Commands
@@ -73,11 +75,36 @@ zeroback dev [functionsDir]
 
 **Example:**
 
-```bash
-zeroback dev
-# or with a custom functions directory
-zeroback dev ./src/zeroback
-```
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    npx @zeroback/cli dev
+    # or with a custom functions directory
+    npx @zeroback/cli dev ./src/zeroback
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    bunx @zeroback/cli dev
+    # or with a custom functions directory
+    bunx @zeroback/cli dev ./src/zeroback
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpx @zeroback/cli dev
+    # or with a custom functions directory
+    pnpx @zeroback/cli dev ./src/zeroback
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    npx @zeroback/cli dev
+    # or with a custom functions directory
+    npx @zeroback/cli dev ./src/zeroback
+    ```
+  </TabItem>
+</Tabs>
 
 ### `zeroback deploy [functionsDir] [--dry-run] [-- wranglerArgs...]`
 
@@ -97,7 +124,7 @@ zeroback deploy [functionsDir] [--dry-run] [-- wranglerArgs...]
 
 You must be authenticated with Cloudflare before deploying. Either:
 
-- Run `wrangler login` to log in via your browser (recommended for local development)
+- Run `npx wrangler login` to log in via your browser (recommended for local development)
 - Set the `CLOUDFLARE_API_TOKEN` environment variable (recommended for CI/CD)
 
 The deploy command will check authentication before deploying and provide guidance if you're not logged in.
@@ -113,22 +140,80 @@ Requires `wrangler.toml` at the project root.
 
 **Examples:**
 
-```bash
-# First-time setup: log in to Cloudflare
-wrangler login
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # First-time setup: log in to Cloudflare
+    npx wrangler login
 
-# Deploy
-zeroback deploy
+    # Deploy
+    npx @zeroback/cli deploy
 
-# Dry run (codegen only)
-zeroback deploy --dry-run
+    # Dry run (codegen only)
+    npx @zeroback/cli deploy --dry-run
 
-# Pass args to wrangler
-zeroback deploy -- --env production
+    # Pass args to wrangler
+    npx @zeroback/cli deploy -- --env production
 
-# CI/CD: use an API token instead of interactive login
-CLOUDFLARE_API_TOKEN=your-token zeroback deploy
-```
+    # CI/CD: use an API token instead of interactive login
+    CLOUDFLARE_API_TOKEN=your-token npx @zeroback/cli deploy
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    # First-time setup: log in to Cloudflare
+    bunx wrangler login
+
+    # Deploy
+    bunx @zeroback/cli deploy
+
+    # Dry run (codegen only)
+    bunx @zeroback/cli deploy --dry-run
+
+    # Pass args to wrangler
+    bunx @zeroback/cli deploy -- --env production
+
+    # CI/CD: use an API token instead of interactive login
+    CLOUDFLARE_API_TOKEN=your-token bunx @zeroback/cli deploy
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    # First-time setup: log in to Cloudflare
+    pnpx wrangler login
+
+    # Deploy
+    pnpx @zeroback/cli deploy
+
+    # Dry run (codegen only)
+    pnpx @zeroback/cli deploy --dry-run
+
+    # Pass args to wrangler
+    pnpx @zeroback/cli deploy -- --env production
+
+    # CI/CD: use an API token instead of interactive login
+    CLOUDFLARE_API_TOKEN=your-token pnpx @zeroback/cli deploy
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    # First-time setup: log in to Cloudflare
+    npx wrangler login
+
+    # Deploy
+    npx @zeroback/cli deploy
+
+    # Dry run (codegen only)
+    npx @zeroback/cli deploy --dry-run
+
+    # Pass args to wrangler
+    npx @zeroback/cli deploy -- --env production
+
+    # CI/CD: use an API token instead of interactive login
+    CLOUDFLARE_API_TOKEN=your-token npx @zeroback/cli deploy
+    ```
+  </TabItem>
+</Tabs>
 
 ### `zeroback codegen [functionsDir]`
 
@@ -144,9 +229,28 @@ zeroback codegen [functionsDir]
 
 Runs the same build step as `zeroback dev` (analyze, codegen, bundle) but exits immediately. Useful for CI or pre-commit hooks.
 
-```bash
-zeroback codegen
-```
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    npx @zeroback/cli codegen
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    bunx @zeroback/cli codegen
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpx @zeroback/cli codegen
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    npx @zeroback/cli codegen
+    ```
+  </TabItem>
+</Tabs>
 
 ### `zeroback reset`
 
@@ -158,9 +262,28 @@ zeroback reset
 
 Deletes the `.wrangler/state` directory, which contains all local Durable Object and SQLite data. Restart `zeroback dev` afterwards to start with a fresh database.
 
-```bash
-zeroback reset
-```
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    npx @zeroback/cli reset
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    bunx @zeroback/cli reset
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpx @zeroback/cli reset
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    npx @zeroback/cli reset
+    ```
+  </TabItem>
+</Tabs>
 
 ### `zeroback run <functionName> [jsonArgs] [--url <url>]`
 
@@ -184,19 +307,68 @@ zeroback run <functionName> [jsonArgs] [--url <url>]
 
 **Examples:**
 
-```bash
-# Run a query
-zeroback run tasks:list
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # Run a query
+    npx @zeroback/cli run tasks:list
 
-# Run a mutation with arguments
-zeroback run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
+    # Run a mutation with arguments
+    npx @zeroback/cli run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
 
-# Run an internal function
-zeroback run tasks:countInternal '{"projectId": "proj:abc"}'
+    # Run an internal function
+    npx @zeroback/cli run tasks:countInternal '{"projectId": "proj:abc"}'
 
-# Target a deployed server
-zeroback run tasks:list --url https://my-worker.example.com
-```
+    # Target a deployed server
+    npx @zeroback/cli run tasks:list --url https://my-worker.example.com
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    # Run a query
+    bunx @zeroback/cli run tasks:list
+
+    # Run a mutation with arguments
+    bunx @zeroback/cli run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
+
+    # Run an internal function
+    bunx @zeroback/cli run tasks:countInternal '{"projectId": "proj:abc"}'
+
+    # Target a deployed server
+    bunx @zeroback/cli run tasks:list --url https://my-worker.example.com
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    # Run a query
+    pnpx @zeroback/cli run tasks:list
+
+    # Run a mutation with arguments
+    pnpx @zeroback/cli run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
+
+    # Run an internal function
+    pnpx @zeroback/cli run tasks:countInternal '{"projectId": "proj:abc"}'
+
+    # Target a deployed server
+    pnpx @zeroback/cli run tasks:list --url https://my-worker.example.com
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    # Run a query
+    npx @zeroback/cli run tasks:list
+
+    # Run a mutation with arguments
+    npx @zeroback/cli run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
+
+    # Run an internal function
+    npx @zeroback/cli run tasks:countInternal '{"projectId": "proj:abc"}'
+
+    # Target a deployed server
+    npx @zeroback/cli run tasks:list --url https://my-worker.example.com
+    ```
+  </TabItem>
+</Tabs>
 
 ## Project Structure
 
