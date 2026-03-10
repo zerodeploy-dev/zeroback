@@ -1,7 +1,15 @@
 {
   "name": "@zeroback/values",
   "author": "Ran Yefet <ran@yefet.net>",
-  "version": "0.0.15",
+  "version": "0.0.16",
+  "description": "Validator library for Zeroback: type-safe runtime validators (v.string, v.number, v.object, etc.) with TypeScript type inference",
+  "keywords": ["zeroback", "validators", "schema", "types", "typescript", "runtime-validation", "type-inference"],
+  "homepage": "https://zeroback.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zerodeploy-dev/zeroback",
+    "directory": "packages/values"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

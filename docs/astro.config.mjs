@@ -1,5 +1,6 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import starlightLlmsTxt from "starlight-llms-txt";
 import starlightThemeObsidian from "starlight-theme-obsidian";
 
 export default defineConfig({
@@ -11,6 +12,7 @@ export default defineConfig({
       description:
         "Open-source real-time backend for Cloudflare. Type-safe functions, reactive queries, your infrastructure.",
       plugins: [
+        starlightLlmsTxt(),
         starlightThemeObsidian({
           backlinks: false,
           graph: false,
@@ -65,7 +67,11 @@ export default defineConfig({
         },
         {
           label: "Reference",
-          items: [{ label: "CLI", slug: "cli" }],
+          items: [
+            { label: "CLI", slug: "cli" },
+            { label: "llms.txt", link: "/llms.txt" },
+            { label: "llms-full.txt", link: "/llms-full.txt" },
+          ],
         },
       ],
       tableOfContents: false,
@@ -77,6 +83,27 @@ export default defineConfig({
             property: "og:image",
             content: "https://zeroback.dev/og.png",
           },
+        },
+        {
+          tag: "script",
+          attrs: { type: "application/ld+json" },
+          content: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareSourceCode",
+            name: "Zeroback",
+            description:
+              "Open-source real-time backend for Cloudflare. Type-safe functions, reactive queries, your infrastructure.",
+            url: "https://zeroback.dev",
+            codeRepository: "https://github.com/zerodeploy-dev/zeroback",
+            programmingLanguage: "TypeScript",
+            runtimePlatform: "Cloudflare Workers",
+            license: "https://opensource.org/licenses/MIT",
+            author: {
+              "@type": "Person",
+              name: "Ran Yefet",
+              url: "https://x.com/ranyefet",
+            },
+          }),
         },
       ],
     }),

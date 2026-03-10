@@ -1,7 +1,15 @@
 {
   "name": "@zeroback/server",
   "author": "Ran Yefet <ran@yefet.net>",
-  "version": "0.0.15",
+  "version": "0.0.16",
+  "description": "Server APIs for Zeroback: schema definition, queries, mutations, actions, HTTP routes, cron jobs, scheduling, and file storage on Cloudflare Workers + Durable Objects + SQLite",
+  "keywords": ["zeroback", "server", "cloudflare", "durable-objects", "sqlite", "real-time", "backend", "database", "schema", "convex"],
+  "homepage": "https://zeroback.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zerodeploy-dev/zeroback",
+    "directory": "packages/server"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

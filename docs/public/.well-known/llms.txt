@@ -1,0 +1,27 @@
+# Zeroback
+
+> Open-source real-time backend for Cloudflare. Type-safe functions, reactive queries, your infrastructure.
+
+Zeroback is an open-source Convex-compatible backend that runs on Cloudflare Workers + Durable Objects + SQLite. It provides real-time queries, transactional mutations, type-safe codegen, and framework bindings for React and Solid.js.
+
+## Documentation
+
+- [Getting Started](https://zeroback.dev/getting-started/): Set up Zeroback in under 5 minutes
+- [Quickstart: React](https://zeroback.dev/quickstart-react/): Build a real-time React app from scratch
+- [Schema](https://zeroback.dev/schema/): Define tables, validators, indexes, and search indexes
+- [Functions](https://zeroback.dev/functions/): Write queries, mutations, actions, HTTP routes, and cron jobs
+- [Database](https://zeroback.dev/database/): Query and mutate data with filters, pagination, and full-text search
+- [Client](https://zeroback.dev/client/): WebSocket client with auto-reconnect, optimistic updates, and persistence
+- [React](https://zeroback.dev/react/): React hooks for real-time queries and mutations
+- [Solid.js](https://zeroback.dev/solid/): Solid.js primitives for real-time queries and mutations
+- [Authentication](https://zeroback.dev/authentication/): Bring your own auth
+- [Scheduling](https://zeroback.dev/scheduling/): One-off scheduled functions and recurring cron jobs
+- [File Storage](https://zeroback.dev/storage/): Upload and serve files using Cloudflare R2
+- [CLI](https://zeroback.dev/cli/): init, dev, deploy, codegen, reset, run
+- [How It Works](https://zeroback.dev/how-it-works/): Architecture, subscriptions, OCC, and codegen internals
+- [Deployment](https://zeroback.dev/deployment/): Deploy to Cloudflare Workers
+
+## Optional
+
+- [Full documentation for LLMs](https://zeroback.dev/llms-full.txt)
+- [Abridged documentation](https://zeroback.dev/llms-small.txt)

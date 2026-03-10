@@ -1,7 +1,15 @@
 {
   "name": "@zeroback/react",
   "author": "Ran Yefet <ran@yefet.net>",
-  "version": "0.0.15",
+  "version": "0.0.16",
+  "description": "React hooks for Zeroback: useQuery, useMutation, useAction, usePaginatedQuery with real-time subscriptions",
+  "keywords": ["zeroback", "react", "hooks", "real-time", "cloudflare", "websocket", "useQuery", "useMutation"],
+  "homepage": "https://zeroback.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zerodeploy-dev/zeroback",
+    "directory": "packages/react"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

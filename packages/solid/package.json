@@ -1,7 +1,15 @@
 {
   "name": "@zeroback/solid",
   "author": "Ran Yefet <ran@yefet.net>",
-  "version": "0.0.15",
+  "version": "0.0.16",
+  "description": "Solid.js bindings for Zeroback: createQuery, createMutation, createAction, createPaginatedQuery with real-time subscriptions",
+  "keywords": ["zeroback", "solid", "solidjs", "real-time", "cloudflare", "websocket", "reactive", "signals"],
+  "homepage": "https://zeroback.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zerodeploy-dev/zeroback",
+    "directory": "packages/solid"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

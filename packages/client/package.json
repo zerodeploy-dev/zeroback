@@ -1,7 +1,15 @@
 {
   "name": "@zeroback/client",
   "author": "Ran Yefet <ran@yefet.net>",
-  "version": "0.0.15",
+  "version": "0.0.16",
+  "description": "WebSocket client for Zeroback with auto-reconnect, subscription management, optimistic updates, and IndexedDB persistence",
+  "keywords": ["zeroback", "client", "websocket", "real-time", "cloudflare", "optimistic-updates", "offline", "subscriptions"],
+  "homepage": "https://zeroback.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zerodeploy-dev/zeroback",
+    "directory": "packages/client"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
