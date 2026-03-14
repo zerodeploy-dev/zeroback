@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@zeroback/values": ["./packages/values/src"],
+      "@zeroback/values/*": ["./packages/values/src/*"],
+      "@zeroback/server": ["./packages/server/src"],
+      "@zeroback/server/*": ["./packages/server/src/*"],
+      "@zeroback/client": ["./packages/client/src"],
+      "@zeroback/client/*": ["./packages/client/src/*"],
+      "@zeroback/react": ["./packages/react/src"],
+      "@zeroback/react/*": ["./packages/react/src/*"],
+      "@zeroback/runtime": ["./packages/runtime/src"],
+      "@zeroback/runtime/*": ["./packages/runtime/src/*"],
+      "@zeroback/cli": ["./packages/cli/src"],
+      "@zeroback/cli/*": ["./packages/cli/src/*"],
+      "@zeroback/solid": ["./packages/solid/src"],
+      "@zeroback/solid/*": ["./packages/solid/src/*"]
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "packages/values" },
+    { "path": "packages/server" },
+    { "path": "packages/client" },
+    { "path": "packages/react" },
+    { "path": "packages/runtime" },
+    { "path": "packages/cli" },
+    { "path": "packages/solid" }
+  ]
+}

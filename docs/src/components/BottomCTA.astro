@@ -1,0 +1,112 @@
+---
+---
+
+<section class="cta not-content">
+  <div class="cta-inner">
+    <div class="cta-content">
+      <h2>Start building in two minutes</h2>
+      <div class="cta-command">
+        <code>npx @zeroback/cli init my-app</code>
+      </div>
+      <div class="cta-actions">
+        <a href="/getting-started/" class="cta-btn primary">Read the docs</a>
+        <a href="https://github.com/zerodeploy-dev/zeroback" class="cta-btn secondary">View on GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cta {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 5rem;
+  }
+
+  .cta-inner {
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 12px;
+    padding: 3.5rem 2rem;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at 50% 0%, var(--sl-color-accent-low, rgba(246, 130, 31, 0.1)) 0%, transparent 70%),
+      var(--sl-color-gray-7, var(--sl-color-gray-6));
+  }
+
+  .cta-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .cta-content h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--sl-color-white);
+    margin: 0;
+  }
+
+  .cta-command {
+    background: var(--sl-color-gray-6, #1a1a2e);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+  }
+
+  .cta-command code {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.95rem;
+    color: var(--sl-color-accent);
+  }
+
+  .cta-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.65rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+
+  .cta-btn.primary {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black, #fff);
+  }
+
+  .cta-btn.primary:hover {
+    filter: brightness(1.1);
+  }
+
+  .cta-btn.secondary {
+    border: 1px solid var(--sl-color-gray-4);
+    color: var(--sl-color-white);
+    background: transparent;
+  }
+
+  .cta-btn.secondary:hover {
+    border-color: var(--sl-color-gray-3);
+    background: var(--sl-color-gray-6, rgba(255,255,255,0.03));
+  }
+
+  @media (max-width: 600px) {
+    .cta-content h2 {
+      font-size: 1.4rem;
+    }
+    .cta-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+    .cta-btn {
+      justify-content: center;
+    }
+  }
+</style>

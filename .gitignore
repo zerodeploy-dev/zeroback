@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+.wrangler/
+.dev.vars
+.env
+.env.local
+.zeroback/*
+!.zeroback/entry.ts
+_generated/
+*.tgz
+
+# TypeScript build output (except scripts/)
+*.js
+!scripts/*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+tsconfig.tsbuildinfo
+docs/.astro/
