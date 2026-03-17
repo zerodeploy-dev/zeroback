@@ -1,6 +1,7 @@
 node_modules/
 dist/
-build/
+# Ignore build output directories but not packages/cli/src/build/ source files
+/build/
 *.log
 .DS_Store
 .wrangler/
@@ -20,3 +21,4 @@ _generated/
 *.d.ts.map
 tsconfig.tsbuildinfo
 docs/.astro/
+plans

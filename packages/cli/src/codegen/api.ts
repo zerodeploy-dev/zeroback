@@ -54,8 +54,8 @@ function generateNestedObject(fns: FnEntry[]): string {
   const root: TreeNode = { children: {}, fns: [] };
 
   for (const fn of fns) {
-    // Split module path: "users/auth" → ["users", "auth"]
-    const segments = fn.modulePath.split("/");
+    // Split module path by namespace delimiter: "users.auth" → ["users", "auth"]
+    const segments = fn.modulePath.split(".");
     let node = root;
     for (const seg of segments) {
       if (!node.children[seg]) {

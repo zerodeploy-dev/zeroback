@@ -29,10 +29,10 @@ function scanFunctionFiles(dir: string, rootDir: string): { filePath: string; mo
     if (!entry.endsWith(".ts")) continue;
     if (entry === "schema.ts") continue;
 
-    // Module name is the path relative to rootDir without extension, using forward slashes
-    // e.g., "messages" or "users/auth"
+    // Module name is the path relative to rootDir without extension, using dots for namespace hierarchy
+    // e.g., "messages" or "users.auth"
     const relPath = path.relative(rootDir, fullPath).replace(/\\/g, "/");
-    const moduleName = relPath.replace(/\.ts$/, "");
+    const moduleName = relPath.replace(/\.ts$/, "").replace(/\//g, ".");
     results.push({ filePath: fullPath, moduleName });
   }
 

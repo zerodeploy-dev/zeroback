@@ -165,4 +165,80 @@ describe("extractFunctions", () => {
       });
     });
   });
+
+  it("namespaces functions in subfolders with dot separator", () => {
+    withTempVexDir({
+      "tasks.ts": `
+        import { query } from "./server";
+        export const list = query({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+      "inbox/threads.ts": `
+        import { query } from "../server";
+        export const list = query({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+      "inbox/mailboxes.ts": `
+        import { mutation } from "../server";
+        export const create = mutation({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+      "deep/nested/module.ts": `
+        import { query } from "../../server";
+        export const get = query({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+    }, (vexDir) => {
+      const manifest = extractFunctions(vexDir);
+      
+      // Root-level file should have no namespace prefix
+      expect(manifest["tasks:list"]).toBeDefined();
+      
+      // Nested files should use dot separator for namespace
+      expect(manifest["inbox.threads:list"]).toBeDefined();
+      expect(manifest["inbox.mailboxes:create"]).toBeDefined();
+      
+      // Deep nesting should work
+      expect(manifest["deep.nested.module:get"]).toBeDefined();
+      
+      // Old slash-based names should NOT exist
+      expect(manifest["inbox/threads:list"]).toBeUndefined();
+      expect(manifest["deep/nested/module:get"]).toBeUndefined();
+    });
+  });
+
+  it("skips folders starting with underscore", () => {
+    withTempVexDir({
+      "tasks.ts": `
+        import { query } from "./server";
+        export const list = query({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+      "_shared/helpers.ts": `
+        import { query } from "../server";
+        export const util = query({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+    }, (vexDir) => {
+      const manifest = extractFunctions(vexDir);
+      
+      // Regular file should be included
+      expect(manifest["tasks:list"]).toBeDefined();
+      
+      // Files in _prefixed folders should be skipped
+      expect(manifest["_shared.helpers:util"]).toBeUndefined();
+    });
+  });
 });

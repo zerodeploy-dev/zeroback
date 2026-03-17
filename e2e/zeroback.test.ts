@@ -826,10 +826,10 @@ describe("return value validators", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Nested Directory Functions
+// Nested Directory Functions (Namespaced with dots)
 // ---------------------------------------------------------------------------
 describe("nested directory functions", () => {
-  it("calls a function in a nested directory (utils/stats:taskStats)", async () => {
+  it("calls a function in a nested directory (utils.stats:taskStats)", async () => {
     const c = await freshClient();
     const proj = `nested-${Date.now()}`;
 
@@ -837,8 +837,8 @@ describe("nested directory functions", () => {
     await c.mutation("tasks:create", taskArgs({ title: "a", projectId: proj, status: "todo" }));
     await c.mutation("tasks:create", taskArgs({ title: "b", projectId: proj, status: "done" }));
 
-    // Call the nested function
-    const { result } = await c.query("utils/stats:taskStats", { projectId: proj });
+    // Call the nested function using dot namespace (e.g., utils.stats:taskStats)
+    const { result } = await c.query("utils.stats:taskStats", { projectId: proj });
     expect(result.projectId).toBe(proj);
     expect(result.total).toBe(2);
     expect(result.todo).toBe(1);
