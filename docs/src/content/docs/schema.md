@@ -7,7 +7,7 @@ description: Define your data model with tables, validators, indexes, and search
 
 Users create data models in `zeroback/schema.ts`, where they declare tables, fields, indexes, and search capabilities.
 
-```ts
+```ts title="zeroback/schema.ts"
 import { defineSchema, defineTable, v } from "@zeroback/server";
 
 export default defineSchema({
