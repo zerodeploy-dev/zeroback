@@ -160,6 +160,13 @@ Build a real-time todo app with Vite + React in about 5 minutes.
 
 </Steps>
 
+## What just happened?
+
+- **`zeroback init`** scaffolded a `zeroback/` directory with a `schema.ts` (tasks table) and `tasks.ts` (list, create, and toggle functions), and installed the backend packages for you.
+- **`zeroback dev`** started a local Cloudflare Worker with a Durable Object backed by SQLite. It watches your `zeroback/` directory and regenerates types on every change.
+- **`useQuery`** subscribes to `tasks.list` over WebSocket. When any client adds or toggles a task, every connected browser updates instantly — no polling, no refetching.
+- **`useMutation`** calls `tasks.create` and `tasks.toggle` on the server. Mutations run in a transaction and trigger reactive updates to all subscribers.
+
 ## Try it: real-time
 
 Open the app in two browser tabs. Add a task in one — it appears in the other instantly. Toggle it complete — both tabs update.
