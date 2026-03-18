@@ -15,11 +15,11 @@ An open-source [Convex](https://convex.dev)-style backend you deploy to your own
 ```bash
 npx @zeroback/cli init my-app
 cd my-app
-bun add @zeroback/server @zeroback/values @zeroback/runtime @zeroback/client @zeroback/react
+bun add @zeroback/server @zeroback/values @zeroback/runtime
 zeroback dev
 ```
 
-Edit `zeroback/schema.ts` and `zeroback/messages.ts`, open your app, and you have a real-time backend.
+Edit `zeroback/schema.ts` and `zeroback/messages.ts`, and you have a real-time backend. Add `@zeroback/client` and `@zeroback/react` when you're ready to connect your frontend.
 
 ## Why Zeroback?
 
@@ -60,7 +60,7 @@ Convex introduced a great developer experience: define your backend as plain Typ
 ```bash
 npx @zeroback/cli init my-app
 cd my-app
-bun add @zeroback/server @zeroback/values @zeroback/runtime @zeroback/client @zeroback/react
+bun add @zeroback/server @zeroback/values @zeroback/runtime
 ```
 
 ### 2. Define your schema
@@ -122,6 +122,14 @@ export const send = mutation({
 ```
 
 ### 4. Use in React
+
+First, install the client packages:
+
+```bash
+bun add @zeroback/client @zeroback/react
+```
+
+Then use them in your React app:
 
 ```tsx
 import { ZerobackProvider, useQuery, useMutation } from "@zeroback/react";
