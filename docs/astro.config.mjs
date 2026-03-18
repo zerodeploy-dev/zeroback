@@ -67,7 +67,11 @@ export default defineConfig({
         },
         {
           label: "Reference",
-          items: [{ label: "CLI", slug: "cli" }],
+          items: [
+            { label: "CLI", slug: "cli" },
+            { label: "llms.txt", link: "/llms.txt" },
+            { label: "llms-full.txt", link: "/llms-full.txt" },
+          ],
         },
       ],
       tableOfContents: false,
