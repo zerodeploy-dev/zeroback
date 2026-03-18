@@ -23,8 +23,8 @@ zeroback init [dir]
 
 | File | Description |
 |------|-------------|
-| `zeroback/schema.ts` | Starter schema with a `messages` table |
-| `zeroback/messages.ts` | Example query and mutation functions |
+| `zeroback/schema.ts` | Starter schema with a `tasks` table |
+| `zeroback/tasks.ts` | Example query and mutation functions |
 | `zeroback/_generated/server.ts` | Stub file so imports resolve before first codegen |
 | `wrangler.toml` | Cloudflare Workers configuration (if not present) |
 | `.zeroback/entry.ts` | Worker entry point — imports manifest and wires to runtime |
@@ -37,7 +37,7 @@ Skips scaffolding if the `zeroback/` directory already exists.
 ```bash
 mkdir my-app && cd my-app
 npm init -y
-zeroback init
+npx @zeroback/cli init
 ```
 
 ### `zeroback dev [functionsDir]`
@@ -72,9 +72,9 @@ zeroback dev [functionsDir]
 **Example:**
 
 ```bash
-zeroback dev
+npx @zeroback/cli dev
 # or with a custom functions directory
-zeroback dev ./src/zeroback
+npx @zeroback/cli dev ./src/zeroback
 ```
 
 ### `zeroback deploy [functionsDir] [--dry-run] [-- wranglerArgs...]`
@@ -95,7 +95,7 @@ zeroback deploy [functionsDir] [--dry-run] [-- wranglerArgs...]
 
 You must be authenticated with Cloudflare before deploying. Either:
 
-- Run `wrangler login` to log in via your browser (recommended for local development)
+- Run `npx wrangler login` to log in via your browser (recommended for local development)
 - Set the `CLOUDFLARE_API_TOKEN` environment variable (recommended for CI/CD)
 
 The deploy command will check authentication before deploying and provide guidance if you're not logged in.
@@ -113,19 +113,19 @@ Requires `wrangler.toml` at the project root.
 
 ```bash
 # First-time setup: log in to Cloudflare
-wrangler login
+npx wrangler login
 
 # Deploy
-zeroback deploy
+npx @zeroback/cli deploy
 
 # Dry run (codegen only)
-zeroback deploy --dry-run
+npx @zeroback/cli deploy --dry-run
 
 # Pass args to wrangler
-zeroback deploy -- --env production
+npx @zeroback/cli deploy -- --env production
 
 # CI/CD: use an API token instead of interactive login
-CLOUDFLARE_API_TOKEN=your-token zeroback deploy
+CLOUDFLARE_API_TOKEN=your-token npx @zeroback/cli deploy
 ```
 
 ### `zeroback codegen [functionsDir]`
@@ -143,7 +143,7 @@ zeroback codegen [functionsDir]
 Runs the same build step as `zeroback dev` (analyze, codegen, bundle) but exits immediately. Useful for CI or pre-commit hooks.
 
 ```bash
-zeroback codegen
+npx @zeroback/cli codegen
 ```
 
 ### `zeroback reset`
@@ -157,7 +157,7 @@ zeroback reset
 Deletes the `.wrangler/state` directory, which contains all local Durable Object and SQLite data. Restart `zeroback dev` afterwards to start with a fresh database.
 
 ```bash
-zeroback reset
+npx @zeroback/cli reset
 ```
 
 ### `zeroback run <functionName> [jsonArgs] [--url <url>]`
@@ -184,16 +184,16 @@ zeroback run <functionName> [jsonArgs] [--url <url>]
 
 ```bash
 # Run a query
-zeroback run tasks:list
+npx @zeroback/cli run tasks:list
 
 # Run a mutation with arguments
-zeroback run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
+npx @zeroback/cli run tasks:create '{"title": "Buy groceries", "projectId": "proj:abc", "status": "todo"}'
 
 # Run an internal function
-zeroback run tasks:countInternal '{"projectId": "proj:abc"}'
+npx @zeroback/cli run tasks:countInternal '{"projectId": "proj:abc"}'
 
 # Target a deployed server
-zeroback run tasks:list --url https://my-worker.example.com
+npx @zeroback/cli run tasks:list --url https://my-worker.example.com
 ```
 
 ## Project Structure

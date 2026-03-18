@@ -23,7 +23,7 @@ Import the typed function factories from `zeroback/_generated/server` (generated
 ```ts
 import { query, mutation, action } from "./_generated/server";
 import { internalQuery, internalMutation, internalAction } from "./_generated/server";
-import { v } from "@zeroback/values";
+import { v } from "@zeroback/server";
 ```
 
 ### `query(config)`

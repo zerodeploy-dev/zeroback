@@ -1,5 +1,6 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import starlightLlmsTxt from "starlight-llms-txt";
 import starlightThemeObsidian from "starlight-theme-obsidian";
 
 export default defineConfig({
@@ -11,6 +12,7 @@ export default defineConfig({
       description:
         "Open-source real-time backend for Cloudflare. Type-safe functions, reactive queries, your infrastructure.",
       plugins: [
+        starlightLlmsTxt(),
         starlightThemeObsidian({
           backlinks: false,
           graph: false,
@@ -33,6 +35,7 @@ export default defineConfig({
           label: "Start Here",
           items: [
             { label: "Getting Started", slug: "getting-started" },
+            { label: "Quickstart: React", slug: "quickstart-react" },
             { label: "How It Works", slug: "how-it-works" },
             { label: "Why I Built Zeroback", slug: "blog/why-i-built-zeroback" },
             { label: "Deployment", slug: "deployment" },
@@ -64,7 +67,11 @@ export default defineConfig({
         },
         {
           label: "Reference",
-          items: [{ label: "CLI", slug: "cli" }],
+          items: [
+            { label: "CLI", slug: "cli" },
+            { label: "llms.txt", link: "/llms.txt" },
+            { label: "llms-full.txt", link: "/llms-full.txt" },
+          ],
         },
       ],
       tableOfContents: false,
