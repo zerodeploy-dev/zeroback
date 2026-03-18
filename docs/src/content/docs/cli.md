@@ -204,8 +204,7 @@ After running `zeroback init` and `zeroback dev`, your project looks like:
 my-app/
   zeroback/
     schema.ts              # Your schema definition
-    messages.ts            # Your function files
-    tasks.ts
+    tasks.ts               # Your function files
     _generated/
       api.ts               # Generated: typed function references
       server.ts            # Generated: typed factories + DataModel

@@ -76,6 +76,14 @@ export type FunctionReference<
     ? RegisteredMutation<Args, Returns>
     : RegisteredAction<Args, Returns>;
 
+/**
+ * Extracts a FunctionReference type from a registered function.
+ * Used by generated api.ts to infer args and return types from actual function definitions.
+ */
+export type FnRef<T> = T extends { _type: infer Type extends "query" | "mutation" | "action"; _args: infer Args; _returns: infer Returns }
+  ? FunctionReference<Type, Args, Returns>
+  : never;
+
 export type TableDefinition<F> = {
   validator: Validator<F>;
   _doc: F;

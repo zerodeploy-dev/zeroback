@@ -19,38 +19,48 @@ export async function init(projectDir: string = "."): Promise<void> {
   // zeroback/schema.ts
   writeFileSync(
     path.join(vexDir, "schema.ts"),
-    `import { defineSchema, defineTable, v } from "@zeroback/server";
+    `import { defineSchema, defineTable, v } from "@zeroback/server"
 
 export const schema = defineSchema({
-  messages: defineTable({
-    body: v.string(),
-    author: v.string(),
+  tasks: defineTable({
+    text: v.string(),
+    isCompleted: v.boolean(),
   }),
-});
+})
 `
   );
 
-  // zeroback/messages.ts — example function file
+  // zeroback/tasks.ts — example function file
   writeFileSync(
-    path.join(vexDir, "messages.ts"),
-    `import { query, mutation, v } from "./_generated/server";
+    path.join(vexDir, "tasks.ts"),
+    `import { query, mutation, v } from "./_generated/server"
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("messages").order("desc").take(50);
+    return await ctx.db.query("tasks").order("desc").take(50)
   },
-});
+})
 
-export const send = mutation({
+export const create = mutation({
   args: {
-    body: v.string(),
-    author: v.string(),
+    text: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", args);
+    await ctx.db.insert("tasks", { text: args.text, isCompleted: false })
   },
-});
+})
+
+export const toggle = mutation({
+  args: {
+    id: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id)
+    if (!task) throw new Error("Task not found")
+    await ctx.db.patch(args.id, { isCompleted: !task.isCompleted })
+  },
+})
 `
   );
 
@@ -80,13 +90,13 @@ export const mutation = createMutationFactory<any>();
   }
 
   console.log("  ✓ zeroback/schema.ts");
-  console.log("  ✓ zeroback/messages.ts");
+  console.log("  ✓ zeroback/tasks.ts");
   console.log("  ✓ zeroback/_generated/server.ts");
   console.log(`
 Next steps:
   1. Install dependencies: bun add @zeroback/server
   2. Run 'zeroback dev' to start development
   3. Edit zeroback/schema.ts to define your tables
-  4. Edit zeroback/messages.ts to write your functions
+  4. Edit zeroback/tasks.ts to write your functions
 `);
 }
