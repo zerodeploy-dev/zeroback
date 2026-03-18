@@ -5,12 +5,10 @@ description: Define your data model with tables, validators, indexes, and search
 
 ## Defining a Schema
 
-Define your data model in `zeroback/schema.ts`. The schema declares tables, their fields, indexes, and search indexes.
+Users create data models in `zeroback/schema.ts`, where they declare tables, fields, indexes, and search capabilities.
 
 ```ts
-// zeroback/schema.ts
-import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/values";
+import { defineSchema, defineTable, v } from "@zeroback/server";
 
 export default defineSchema({
   projects: defineTable({
@@ -69,7 +67,7 @@ function defineTable<F extends PropertyValidators>(
 
 ### System Fields
 
-Every document automatically includes two system fields that you do **not** declare in the schema:
+Every document automatically includes two system fields that users do not declare:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -91,7 +89,7 @@ Declares a secondary index on the table.
 | `name` | `string` | Index name, used in `.withIndex()` queries |
 | `fields` | `string[]` | Ordered list of field names to index on |
 
-Indexes enable efficient queries via `.withIndex()` instead of full table scans. Compound indexes support multi-field queries where you specify equality on leading fields and an optional range on the last field.
+Indexes enable efficient queries via `.withIndex()` instead of full table scans. Compound indexes support multi-field queries where equality is specified on leading fields and an optional range on the last field.
 
 Every table automatically gets two built-in indexes:
 - `by_id` — index on `_id`
@@ -135,10 +133,10 @@ defineTable({
 
 ## Validators (`v`)
 
-Import validators from `@zeroback/values`:
+Import validators from `@zeroback/server`:
 
 ```ts
-import { v } from "@zeroback/values";
+import { v } from "@zeroback/server";
 ```
 
 Validators are used in three places:
@@ -212,7 +210,7 @@ v.record(v.string(), v.number())  // Record<string, number>
 The `Infer` type helper extracts the TypeScript type from a validator:
 
 ```ts
-import type { Infer } from "@zeroback/values";
+import type { Infer } from "@zeroback/server";
 
 const taskValidator = v.object({
   title: v.string(),
@@ -225,4 +223,4 @@ type Task = Infer<typeof taskValidator>;
 
 ## Schema Enforcement
 
-Schema validation runs at runtime on every write operation (`insert`, `patch`, `replace`). If a document fails validation, the write is rejected with an error. This ensures your database always matches the schema definition.
+Schema validation runs at runtime on every write operation (`insert`, `patch`, `replace`). If a document fails validation, the write is rejected with an error. This ensures the database always matches the schema definition.

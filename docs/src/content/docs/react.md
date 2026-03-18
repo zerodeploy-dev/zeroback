@@ -8,7 +8,7 @@ The `@zeroback/react` package provides React hooks for building real-time UIs wi
 ## Installation
 
 ```bash
-npm install @zeroback/react @zeroback/client
+npm install @zeroback/react
 ```
 
 ## Setup
@@ -16,8 +16,7 @@ npm install @zeroback/react @zeroback/client
 Wrap your app with `ZerobackProvider` and pass a `ZerobackClient` instance:
 
 ```tsx
-import { ZerobackClient } from "@zeroback/client";
-import { ZerobackProvider } from "@zeroback/react";
+import { ZerobackClient, ZerobackProvider } from "@zeroback/react";
 
 const client = new ZerobackClient("ws://localhost:8788/ws");
 
@@ -61,7 +60,7 @@ function ZerobackProvider({ children, client }: ZerobackProviderProps): JSX.Elem
 | Prop | Type | Description |
 |------|------|-------------|
 | `children` | `React.ReactNode` | Child components |
-| `client` | `ZerobackClient` | A `ZerobackClient` instance from `@zeroback/client` |
+| `client` | `ZerobackClient` | A `ZerobackClient` instance from `@zeroback/react` |
 
 ## `useQuery(ref, args?)`
 
@@ -282,8 +281,9 @@ Automatically resets when `args` change.
 
 The query function must accept `cursor` and `numItems` args and return a `PaginationResult`:
 
+zeroback/tasks.ts
+
 ```ts
-// zeroback/tasks.ts
 export const listPaginated = query({
   args: {
     projectId: v.string(),

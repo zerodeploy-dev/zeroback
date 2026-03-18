@@ -1,0 +1,173 @@
+---
+title: "Quickstart: React"
+description: Build a real-time todo app with Vite + React and Zeroback in 5 minutes.
+---
+
+import { Steps, Tabs, TabItem } from "@astrojs/starlight/components"
+
+Build a real-time todo app with Vite + React in about 5 minutes.
+
+**Prerequisites:** Node.js 20+ (or Bun)
+
+<Steps>
+
+1. **Create a React app**
+
+   <Tabs>
+     <TabItem label="npm">
+     ```bash
+     npm create vite@latest my-todo -- --template react-ts
+     cd my-todo
+     ```
+     </TabItem>
+     <TabItem label="bun">
+     ```bash
+     bun create vite my-todo --template react-ts
+     cd my-todo
+     ```
+     </TabItem>
+     <TabItem label="pnpm">
+     ```bash
+     pnpm create vite my-todo --template react-ts
+     cd my-todo
+     ```
+     </TabItem>
+     <TabItem label="yarn">
+     ```bash
+     yarn create vite my-todo --template react-ts
+     cd my-todo
+     ```
+     </TabItem>
+   </Tabs>
+
+2. **Set up Zeroback**
+
+   ```bash
+   npx @zeroback/cli init
+   ```
+
+   This scaffolds a `zeroback/` directory with a starter schema and todo functions, and installs all backend dependencies automatically.
+
+3. **Install the React bindings**
+
+   <Tabs>
+     <TabItem label="npm">
+     ```bash
+     npm install @zeroback/react
+     ```
+     </TabItem>
+     <TabItem label="bun">
+     ```bash
+     bun add @zeroback/react
+     ```
+     </TabItem>
+     <TabItem label="pnpm">
+     ```bash
+     pnpm add @zeroback/react
+     ```
+     </TabItem>
+     <TabItem label="yarn">
+     ```bash
+     yarn add @zeroback/react
+     ```
+     </TabItem>
+   </Tabs>
+
+4. **Start the Zeroback dev server**
+
+   ```bash
+   npx @zeroback/cli dev
+   ```
+
+   This starts a local Cloudflare Worker and generates typed APIs into `zeroback/_generated/`. Keep this running.
+
+5. **Wire up the React client**
+
+   In a second terminal, replace `src/App.tsx`:
+
+   ```tsx
+   import { ZerobackClient, ZerobackProvider, useQuery, useMutation } from "@zeroback/react"
+   import { api } from "../zeroback/_generated/api"
+   import { useState } from "react"
+
+   const client = new ZerobackClient("ws://localhost:8788/ws")
+
+   function TodoApp() {
+     const tasks = useQuery(api.tasks.list)
+     const createTask = useMutation(api.tasks.create)
+     const toggleTask = useMutation(api.tasks.toggle)
+     const [text, setText] = useState("")
+
+     const handleAdd = async (e: React.FormEvent) => {
+       e.preventDefault()
+       if (!text.trim()) return
+       await createTask({ text: text.trim() })
+       setText("")
+     }
+
+     return (
+       <div style={{ maxWidth: 500, margin: "2rem auto", fontFamily: "sans-serif" }}>
+         <h1>Todos</h1>
+         <form onSubmit={handleAdd} style={{ display: "flex", gap: 8 }}>
+           <input
+             value={text}
+             onChange={(e) => setText(e.target.value)}
+             placeholder="What needs to be done?"
+             style={{ flex: 1, padding: 8 }}
+           />
+           <button type="submit" style={{ padding: "8px 16px" }}>Add</button>
+         </form>
+         <ul style={{ listStyle: "none", padding: 0, marginTop: 16 }}>
+           {tasks === undefined ? (
+             <li>Loading...</li>
+           ) : (
+             tasks.map((task) => (
+               <li
+                 key={task._id}
+                 onClick={() => toggleTask({ id: task._id })}
+                 style={{
+                   padding: "8px 0",
+                   cursor: "pointer",
+                   textDecoration: task.isCompleted ? "line-through" : "none",
+                   opacity: task.isCompleted ? 0.5 : 1,
+                 }}
+               >
+                 {task.isCompleted ? "☑" : "☐"} {task.text}
+               </li>
+             ))
+           )}
+         </ul>
+       </div>
+     )
+   }
+
+   export default function App() {
+     return (
+       <ZerobackProvider client={client}>
+         <TodoApp />
+       </ZerobackProvider>
+     )
+   }
+   ```
+
+6. **Start the frontend**
+
+   ```bash
+   npm run dev
+   ```
+
+   Open http://localhost:5173 and start adding tasks.
+
+</Steps>
+
+## Try it: real-time
+
+Open the app in two browser tabs. Add a task in one — it appears in the other instantly. Toggle it complete — both tabs update.
+
+## Next steps
+
+- [Schema](/schema/) — Indexes, validators, and search indexes
+- [Functions](/functions/) — Actions, HTTP routes, cron jobs
+- [Database](/database/) — Filters, pagination, full-text search
+- [React hooks](/react/) — `usePaginatedQuery`, optimistic updates, connection state
+- [Deployment](/deployment/) — Deploy to Cloudflare
