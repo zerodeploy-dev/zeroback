@@ -1,5 +1,5 @@
 import { query } from "../_generated/server";
-import { v } from "@zeroback/values";
+import { v } from "@zeroback/server";
 
 export const taskStats = query({
   args: { projectId: v.string() },

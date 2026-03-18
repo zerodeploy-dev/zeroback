@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import {
+  ZerobackClient,
   ZerobackProvider,
   useQuery,
   useMutation,
   useConnectionState,
 } from "@zeroback/react";
-import { ZerobackClient } from "@zeroback/client";
 import { api } from "../zeroback/_generated/api";
 import { Board } from "./Board";
 import { TaskDetail } from "./TaskDetail";

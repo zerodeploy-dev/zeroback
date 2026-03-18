@@ -10,7 +10,7 @@ Users create data models in `zeroback/schema.ts`, where they declare tables, fie
 ```ts title="zeroback/schema.ts"
 import { defineSchema, defineTable, v } from "@zeroback/server";
 
-export default defineSchema({
+export const schema = defineSchema({
   projects: defineTable({
     name: v.string(),
     description: v.string(),

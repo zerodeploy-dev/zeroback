@@ -1,5 +1,4 @@
-import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/values";
+import { defineSchema, defineTable, v } from "@zeroback/server";
 
 export const schema = defineSchema({
   projects: defineTable({

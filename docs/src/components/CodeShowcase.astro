@@ -9,10 +9,9 @@ const steps = [
     description: "Declare your tables, fields, and indexes in TypeScript. Zeroback generates types and SQL from your schema automatically.",
     file: "zeroback/schema.ts",
     lang: "ts",
-    code: `import { defineSchema, defineTable } from "@zeroback/server"
-import { v } from "@zeroback/values"
+    code: `import { defineSchema, defineTable, v } from "@zeroback/server"
 
-export default defineSchema({
+export const schema = defineSchema({
   messages: defineTable({
     channel: v.string(),
     author: v.string(),
@@ -26,8 +25,7 @@ export default defineSchema({
     description: "Queries, mutations, and actions are plain TypeScript functions. They run on Cloudflare with full type safety and transactional guarantees.",
     file: "zeroback/messages.ts",
     lang: "ts",
-    code: `import { query } from "./_generated/server"
-import { v } from "@zeroback/values"
+    code: `import { query, v } from "./_generated/server"
 
 export const list = query({
   args: { channel: v.string() },
