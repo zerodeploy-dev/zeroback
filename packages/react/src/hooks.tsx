@@ -121,9 +121,10 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
   ref: Ref,
   args: Omit<Ref["_args"], "cursor" | "numItems">,
   opts: { initialNumItems: number }
-): UsePaginatedQueryResult<any> {
+): UsePaginatedQueryResult<Ref["_returns"] extends Array<infer Item> ? Item : Ref["_returns"]> {
+  type Item = Ref["_returns"] extends Array<infer I> ? I : Ref["_returns"];
   const client = useZerobackClient();
-  const [pages, setPages] = useState<any[][]>([]);
+  const [pages, setPages] = useState<Item[][]>([]);
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [isDone, setIsDone] = useState(false);
   const [numItemsPerPage, setNumItemsPerPage] = useState<number[]>([opts.initialNumItems]);
