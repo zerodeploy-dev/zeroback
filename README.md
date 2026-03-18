@@ -121,17 +121,16 @@ export const send = mutation({
 
 ### 4. Use in React
 
-First, install the client packages:
+First, install the client package:
 
 ```bash
-bun add @zeroback/client @zeroback/react
+bun add @zeroback/react
 ```
 
 Then use them in your React app:
 
 ```tsx
-import { ZerobackProvider, useQuery, useMutation } from "@zeroback/react";
-import { ZerobackClient } from "@zeroback/client";
+import { ZerobackClient, ZerobackProvider, useQuery, useMutation } from "@zeroback/react";
 import { api } from "../zeroback/_generated/api";
 
 const client = new ZerobackClient("ws://localhost:8788/ws");
@@ -229,23 +228,25 @@ For many apps (internal tools, collaborative docs, moderate-traffic SaaS), these
 | `@zeroback/server` | Define schemas, queries, mutations. Database reader/writer, query builder, filter DSL |
 | `@zeroback/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence |
 | `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
-| `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery` |
+| `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createQueryWithStatus`, `createMutation`, `createAction`, `createPaginatedQuery`, `createConnectionState` |
 | `@zeroback/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
 | `@zeroback/runtime` | Runtime engine: Durable Object, DB, subscriptions, WebSocket handling |
-| `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen` — scaffold, develop, deploy |
+| `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`, `zeroback run`, `zeroback reset` — scaffold, develop, deploy |
 
 ## Documentation
 
-- **[Schema & Validators](docs/schema.md)** — `defineSchema`, `defineTable`, `v.*` validators, indexes, search indexes
-- **[Functions](docs/functions.md)** — queries, mutations, actions, internal functions, HTTP actions, cron jobs, codegen
-- **[Database](docs/database.md)** — reading, writing, QueryBuilder, filters, indexes, pagination, full-text search
-- **[Client SDK](docs/client.md)** — `ZerobackClient`, subscriptions, optimistic updates, persistence
-- **[React Hooks](docs/react.md)** — `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
-- **[CLI](docs/cli.md)** — `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`
-- **[Scheduling](docs/scheduling.md)** — `scheduler.runAfter`, `scheduler.runAt`, cron jobs
-- **[File Storage](docs/storage.md)** — upload, serve, and manage files via Cloudflare R2
-- **[How It Works](docs/how-it-works.md)** — real-time subscriptions, OCC, type-safe codegen
-- **[Feature Status](docs/feature-status.md)** — implementation status for all features
+- **[Schema & Validators](https://zeroback.dev/schema)** — `defineSchema`, `defineTable`, `v.*` validators, indexes, search indexes
+- **[Functions](https://zeroback.dev/functions)** — queries, mutations, actions, internal functions, HTTP actions, cron jobs, codegen
+- **[Database](https://zeroback.dev/database)** — reading, writing, QueryBuilder, filters, indexes, pagination, full-text search
+- **[Client SDK](https://zeroback.dev/client)** — `ZerobackClient`, subscriptions, optimistic updates, persistence
+- **[React Hooks](https://zeroback.dev/react)** — `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
+- **[Solid.js](https://zeroback.dev/solid)** — `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery`
+- **[CLI](https://zeroback.dev/cli)** — `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`, `zeroback run`, `zeroback reset`
+- **[Authentication](https://zeroback.dev/authentication)** — token-based auth, user identity in functions
+- **[Scheduling](https://zeroback.dev/scheduling)** — `scheduler.runAfter`, `scheduler.runAt`, cron jobs
+- **[File Storage](https://zeroback.dev/storage)** — upload, serve, and manage files via Cloudflare R2
+- **[Deployment](https://zeroback.dev/deployment)** — deploy to Cloudflare Workers
+- **[How It Works](https://zeroback.dev/how-it-works)** — real-time subscriptions, OCC, type-safe codegen
 
 ## Project Structure
 
