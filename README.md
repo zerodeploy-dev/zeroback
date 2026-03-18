@@ -15,7 +15,7 @@ An open-source [Convex](https://convex.dev)-style backend you deploy to your own
 ```bash
 npx @zeroback/cli init my-app
 cd my-app
-bun add @zeroback/server @zeroback/values @zeroback/runtime
+bun add @zeroback/server
 zeroback dev
 ```
 
@@ -60,15 +60,14 @@ Convex introduced a great developer experience: define your backend as plain Typ
 ```bash
 npx @zeroback/cli init my-app
 cd my-app
-bun add @zeroback/server @zeroback/values @zeroback/runtime
+bun add @zeroback/server
 ```
 
 ### 2. Define your schema
 
 ```ts
 // zeroback/schema.ts
-import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/values";
+import { defineSchema, defineTable, v } from "@zeroback/server";
 
 export const schema = defineSchema({
   messages: defineTable({
@@ -85,8 +84,7 @@ export const schema = defineSchema({
 
 ```ts
 // zeroback/messages.ts
-import { query, mutation } from "./_generated/server";
-import { v } from "@zeroback/values";
+import { query, mutation, v } from "./_generated/server";
 
 export const list = query({
   args: { channel: v.string() },

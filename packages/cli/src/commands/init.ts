@@ -19,8 +19,7 @@ export async function init(projectDir: string = "."): Promise<void> {
   // zeroback/schema.ts
   writeFileSync(
     path.join(vexDir, "schema.ts"),
-    `import { defineSchema, defineTable } from "@zeroback/server";
-import { v } from "@zeroback/values";
+    `import { defineSchema, defineTable, v } from "@zeroback/server";
 
 export const schema = defineSchema({
   messages: defineTable({
@@ -34,8 +33,7 @@ export const schema = defineSchema({
   // zeroback/messages.ts — example function file
   writeFileSync(
     path.join(vexDir, "messages.ts"),
-    `import { query, mutation } from "./_generated/server";
-import { v } from "@zeroback/values";
+    `import { query, mutation, v } from "./_generated/server";
 
 export const list = query({
   args: {},
@@ -86,7 +84,7 @@ export const mutation = createMutationFactory<any>();
   console.log("  ✓ zeroback/_generated/server.ts");
   console.log(`
 Next steps:
-  1. Install dependencies: bun add @zeroback/server @zeroback/values @zeroback/runtime
+  1. Install dependencies: bun add @zeroback/server
   2. Run 'zeroback dev' to start development
   3. Edit zeroback/schema.ts to define your tables
   4. Edit zeroback/messages.ts to write your functions

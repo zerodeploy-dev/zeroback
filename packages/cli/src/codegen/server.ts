@@ -5,7 +5,9 @@ import { validatorTypeToTs, quotePropertyName } from "./utils.js";
 
 export function generateServer(schema: SchemaJSON, outputPath: string): void {
   const lines: string[] = [
-    `import { createQueryFactory, createMutationFactory, createActionFactory, createInternalQueryFactory, createInternalMutationFactory, createInternalActionFactory } from "@zeroback/server";`,
+    `import { createQueryFactory, createMutationFactory, createActionFactory, createInternalQueryFactory, createInternalMutationFactory, createInternalActionFactory, v } from "@zeroback/server";`,
+    "",
+    `export { v };`,
     "",
   ];
 
