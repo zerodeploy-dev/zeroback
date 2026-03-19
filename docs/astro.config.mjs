@@ -76,6 +76,7 @@ export default defineConfig({
       ],
       components: {
         Footer: "./src/components/StarlightFooter.astro",
+        ThemeSelect: "./src/components/ThemeSelect.astro",
       },
       tableOfContents: false,
       customCss: ["./src/styles/custom.css"],
@@ -86,6 +87,10 @@ export default defineConfig({
             property: "og:image",
             content: "https://zeroback.dev/og.png",
           },
+        },
+        {
+          tag: "script",
+          content: `document.documentElement.dataset.theme = 'dark';`,
         },
       ],
     }),

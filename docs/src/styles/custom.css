@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
+/* Force dark mode */
+:root {
+  color-scheme: dark;
+}
+
 :root {
   --sl-content-width: 90rem;
   --sl-color-accent-low: rgba(246, 130, 31, 0.1);
