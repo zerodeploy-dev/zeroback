@@ -4,56 +4,29 @@ description: Open-source real-time backend for Cloudflare. Type-safe functions, 
 template: splash
 hero:
   tagline: "Open-source real-time backend for Cloudflare.<br/>Type-safe functions, reactive queries, your infrastructure."
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/zerodeploy-dev/zeroback
+      icon: external
+      variant: minimal
 ---
 
-<div class="coming-soon not-content">
-  <h2>Coming Soon</h2>
-  <p>Follow us on X for updates.</p>
-  <a href="https://x.com/ranyefet" target="_blank" rel="noopener" class="x-btn">Follow on X</a>
+import CodeShowcase from "../../components/CodeShowcase.astro";
+import Features from "../../components/Features.astro";
+import Architecture from "../../components/Architecture.astro";
+import BottomCTA from "../../components/BottomCTA.astro";
+import Footer from "../../components/Footer.astro";
+
+<div style="max-width: 960px; margin: 0 auto 3rem; padding: 0 1rem;">
+  <img src="/demo.gif" alt="Zeroback demo — real-time sync across two browser windows" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);" />
 </div>
 
-<style>
-{`
-  .coming-soon {
-    max-width: 960px;
-    margin: 2rem auto 4rem;
-    padding: 3rem 2rem;
-    text-align: center;
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 12px;
-    background:
-      radial-gradient(ellipse at 50% 0%, var(--sl-color-accent-low, rgba(246, 130, 31, 0.1)) 0%, transparent 70%),
-      var(--sl-color-gray-7, var(--sl-color-gray-6));
-  }
-
-  .coming-soon h2 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--sl-color-white);
-    margin: 0 0 1rem;
-  }
-
-  .coming-soon p {
-    font-size: 1.1rem;
-    color: var(--sl-color-gray-2);
-    margin: 0;
-  }
-
-  .x-btn {
-    display: inline-block;
-    margin-top: 1rem;
-    padding: 0.65rem 1.5rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    text-decoration: none;
-    background: var(--sl-color-accent);
-    color: var(--sl-color-black, #fff);
-    transition: all 0.15s ease;
-  }
-
-  .x-btn:hover {
-    filter: brightness(1.1);
-  }
-`}
-</style>
+<CodeShowcase />
+<Features />
+<Architecture />
+<BottomCTA />
+<Footer />
