@@ -1,0 +1,47 @@
+---
+---
+
+<footer class="site-footer not-content">
+  <div class="footer-inner">
+    <span>Hosted on <a href="https://zerodeploy.dev" target="_blank" rel="noopener">ZeroDeploy</a></span>
+    <span class="footer-sep">&middot;</span>
+    <span>Built with care by <a href="https://ran.yefet.net" target="_blank" rel="noopener">Ran Yefet</a></span>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    padding: 2rem 1.5rem;
+    text-align: center;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+
+  .footer-inner {
+    font-size: 0.85rem;
+    color: var(--sl-color-gray-3);
+  }
+
+  .footer-inner a {
+    color: var(--sl-color-accent);
+    text-decoration: none;
+  }
+
+  .footer-inner a:hover {
+    text-decoration: underline;
+  }
+
+  .footer-sep {
+    margin: 0 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    .footer-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .footer-sep {
+      display: none;
+    }
+  }
+</style>

@@ -74,6 +74,9 @@ export default defineConfig({
           ],
         },
       ],
+      components: {
+        Footer: "./src/components/StarlightFooter.astro",
+      },
       tableOfContents: false,
       customCss: ["./src/styles/custom.css"],
       head: [
