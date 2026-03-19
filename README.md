@@ -15,11 +15,11 @@ An open-source [Convex](https://convex.dev)-style backend you deploy to your own
 ```bash
 npx @zeroback/cli init my-app
 cd my-app
-bun add @zeroback/server
+npm install @zeroback/server
 zeroback dev
 ```
 
-Edit `zeroback/schema.ts` and `zeroback/messages.ts`, and you have a real-time backend. Add `@zeroback/client` and `@zeroback/react` when you're ready to connect your frontend.
+Edit `zeroback/schema.ts` and `zeroback/tasks.ts`, and you have a real-time backend. Add `@zeroback/client` and `@zeroback/react` when you're ready to connect your frontend.
 
 ## Why Zeroback?
 
@@ -35,24 +35,6 @@ Convex introduced a great developer experience: define your backend as plain Typ
 - **Single Durable Object** — all state, transactions, and WebSocket connections in one place for strong consistency
 - **Offline support** — opt-in IndexedDB persistence for instant cached renders, offline reads, and mutation replay
 
-### How Zeroback Compares to Convex
-
-| | Convex | Zeroback |
-|-|--------|-----|
-| **Hosting** | Convex Cloud | Your Cloudflare account |
-| **Real-time queries** | Yes | Yes |
-| **Type-safe codegen** | Yes | Yes |
-| **ACID transactions** | Yes | Yes (OCC) |
-| **Database indexes** | Yes | Yes |
-| **Full-text search** | Yes | Yes (SQLite FTS5) |
-| **Pagination** | Yes | Yes (cursor-based) |
-| **Database** | Custom | SQLite (Durable Objects) |
-| **Subscriptions** | Server-push | Server-push (WebSocket) |
-| **Offline/cache** | No | Yes (IndexedDB persistence) |
-| **Edge runtime** | Convex runtime | Cloudflare Workers |
-| **Pricing** | Per-function call | Cloudflare Workers pricing |
-| **Open source** | No | Yes |
-
 ## Quick Start
 
 ### 1. Scaffold a new project
@@ -60,63 +42,55 @@ Convex introduced a great developer experience: define your backend as plain Typ
 ```bash
 npx @zeroback/cli init my-app
 cd my-app
-bun add @zeroback/server
+npm install @zeroback/server
 ```
 
 ### 2. Define your schema
 
 ```ts
 // zeroback/schema.ts
-import { defineSchema, defineTable, v } from "@zeroback/server";
+import { defineSchema, defineTable, v } from "@zeroback/server"
 
 export const schema = defineSchema({
-  messages: defineTable({
-    body: v.string(),
-    author: v.string(),
-    channel: v.string(),
-  })
-    .index("by_channel", ["channel"])
-    .searchIndex("search_body", { searchField: "body" }),
-});
+  tasks: defineTable({
+    text: v.string(),
+    isCompleted: v.boolean(),
+  }),
+})
 ```
 
 ### 3. Write your functions
 
 ```ts
-// zeroback/messages.ts
-import { query, mutation, v } from "./_generated/server";
+// zeroback/tasks.ts
+import { query, mutation, v } from "./_generated/server"
 
 export const list = query({
-  args: { channel: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("messages")
-      .withIndex("by_channel", (q) => q.eq("channel", args.channel))
-      .order("desc")
-      .take(50);
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("tasks").order("desc").take(50)
   },
-});
+})
 
-export const search = query({
-  args: { query: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("messages")
-      .search("body", args.query)
-      .take(10);
-  },
-});
-
-export const send = mutation({
+export const create = mutation({
   args: {
-    body: v.string(),
-    author: v.string(),
-    channel: v.string(),
+    text: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", args);
+    await ctx.db.insert("tasks", { text: args.text, isCompleted: false })
   },
-});
+})
+
+export const toggle = mutation({
+  args: {
+    id: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id)
+    if (!task) throw new Error("Task not found")
+    await ctx.db.patch(args.id, { isCompleted: !task.isCompleted })
+  },
+})
 ```
 
 ### 4. Use in React
@@ -124,41 +98,42 @@ export const send = mutation({
 First, install the client package:
 
 ```bash
-bun add @zeroback/react
+npm install @zeroback/react
 ```
 
 Then use them in your React app:
 
 ```tsx
-import { ZerobackClient, ZerobackProvider, useQuery, useMutation } from "@zeroback/react";
-import { api } from "../zeroback/_generated/api";
+import { ZerobackClient, ZerobackProvider, useQuery, useMutation } from "@zeroback/react"
+import { api } from "../zeroback/_generated/api"
 
-const client = new ZerobackClient("ws://localhost:8788/ws");
+const client = new ZerobackClient("ws://localhost:8788/ws")
 
-function Chat() {
-  const messages = useQuery(api.messages.list, { channel: "general" });
-  const send = useMutation(api.messages.send);
+function Tasks() {
+  const tasks = useQuery(api.tasks.list)
+  const create = useMutation(api.tasks.create)
+  const toggle = useMutation(api.tasks.toggle)
 
   return (
     <div>
-      {messages?.map((msg) => (
-        <p key={msg._id}>
-          <b>{msg.author}</b>: {msg.body}
+      {tasks?.map((task) => (
+        <p key={task._id} onClick={() => toggle({ id: task._id })}>
+          {task.isCompleted ? "✅" : "⬜"} {task.text}
         </p>
       ))}
-      <button onClick={() => send({ body: "Hello!", author: "Alice", channel: "general" })}>
-        Send
+      <button onClick={() => create({ text: "New task" })}>
+        Add Task
       </button>
     </div>
-  );
+  )
 }
 
 function App() {
   return (
     <ZerobackProvider client={client}>
-      <Chat />
+      <Tasks />
     </ZerobackProvider>
-  );
+  )
 }
 ```
 
@@ -178,30 +153,30 @@ This will:
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│  React App                                      │
-│  useQuery(api.messages.list, { channel })       │
-│  useMutation(api.messages.send)                 │
-└──────────────────┬──────────────────────────────┘
-                   │ WebSocket
-┌──────────────────▼──────────────────────────────┐
-│  Cloudflare Worker                              │
-│  Routes requests to Durable Object              │
-│ ┌─────────────────────────────────────────────┐ │
-│ │  ZerobackDO (Durable Object)                │ │
-│ │                                             │ │
-│ │  ┌──────────┐ ┌────────────┐ ┌───────────┐ │ │
-│ │  │ User     │ │ Transaction│ │Subscription│ │ │
-│ │  │ Functions│ │ Store      │ │ Manager   │ │ │
-│ │  │ (bundled)│ │ (OCC)      │ │ (realtime)│ │ │
-│ │  └──────────┘ └────────────┘ └───────────┘ │ │
-│ │                                             │ │
-│ │  ┌─────────────────────────────────────┐    │ │
-│ │  │  SQLite (Durable Object Storage)    │    │ │
-│ │  │  documents + indexes + tx log       │    │ │
-│ │  └─────────────────────────────────────┘    │ │
-│ └─────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│  React App                                                │
+│  useQuery(api.tasks.list)                                 │
+│  useMutation(api.tasks.create)                            │
+└────────────────────────┬──────────────────────────────────┘
+                         │ WebSocket
+┌────────────────────────▼──────────────────────────────────┐
+│  Cloudflare Worker                                        │
+│  Routes requests to Durable Object                        │
+│ ┌───────────────────────────────────────────────────────┐ │
+│ │  ZerobackDO (Durable Object)                          │ │
+│ │                                                       │ │
+│ │  ┌──────────────┐ ┌──────────────┐ ┌───────────────┐  │ │
+│ │  │ User         │ │ Transaction  │ │ Subscription  │  │ │
+│ │  │ Functions    │ │ Store        │ │ Manager       │  │ │
+│ │  │ (bundled)    │ │ (OCC)        │ │ (realtime)    │  │ │
+│ │  └──────────────┘ └──────────────┘ └───────────────┘  │ │
+│ │                                                       │ │
+│ │  ┌─────────────────────────────────────────────────┐  │ │
+│ │  │  SQLite (Durable Object Storage)                │  │ │
+│ │  │  documents + indexes + scheduled jobs           │  │ │
+│ │  └─────────────────────────────────────────────────┘  │ │
+│ └───────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────┘
 ```
 
 **Single Durable Object.** Everything — queries, mutations, subscriptions, and WebSocket connections — runs inside one Durable Object instance. This gives you strong consistency without distributed coordination, but it also means your app is bound by the limits of a single DO.
@@ -230,7 +205,6 @@ For many apps (internal tools, collaborative docs, moderate-traffic SaaS), these
 | `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
 | `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createQueryWithStatus`, `createMutation`, `createAction`, `createPaginatedQuery`, `createConnectionState` |
 | `@zeroback/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
-| `@zeroback/runtime` | Runtime engine: Durable Object, DB, subscriptions, WebSocket handling |
 | `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`, `zeroback run`, `zeroback reset` — scaffold, develop, deploy |
 
 ## Documentation
@@ -254,8 +228,7 @@ For many apps (internal tools, collaborative docs, moderate-traffic SaaS), these
 your-project/
 ├── zeroback/                      # Your backend code
 │   ├── schema.ts             # Table definitions
-│   ├── messages.ts           # Query & mutation functions
-│   ├── users.ts              # More functions...
+│   ├── tasks.ts              # Query & mutation functions
 │   └── _generated/           # Auto-generated (don't edit)
 │       ├── api.ts            # Typed API references
 │       ├── server.ts         # Typed query/mutation factories
@@ -268,7 +241,7 @@ your-project/
     └── entry.ts              # Scaffolded by zeroback init, user can customize
 ```
 
-Both `wrangler.toml` and `.zeroback/entry.ts` are scaffolded once by `zeroback init` and owned by the user — you can customize them freely. The entry file imports from `zeroback/_generated/manifest.ts` (regenerated on every build), which wires your functions and schema to the `@zeroback/runtime`.
+Both `wrangler.toml` and `.zeroback/entry.ts` are scaffolded once by `zeroback init` and owned by the user — you can customize them freely. The entry file imports from `zeroback/_generated/manifest.ts` (regenerated on every build), which wires your functions and schema to the `@zeroback/server/runtime`.
 
 The `wrangler.toml` at project root points to `.zeroback/entry.ts` as the Worker entry point. Wrangler's bundler (esbuild) handles all import resolution from there.
 

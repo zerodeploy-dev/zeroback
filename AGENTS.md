@@ -79,7 +79,6 @@ bun run --filter '@zeroback/server' build
 packages/
   values/     - Validators and core types (v.string(), etc.)
   server/     - Schema, functions, database APIs
-  runtime/    - Durable Object, WebSocket, subscriptions (@zeroback/runtime)
   client/     - ZerobackClient with WebSocket, optimistic updates
   react/      - React hooks: useQuery, useMutation
   cli/        - zeroback init/dev/deploy/codegen
