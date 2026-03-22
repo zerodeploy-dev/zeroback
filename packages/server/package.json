@@ -20,7 +20,7 @@
     "ulidx": "^2.4.1"
   },
   "scripts": {
-    "build": "tsc --build",
+    "build": "bun ../dashboard/scripts/embed.ts && tsc --build --force",
     "dev": "tsc --build --watch",
     "typecheck": "tsc --noEmit"
   },
