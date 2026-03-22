@@ -24,6 +24,9 @@ const tableRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/tables/$table",
   component: TablePage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    doc: (search.doc as string) || undefined,
+  }),
 })
 
 const sqlRoute = createRoute({

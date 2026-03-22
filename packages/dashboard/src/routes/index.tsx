@@ -55,6 +55,7 @@ function TableCard({ name, fields, indexes }: {
 }
 
 export function OverviewPage() {
+  console.log("[render] OverviewPage")
   const schema = useQuery(api.getSchema)
 
   if (!schema) {

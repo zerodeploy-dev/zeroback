@@ -12,7 +12,7 @@ export const schema = defineSchema({
     description: v.optional(v.string()),
     status: v.string(),
     priority: v.string(),
-    projectId: v.string(),
+    projectId: v.id("projects"),
     assignee: v.optional(v.string()),
     dueDate: v.optional(v.number()),
     labels: v.optional(v.array(v.string())),
@@ -27,6 +27,6 @@ export const schema = defineSchema({
   comments: defineTable({
     body: v.string(),
     author: v.string(),
-    taskId: v.string(),
+    taskId: v.id("tasks"),
   }).index("by_task", ["taskId"]),
 });

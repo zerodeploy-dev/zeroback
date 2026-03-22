@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 function TableCountBadge({ table }: { table: string }) {
+  console.log("[render] TableCountBadge", table)
   const count = useQuery(api.getTableCount, { table })
   if (count == null) return null
   return (
@@ -23,6 +24,7 @@ function TableCountBadge({ table }: { table: string }) {
 }
 
 function Sidebar() {
+  console.log("[render] Sidebar")
   const schema = useQuery(api.getSchema)
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
@@ -119,6 +121,7 @@ function NavItem({
 }
 
 function ConnectionStatus() {
+  console.log("[render] ConnectionStatus")
   const state = useConnectionState()
   return (
     <div className="h-10 flex items-center gap-2 px-4 border-t border-border text-xs text-muted-foreground">
@@ -143,6 +146,7 @@ function ConnectionStatus() {
 }
 
 export function RootLayout() {
+  console.log("[render] RootLayout")
   return (
     <div className="h-screen flex overflow-hidden">
       <Sidebar />

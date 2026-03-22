@@ -14,6 +14,7 @@ type QueryResult = {
 }
 
 export function SqlPage() {
+  console.log("[render] SqlPage")
   const [query, setQuery] = useState("SELECT name, type FROM sqlite_master WHERE type = 'table' ORDER BY name")
   const [results, setResults] = useState<QueryResult[]>([])
   const [running, setRunning] = useState(false)
