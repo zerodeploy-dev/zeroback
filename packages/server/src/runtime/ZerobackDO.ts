@@ -15,6 +15,7 @@ import { StorageManager } from "./StorageManager";
 import { CronManager } from "./CronManager";
 import { executeMutation, createMutationLock, type MutationDeps } from "./MutationExecutor";
 import { ErrorCode, errorMessage, sendError } from "./errors";
+import { createSystemFunctions } from "./SystemFunctions";
 
 export type FunctionDef = {
   type: "query" | "mutation" | "action";
@@ -77,6 +78,14 @@ export function createZerobackDO(config: RuntimeConfig): {
 
     // Load bundled user functions
     this.functions = config.functions;
+
+    // Register system functions for the dashboard
+    const systemFns = createSystemFunctions({
+      sql: this.sql,
+      schemaInfo: this.schemaInfo,
+      tableColumns: this.tableColumns,
+    });
+    Object.assign(this.functions, systemFns);
 
     // Initialize subsystems
     this.storage = new StorageManager(this.sql, ctx, env as any);

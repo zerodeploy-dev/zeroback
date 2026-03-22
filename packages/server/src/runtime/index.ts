@@ -1,4 +1,5 @@
 import type { Env } from "./ZerobackDO"
+import { dashboardHtml } from "./dashboard-html"
 
 export { createZerobackDO } from "./ZerobackDO"
 export type { RuntimeConfig, FunctionDef, Env } from "./ZerobackDO"
@@ -53,6 +54,19 @@ export const workerHandler = {
     // Worker-level health check (not tenant-specific)
     if (url.pathname === "/health") {
       return new Response("OK");
+    }
+
+    // Dashboard SPA
+    if (url.pathname === "/_dashboard" || url.pathname.startsWith("/_dashboard/")) {
+      if (!dashboardHtml) {
+        return new Response("Dashboard not built. Run `bun run build` in packages/dashboard.", { status: 404 });
+      }
+      return new Response(dashboardHtml, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache",
+        },
+      });
     }
 
     if (!env.ZEROBACK_DO) {
