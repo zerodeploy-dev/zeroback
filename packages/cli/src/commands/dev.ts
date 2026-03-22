@@ -90,7 +90,7 @@ export async function dev(config: DevConfig = {}): Promise<void> {
 }
 
 function startWrangler(port: number): ChildProcess {
-  const child = spawn(detectPkgRunner(), ["wrangler", "dev", "--port", String(port), "--persist-to", ".wrangler/state"], {
+  const child = spawn(detectPkgRunner(), ["wrangler", "dev", "--port", String(port), "--persist-to", ".wrangler/state", "--var", "ZEROBACK_DASHBOARD:true"], {
     stdio: ["ignore", "inherit", "inherit"],
   });
 

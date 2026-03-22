@@ -56,10 +56,10 @@ export const workerHandler = {
       return new Response("OK");
     }
 
-    // Dashboard SPA
+    // Dashboard SPA (dev only — enabled via ZEROBACK_DASHBOARD=true)
     if (url.pathname === "/_dashboard" || url.pathname.startsWith("/_dashboard/")) {
-      if (!dashboardHtml) {
-        return new Response("Dashboard not built. Run `bun run build` in packages/dashboard.", { status: 404 });
+      if (env.ZEROBACK_DASHBOARD !== "true") {
+        return new Response("Not found", { status: 404 });
       }
       return new Response(dashboardHtml, {
         headers: {

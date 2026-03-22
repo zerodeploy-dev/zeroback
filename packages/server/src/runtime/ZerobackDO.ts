@@ -658,4 +658,5 @@ function indexRangesToFilter(
 export interface Env {
   ZEROBACK_DO: DurableObjectNamespace;
   ZEROBACK_STORAGE?: R2Bucket;
+  ZEROBACK_DASHBOARD?: string;
 }
