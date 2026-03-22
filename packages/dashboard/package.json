@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@zeroback/client": "workspace:^",
     "@zeroback/react": "workspace:^",
     "@zeroback/server": "workspace:^",
     "@tanstack/react-router": "^1.167.0",

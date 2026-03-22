@@ -1,4 +1,4 @@
-import { ZerobackClient } from "@zeroback/client"
+import { ZerobackClient } from "@zeroback/react"
 import type { RegisteredQuery, RegisteredMutation, RegisteredAction } from "@zeroback/server"
 
 // Derive WS URL from current page location
