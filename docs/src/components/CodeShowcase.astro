@@ -1,0 +1,364 @@
+---
+import { Code } from "astro:components";
+import githubDark from "shiki/themes/github-dark.mjs";
+
+const steps = [
+  {
+    step: "01",
+    label: "Define your schema",
+    description: "Declare your tables, fields, and indexes in TypeScript. Zeroback generates types and SQL from your schema automatically.",
+    file: "zeroback/schema.ts",
+    lang: "ts",
+    code: `import { defineSchema, defineTable, v } from "@zeroback/server"
+
+export const schema = defineSchema({
+  messages: defineTable({
+    channel: v.string(),
+    author: v.string(),
+    body: v.string(),
+  }).index("by_channel", ["channel"]),
+})`,
+  },
+  {
+    step: "02",
+    label: "Write functions",
+    description: "Queries, mutations, and actions are plain TypeScript functions. They run on Cloudflare with full type safety and transactional guarantees.",
+    file: "zeroback/messages.ts",
+    lang: "ts",
+    code: `import { query, v } from "./_generated/server"
+
+export const list = query({
+  args: { channel: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .withIndex("by_channel",
+        (q) => q.eq("channel", args.channel))
+      .collect()
+  },
+})`,
+  },
+  {
+    step: "03",
+    label: "Use from React",
+    description: "Bind your UI to live data with a single hook. Queries re-render automatically when the underlying data changes — no polling or refetching.",
+    file: "src/Chat.tsx",
+    lang: "tsx",
+    code: `import { useQuery, useMutation } from "@zeroback/react"
+import { api } from "../zeroback/_generated/api"
+
+function Chat({ channel }: { channel: string }) {
+  const messages = useQuery(api.messages.list,
+    { channel }
+  )
+  const send = useMutation(api.messages.send)
+
+  // Auto-updates when anyone sends a message
+  // No polling. No refetch. No boilerplate.
+}`,
+  },
+];
+---
+
+<section class="showcase not-content">
+  <div class="showcase-header">
+    <p class="showcase-label">Developer Experience</p>
+    <h2>Schema to screen<br/>in three steps</h2>
+  </div>
+  <div class="tabs-layout">
+    <div class="tab-sidebar" role="tablist">
+      {steps.map((s, i) => (
+        <button
+          class={`tab-btn ${i === 0 ? "active" : ""}`}
+          role="tab"
+          aria-selected={i === 0 ? "true" : "false"}
+          data-tab={i}
+        >
+          <span class="step-number">{s.step}</span>
+          <div class="tab-text">
+            <span class="tab-label">{s.label}</span>
+            <span class="tab-desc">{s.description}</span>
+          </div>
+        </button>
+      ))}
+    </div>
+    <div class="tab-panels">
+      {steps.map((s, i) => (
+        <div class={`tab-panel ${i === 0 ? "active" : ""}`} role="tabpanel" data-panel={i}>
+          <div class="code-window">
+            <div class="code-titlebar">
+              <div class="code-dots">
+                <span class="dot dot-red" />
+                <span class="dot dot-yellow" />
+                <span class="dot dot-green" />
+              </div>
+              <span class="code-filename">{s.file}</span>
+            </div>
+            <Code code={s.code} lang={s.lang} theme={githubDark} />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll(".tabs-layout").forEach((layout) => {
+    const sidebar = layout.querySelector(".tab-sidebar")!;
+    const tabs = sidebar.querySelectorAll(".tab-btn");
+    const panels = layout.querySelectorAll(".tab-panel");
+    const total = tabs.length;
+    let current = 0;
+    let autoplay: ReturnType<typeof setInterval> | null = null;
+
+    function switchTo(idx: number) {
+      tabs.forEach((b) => {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
+      tabs[idx].classList.add("active");
+      tabs[idx].setAttribute("aria-selected", "true");
+
+      panels.forEach((p) => p.classList.remove("active"));
+      panels[idx].classList.add("active");
+      current = idx;
+    }
+
+    function startAutoplay() {
+      autoplay = setInterval(() => {
+        switchTo((current + 1) % total);
+      }, 4000);
+    }
+
+    sidebar.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest(".tab-btn") as HTMLElement | null;
+      if (!btn) return;
+      const idx = Number(btn.dataset.tab);
+      switchTo(idx);
+      if (autoplay) {
+        clearInterval(autoplay);
+        autoplay = null;
+      }
+    });
+
+    startAutoplay();
+  });
+</script>
+
+<style>
+  .showcase {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    padding: 4rem 1.5rem;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .showcase > * {
+    max-width: 1100px;
+    margin-inline: auto;
+  }
+
+  .showcase-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .showcase-label {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--sl-color-accent);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+
+  .showcase-header h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--sl-color-white);
+    margin: 0;
+  }
+
+  /* Layout */
+  .tabs-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  /* Sidebar tabs */
+  .tab-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .tab-btn {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .tab-btn:hover {
+    background: var(--sl-color-gray-6, rgba(255, 255, 255, 0.03));
+  }
+
+  .tab-btn.active {
+    background: var(--sl-color-gray-6, rgba(255, 255, 255, 0.05));
+    border-color: var(--sl-color-accent);
+  }
+
+  .step-number {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--sl-color-accent);
+    background: rgba(246, 130, 31, 0.15);
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .tab-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .tab-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+    transition: color 0.15s ease;
+  }
+
+  .tab-btn.active .tab-label {
+    color: var(--sl-color-white);
+  }
+
+  .tab-desc {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--sl-color-gray-3);
+  }
+
+  /* Panels */
+  .tab-panels {
+    display: grid;
+  }
+
+  .tab-panel {
+    grid-area: 1 / 1;
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+  }
+
+  /* Code window */
+  .code-window {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #383e47;
+    background: #24292e;
+  }
+
+  .code-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    background: #1e2228;
+    border-bottom: 1px solid #383e47;
+  }
+
+  .code-dots {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .dot-red { background: #ff5f57; }
+  .dot-yellow { background: #febc2e; }
+  .dot-green { background: #28c840; }
+
+  .code-filename {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.72rem;
+    color: #8b949e;
+  }
+
+  .code-window pre {
+    margin: 0 !important;
+    padding: 1.25rem 1.5rem !important;
+    overflow-x: auto;
+    border-radius: 0 !important;
+    border: none !important;
+    background: #24292e !important;
+  }
+
+  .code-window code {
+    font-family: "JetBrains Mono", "Fira Code", monospace !important;
+    font-size: 0.875rem !important;
+    line-height: 1.7 !important;
+    word-break: keep-all;
+    color: #e1e4e8 !important;
+  }
+
+  .code-window code span {
+    color: var(--shiki-default, inherit) !important;
+  }
+
+  /* Mobile: stack vertically */
+  @media (max-width: 768px) {
+    .showcase {
+      padding: 3rem 1rem;
+    }
+    .showcase-header h2 {
+      font-size: 1.6rem;
+    }
+    .tabs-layout {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    .tab-sidebar {
+      flex-direction: row;
+      overflow-x: auto;
+      gap: 0.25rem;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tab-btn {
+      flex-shrink: 0;
+      padding: 0.6rem 0.75rem;
+    }
+    .tab-desc {
+      display: none;
+    }
+    .code-window code {
+      font-size: 0.8rem !important;
+    }
+  }
+</style>

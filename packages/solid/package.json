@@ -1,0 +1,36 @@
+{
+  "name": "@zeroback/solid",
+  "version": "0.0.22",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "dependencies": {
+    "@zeroback/client": "workspace:^",
+    "@zeroback/server": "workspace:^"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.8.0"
+  },
+  "scripts": {
+    "build": "tsc --build && babel src --out-dir dist --extensions .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.26.0",
+    "@babel/core": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "babel-preset-solid": "^1.8.0",
+    "solid-js": "^1.8.0",
+    "typescript": "^5.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* Force dark mode */
+:root {
+  color-scheme: dark;
+}
+
+:root {
+  --sl-content-width: 90rem;
+  --sl-color-accent-low: rgba(246, 130, 31, 0.1);
+  --sl-color-accent: #f6821f;
+  --sl-color-accent-high: #fbbf24;
+}
+
+:root[data-theme='dark'] {
+  --sl-color-accent-low: rgba(246, 130, 31, 0.15);
+  --sl-color-accent: #f6821f;
+  --sl-color-accent-high: #fbbf24;
+}
+
+/* === Hero === */
+.hero {
+  padding-block: 4rem 2rem !important;
+  position: relative;
+  grid-template-columns: 1fr !important;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -4rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(246, 130, 31, 0.25) 0%, rgba(246, 130, 31, 0.08) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Center the stack and copy */
+.hero .stack {
+  align-items: center !important;
+}
+
+.hero .copy {
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.hero h1 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif !important;
+  font-size: 4rem !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.04em;
+  line-height: 1.05 !important;
+  text-align: center !important;
+  width: 100%;
+  background: linear-gradient(135deg, #e04e00 0%, #f6821f 50%, #fbbf24 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+.hero .tagline {
+  font-size: 1.15rem !important;
+  max-width: 38rem;
+  color: var(--sl-color-gray-2);
+  line-height: 1.7 !important;
+  text-align: center !important;
+}
+
+.hero .actions {
+  justify-content: center !important;
+}
+
+/* Remove top padding on splash page */
+.main-frame {
+  padding-top: 0 !important;
+}
+
+/* Hide header on splash/hero landing page */
+[data-has-hero] header {
+  display: none !important;
+}
+
+[data-has-hero] .sidebar {
+  display: none !important;
+}
+
+[data-has-hero] .main-frame {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+[data-has-hero] .page {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+[data-has-hero] {
+  --sl-nav-height: 0rem !important;
+}

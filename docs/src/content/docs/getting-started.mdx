@@ -1,0 +1,32 @@
+---
+title: Getting Started
+description: Set up Zeroback — an open-source real-time backend for Cloudflare — in under 2 minutes.
+---
+
+Zeroback is an open-source real-time backend that runs on Cloudflare Workers and Durable Objects. Type-safe functions, reactive queries, and transactional mutations — on infrastructure you own.
+
+## Quickstarts
+
+Pick your framework and follow the step-by-step guide:
+
+import { LinkCard, CardGrid } from "@astrojs/starlight/components";
+
+<CardGrid>
+  <LinkCard title="React" description="Build a real-time todo app with Vite + React." href="/quickstart-react/" />
+  <LinkCard title="Solid.js" description="Coming soon" href="/solid/" />
+</CardGrid>
+
+## How it works
+
+1. **Define your schema** — Declare tables and validators in TypeScript. Zeroback generates types and SQL automatically.
+2. **Write functions** — Queries, mutations, and actions are plain TypeScript. They run on Cloudflare with transactional guarantees.
+3. **Connect your frontend** — Bind your UI to live data with a single hook. Queries re-render automatically when data changes — no polling.
+4. **Deploy** — `zeroback deploy` ships to your Cloudflare account. Your data stays on your infrastructure.
+
+## Learn more
+
+- [Schema](/schema/) — Tables, indexes, validators, and search indexes
+- [Functions](/functions/) — Queries, mutations, actions, HTTP routes, cron jobs
+- [Database](/database/) — Filters, pagination, full-text search
+- [How It Works](/how-it-works/) — Architecture and real-time internals
+- [CLI](/cli/) — `init`, `dev`, `deploy`, `codegen`, `run`, `reset`

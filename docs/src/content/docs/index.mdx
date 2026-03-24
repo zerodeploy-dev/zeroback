@@ -1,0 +1,30 @@
+---
+title: Zeroback
+description: Open-source real-time backend for Cloudflare. Type-safe functions, reactive queries, your infrastructure.
+template: splash
+hero:
+  tagline: "Open-source real-time backend for Cloudflare.<br/>Type-safe functions, reactive queries, your infrastructure."
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/zerodeploy-dev/zeroback
+      icon: external
+      variant: minimal
+---
+
+import CodeShowcase from "../../components/CodeShowcase.astro";
+import Features from "../../components/Features.astro";
+import Architecture from "../../components/Architecture.astro";
+import BottomCTA from "../../components/BottomCTA.astro";
+
+<div style="max-width: 960px; margin: 0 auto 3rem; padding: 0 1rem;">
+  <img src="/demo.gif" alt="Zeroback demo — real-time sync across two browser windows" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);" />
+</div>
+
+<CodeShowcase />
+<Features />
+<Architecture />
+<BottomCTA />
