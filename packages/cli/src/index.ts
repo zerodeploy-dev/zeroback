@@ -29,8 +29,11 @@ const command = process.argv[2];
 
 switch (command) {
   case "init": {
-    const dir = process.argv[3] || ".";
-    init(dir).catch((e) => {
+    const initArgs = process.argv.slice(3);
+    const modeIdx = initArgs.indexOf("--mode");
+    const mode = modeIdx >= 0 ? (initArgs[modeIdx + 1] as "do" | "d1") : "do";
+    const dir = initArgs.find((a, i) => !a.startsWith("--") && !(i > 0 && initArgs[i - 1] === "--mode")) || ".";
+    init(dir, mode).catch((e) => {
       console.error(e);
       process.exit(1);
     });
@@ -108,7 +111,7 @@ switch (command) {
 zeroback - Open-source backend on Cloudflare
 
 Usage:
-  zeroback init [dir]                          Scaffold a new project
+  zeroback init [dir] [--mode do|d1]            Scaffold a new project
   zeroback dev [functionsDir]                  Start development server
   zeroback codegen [functionsDir]              Run codegen without starting dev server
   zeroback deploy [functionsDir] [--dry-run] [-- …]  Codegen + wrangler deploy

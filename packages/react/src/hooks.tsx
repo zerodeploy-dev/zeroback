@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useContext, createContext, useSyncExternalStore, useRef } from "react";
 import { ZerobackClient, QueryStore, subscribePaginationPages, computeStatus } from "@zeroback/client";
-import type { ConnectionState, LocalStore, FunctionReference, PaginationStatus } from "@zeroback/client";
+import type { BaseClient, ConnectionState, LocalStore, FunctionReference, PaginationStatus } from "@zeroback/client";
 
-const ZerobackContext = createContext<ZerobackClient | null>(null);
+const ZerobackContext = createContext<BaseClient | null>(null);
 
 export interface ZerobackProviderProps {
   children: React.ReactNode;
-  client: ZerobackClient;
+  client: BaseClient;
 }
 
 export function ZerobackProvider({ children, client }: ZerobackProviderProps): JSX.Element {
@@ -17,7 +17,7 @@ export function ZerobackProvider({ children, client }: ZerobackProviderProps): J
   );
 }
 
-export function useZerobackClient(): ZerobackClient {
+export function useZerobackClient(): BaseClient {
   const client = useContext(ZerobackContext);
   if (!client) {
     throw new Error("useZerobackClient must be used within a ZerobackProvider");

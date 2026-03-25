@@ -3,6 +3,8 @@ import { dashboardHtml } from "./dashboard-html"
 
 export { createZerobackDO } from "./ZerobackDO"
 export type { RuntimeConfig, FunctionDef, HttpRouterLike, Env } from "./ZerobackDO"
+export { createD1Handler } from "./D1Handler"
+export type { D1Env } from "./D1Handler"
 
 /**
  * Extract tenant slug from URL path.

@@ -1,4 +1,4 @@
-import type { ZerobackClient } from "./ZerobackClient";
+import type { BaseClient } from "./BaseClient";
 
 export type PaginationStatus = "LoadingFirstPage" | "CanLoadMore" | "Exhausted";
 
@@ -39,7 +39,7 @@ export function computeStatus(pages: unknown[][], isDone: boolean): PaginationSt
 }
 
 export function subscribePaginationPages(
-  client: ZerobackClient,
+  client: BaseClient,
   fnName: string,
   argsKey: string,
   pageCount: number,

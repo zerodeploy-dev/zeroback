@@ -1,9 +1,10 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync, appendFileSync } from "fs";
 import * as path from "path";
 import { prepareWorkerDir } from "./prepare.js";
+import type { RuntimeMode } from "./prepare.js";
 
-export async function init(projectDir: string = "."): Promise<void> {
-  console.log("▲ zeroback init\n");
+export async function init(projectDir: string = ".", mode: RuntimeMode = "do"): Promise<void> {
+  console.log(`▲ zeroback init${mode === "d1" ? " --mode d1" : ""}\n`);
 
   const resolved = path.resolve(projectDir);
   const vexDir = path.join(resolved, "zeroback");
@@ -75,7 +76,7 @@ export const mutation = createMutationFactory<any>();
   );
 
   // Scaffold wrangler.toml + .zeroback/entry.ts
-  prepareWorkerDir(resolved);
+  prepareWorkerDir(resolved, mode);
 
   // Add .zeroback/ to .gitignore (but allow .zeroback/entry.ts to be committed)
   const gitignorePath = path.join(resolved, ".gitignore");

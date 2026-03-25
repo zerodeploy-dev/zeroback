@@ -6,8 +6,9 @@ import type { ClientMessage, ServerMessage } from "@zeroback/values";
 import type { PersistenceAdapter } from "./persistence/PersistenceAdapter.js";
 import { IDBPersistence } from "./persistence/IDBPersistence.js";
 import { MutationQueue } from "./persistence/MutationQueue.js";
+import type { BaseClient, ConnectionState } from "./BaseClient.js";
 
-export type ConnectionState = "connecting" | "connected" | "disconnected";
+export type { ConnectionState } from "./BaseClient.js";
 
 export interface ZerobackClientOptions {
   persistence?: boolean | PersistenceAdapter;
@@ -20,7 +21,7 @@ export interface ZerobackClientOptions {
   requestTimeoutMs?: number;
 }
 
-export class ZerobackClient {
+export class ZerobackClient implements BaseClient {
   private ws: WebSocket | null = null;
   private subscriptions: SubscriptionRegistry;
   private pendingRequests = new Map<string, {
