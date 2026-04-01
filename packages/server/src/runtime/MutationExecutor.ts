@@ -6,6 +6,7 @@ import type { DOSQLiteReader } from "./db/DOSQLiteReader";
 import type { DOSQLiteWriter } from "./db/DOSQLiteWriter";
 import { sqlChunks, sqlPlaceholders } from "./db/sql-utils";
 import type { SqlApi } from "./types";
+import type { UserIdentity } from "@zeroback/values";
 
 export type InvokeResult = {
   result: unknown;
@@ -36,7 +37,7 @@ export type MutationDeps = {
   getLatestTs: () => number;
   setLatestTs: (ts: number) => void;
   saveLatestTs: () => Promise<void>;
-  invokeFunction: (fnName: string, args: unknown, txId: string) => Promise<InvokeResult>;
+  invokeFunction: (fnName: string, args: unknown, txId: string, identity?: UserIdentity | null) => Promise<InvokeResult>;
 };
 
 const MAX_OCC_RETRIES = 5;
@@ -56,6 +57,7 @@ export async function executeMutation(
   deps: MutationDeps,
   fnName: string,
   args: unknown,
+  identity?: UserIdentity | null,
 ): Promise<unknown> {
   return deps.lock(async () => {
     for (let attempt = 0; attempt <= MAX_OCC_RETRIES; attempt++) {
@@ -63,7 +65,7 @@ export async function executeMutation(
       deps.transactions.begin(txId, deps.getLatestTs(), "mutation");
 
       try {
-        const result = await deps.invokeFunction(fnName, args, txId);
+        const result = await deps.invokeFunction(fnName, args, txId, identity);
 
         const mutationTx = deps.transactions.get(txId);
         const writeSet = mutationTx ? [...mutationTx.writeSet] : [];

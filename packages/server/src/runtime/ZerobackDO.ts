@@ -1,9 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON, CronJobDef, HttpActionHandler, ActionCtx } from "@zeroback/server";
-import type { ValidatorJSON } from "@zeroback/values";
+import type { ValidatorJSON, UserIdentity } from "@zeroback/values";
 import { DatabaseReader, DatabaseWriter, StorageReader, StorageWriter, StorageActions } from "@zeroback/server";
 import { validate } from "@zeroback/values";
 import type { ClientMessage, ServerMessage } from "@zeroback/values";
+import { AuthManager } from "./auth/AuthManager";
 import { DOSQLiteReader } from "./db/DOSQLiteReader";
 import { DOSQLiteWriter } from "./db/DOSQLiteWriter";
 import { generateTableDDL, buildTableColumns, migrateSchema } from "./db/SchemaMapper";
@@ -55,6 +56,8 @@ export function createZerobackDO(config: RuntimeConfig): {
   private storage: StorageManager;
   private cron: CronManager;
   private mutationDeps: MutationDeps;
+  private auth: AuthManager | null = null;
+  private connectionIdentities: Map<string, UserIdentity | null> = new Map();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -74,6 +77,11 @@ export function createZerobackDO(config: RuntimeConfig): {
 
     this.tableColumns = buildTableColumns(this.schemaInfo);
     this.initializeTables();
+
+    if (config.authDef) {
+      this.auth = new AuthManager(this.sql, config.authDef, env as unknown as Record<string, unknown>);
+      this.auth.runMigrations();
+    }
 
     this.reader = new DOSQLiteReader(this.sql, this.tableColumns);
     this.writer = new DOSQLiteWriter(this.sql, this.tableColumns);
@@ -109,7 +117,7 @@ export function createZerobackDO(config: RuntimeConfig): {
       getLatestTs: () => this.latestTs,
       setLatestTs: (ts) => { this.latestTs = ts; },
       saveLatestTs: () => this.saveLatestTs(),
-      invokeFunction: (fnName, args, txId) => this.invokeFunction(fnName, args, txId),
+      invokeFunction: (fnName, args, txId, identity) => this.invokeFunction(fnName, args, txId, identity),
     };
 
     // Restore WebSocket connections after hibernation
@@ -179,7 +187,10 @@ export function createZerobackDO(config: RuntimeConfig): {
 
   private restoreBaseUrl(): void {
     this.ctx.storage.get<string>("baseUrl").then((url) => {
-      if (url) this.storage.setBaseUrl(url);
+      if (url) {
+        this.storage.setBaseUrl(url);
+        this.auth?.setBaseUrl(url);
+      }
     });
   }
 
@@ -202,6 +213,15 @@ export function createZerobackDO(config: RuntimeConfig): {
     if (headerBaseUrl && !this.storage.getBaseUrl()) {
       this.storage.setBaseUrl(headerBaseUrl);
       this.ctx.storage.put("baseUrl", headerBaseUrl);
+    }
+
+    if (headerBaseUrl && this.auth) {
+      this.auth.setBaseUrl(headerBaseUrl);
+    }
+
+    if (this.auth) {
+      const authResponse = await this.auth.handleRequest(req);
+      if (authResponse) return authResponse;
     }
 
     if (path === "/ws") return this.handleWebSocketUpgrade(req);
@@ -356,7 +376,7 @@ export function createZerobackDO(config: RuntimeConfig): {
 
   // -- WebSocket --
 
-  private handleWebSocketUpgrade(req: Request): Response {
+  private async handleWebSocketUpgrade(req: Request): Promise<Response> {
     if (this.connections.isFull()) {
       return new Response("Too many connections", { status: 503 });
     }
@@ -366,6 +386,9 @@ export function createZerobackDO(config: RuntimeConfig): {
 
     this.ctx.acceptWebSocket(server, [connectionId]);
     this.connections.add(server, connectionId);
+
+    const identity = this.auth ? await this.auth.getSessionFromHeaders(req.headers) : null;
+    this.connectionIdentities.set(connectionId, identity);
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -397,8 +420,12 @@ export function createZerobackDO(config: RuntimeConfig): {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
+    const connId = this.connections.get(ws);
     this.connections.remove(ws);
     this.subscriptions.removeAll(ws);
+    if (connId) {
+      this.connectionIdentities.delete(connId);
+    }
   }
 
   // -- Schema validation --
@@ -503,7 +530,8 @@ export function createZerobackDO(config: RuntimeConfig): {
   private async invokeFunction(
     fnName: string,
     args: unknown,
-    txId: string
+    txId: string,
+    identity?: UserIdentity | null
   ): Promise<{ result: unknown; readSet: { table: string; documentId: string; ts: number }[]; queryDescriptors: { table: string; filter: FilterExpressionJSON | null }[] }> {
     const fn = this.functions[fnName];
     if (!fn) {
@@ -524,7 +552,7 @@ export function createZerobackDO(config: RuntimeConfig): {
     const storageOps = this.storage.createStorageOps();
 
     if (fn.type === "action") {
-      const ctx = this.createActionCtx();
+      const ctx = this.createActionCtx(identity);
       const result = await fn.handler(ctx, args);
       this.validateReturnValue(fnName, fn, result);
       return { result, readSet: [], queryDescriptors: [] };
@@ -539,7 +567,11 @@ export function createZerobackDO(config: RuntimeConfig): {
       ? new StorageReader(storageOps)
       : new StorageWriter(storageOps);
 
-    const result = await fn.handler({ db, scheduler: this.cron.createScheduler(), storage: storageFacade }, args);
+    const baseCtx = { db, scheduler: this.cron.createScheduler(), storage: storageFacade };
+    const ctx = identity !== undefined
+      ? { ...baseCtx, auth: { getUserIdentity: () => Promise.resolve(identity) } }
+      : baseCtx;
+    const result = await fn.handler(ctx, args);
     this.validateReturnValue(fnName, fn, result);
 
     const tx = this.transactions.get(txId);
@@ -571,11 +603,12 @@ export function createZerobackDO(config: RuntimeConfig): {
       return;
     }
 
+    const identity = this.connectionIdentities.get(connectionId);
     const txId = crypto.randomUUID();
     this.transactions.begin(txId, this.latestTs, "query");
 
     try {
-      const result = await this.invokeFunction(msg.fn, msg.args, txId);
+      const result = await this.invokeFunction(msg.fn, msg.args, txId, identity);
       const resultJSON = JSON.stringify(result.result);
 
       this.subscriptions.subscribe({
@@ -607,8 +640,9 @@ export function createZerobackDO(config: RuntimeConfig): {
       return;
     }
 
+    const identity = this.connectionIdentities.get(connectionId);
     try {
-      const result = await executeMutation(this.mutationDeps, msg.fn, msg.args);
+      const result = await executeMutation(this.mutationDeps, msg.fn, msg.args, identity);
       ws.send(JSON.stringify({ type: "mutationResult", id: msg.id, result } as ServerMessage));
     } catch (e) {
       const code = errorMessage(e).includes("Transaction conflict") ? ErrorCode.CONFLICT : ErrorCode.EXECUTION_ERROR;
@@ -629,7 +663,8 @@ export function createZerobackDO(config: RuntimeConfig): {
       }
       if (fn.type !== "action") throw new Error(`${msg.fn} is not an action`);
 
-      const actionCtx = this.createActionCtx();
+      const identity = this.connectionIdentities.get(connectionId);
+      const actionCtx = this.createActionCtx(identity);
       const result = await fn.handler(actionCtx, msg.args);
 
       ws.send(JSON.stringify({ type: "actionResult", id: msg.id, result } as ServerMessage));
@@ -641,9 +676,9 @@ export function createZerobackDO(config: RuntimeConfig): {
   // -- Action context --
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ActionCtx generic methods require any for runtime dispatch
-  private createActionCtx(): ActionCtx<any> {
+  private createActionCtx(identity?: UserIdentity | null): ActionCtx<any> {
     const storageOps = this.storage.createStorageOps();
-    return {
+    const baseCtx = {
       runQuery: async <T>(fnName: string, args?: Record<string, unknown>): Promise<T> => {
         const fn = this.functions[fnName];
         if (!fn || fn.type !== "query") throw new Error(`Query not found: ${fnName}`);
@@ -670,6 +705,11 @@ export function createZerobackDO(config: RuntimeConfig): {
       scheduler: this.cron.createScheduler(),
       storage: new StorageActions(storageOps),
     };
+    if (identity !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth is added at runtime when identity is present
+      return { ...baseCtx, auth: { getUserIdentity: () => Promise.resolve(identity) } } as any;
+    }
+    return baseCtx;
   }
 
   // -- Scheduler execution --
