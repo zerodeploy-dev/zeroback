@@ -21,14 +21,14 @@ function makeMockOps(): DbOps {
 
 describe("DatabaseWriter", () => {
   describe("insert()", () => {
-    it("generates a ULID-based id and calls ops.insert", async () => {
+    it("generates a TypeID-based id and calls ops.insert", async () => {
       const ops = makeMockOps()
       const writer = new DatabaseWriter<TestDataModel>(ops)
 
       const id = await writer.insert("tasks", { title: "Test" } as any)
 
-      expect(id).toMatch(/^tasks:/)
-      expect(id.length).toBeGreaterThan(6) // "tasks:" + ULID
+      // TypeID format: prefix_base32suffix (26-char suffix)
+      expect(id).toMatch(/^tasks_[0-9a-hjkmnp-tv-z]{26}$/)
       expect(ops.insert).toHaveBeenCalledTimes(1)
 
       const [table, insertedId, doc] = (ops.insert as any).mock.calls[0]
@@ -46,6 +46,15 @@ describe("DatabaseWriter", () => {
       const id2 = await writer.insert("tasks", { title: "B" } as any)
       expect(id1).not.toBe(id2)
     })
+
+    it("uses custom prefix from prefixMap", async () => {
+      const ops = makeMockOps()
+      const prefixMap = { tasks: "tsk", users: "usr" }
+      const writer = new DatabaseWriter<TestDataModel>(ops, prefixMap)
+
+      const id = await writer.insert("tasks", { title: "Test" } as any)
+      expect(id).toMatch(/^tsk_[0-9a-hjkmnp-tv-z]{26}$/)
+    })
   })
 
   describe("patch()", () => {
@@ -53,9 +62,9 @@ describe("DatabaseWriter", () => {
       const ops = makeMockOps()
       const writer = new DatabaseWriter<TestDataModel>(ops)
 
-      await writer.patch("tasks:abc123" as any, { title: "Updated" } as any)
+      await writer.patch("tasks_01h455vb4pex5vsknk084sn02q" as any, { title: "Updated" } as any)
 
-      expect(ops.patch).toHaveBeenCalledWith("tasks", "tasks:abc123", { title: "Updated" })
+      expect(ops.patch).toHaveBeenCalledWith("tasks", "tasks_01h455vb4pex5vsknk084sn02q", { title: "Updated" })
     })
   })
 
@@ -64,9 +73,9 @@ describe("DatabaseWriter", () => {
       const ops = makeMockOps()
       const writer = new DatabaseWriter<TestDataModel>(ops)
 
-      await writer.replace("users:xyz" as any, { name: "Alice", age: 30 } as any)
+      await writer.replace("users_01h455vb4pex5vsknk084sn02q" as any, { name: "Alice", age: 30 } as any)
 
-      expect(ops.replace).toHaveBeenCalledWith("users", "users:xyz", { name: "Alice", age: 30 })
+      expect(ops.replace).toHaveBeenCalledWith("users", "users_01h455vb4pex5vsknk084sn02q", { name: "Alice", age: 30 })
     })
   })
 
@@ -75,20 +84,20 @@ describe("DatabaseWriter", () => {
       const ops = makeMockOps()
       const writer = new DatabaseWriter<TestDataModel>(ops)
 
-      await writer.delete("tasks:abc123" as any)
+      await writer.delete("tasks_01h455vb4pex5vsknk084sn02q" as any)
 
-      expect(ops.delete).toHaveBeenCalledWith("tasks", "tasks:abc123")
+      expect(ops.delete).toHaveBeenCalledWith("tasks", "tasks_01h455vb4pex5vsknk084sn02q")
     })
   })
 
   describe("inherits DatabaseReader", () => {
     it("can call get()", async () => {
       const ops = makeMockOps()
-      ;(ops.get as any).mockResolvedValue({ _id: "tasks:1", title: "A" })
+      ;(ops.get as any).mockResolvedValue({ _id: "tasks_01h455vb4pex5vsknk084sn02q", title: "A" })
 
       const writer = new DatabaseWriter<TestDataModel>(ops)
-      const result = await writer.get("tasks:1" as any)
-      expect(result).toEqual({ _id: "tasks:1", title: "A" })
+      const result = await writer.get("tasks_01h455vb4pex5vsknk084sn02q" as any)
+      expect(result).toEqual({ _id: "tasks_01h455vb4pex5vsknk084sn02q", title: "A" })
     })
 
     it("can call query()", () => {
