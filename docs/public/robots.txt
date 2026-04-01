@@ -19,5 +19,5 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://zerodeploy.dev/sitemap-index.xml
-Llms-txt: https://zerodeploy.dev/llms.txt
+Sitemap: https://zeroback.dev/sitemap-index.xml
+Llms-txt: https://zeroback.dev/llms.txt
