@@ -51,6 +51,15 @@ export function generateServer(schema: SchemaJSON, outputPath: string, hasAuth =
   lines.push(`};`);
   lines.push("");
 
+  // Generate idPrefixes map
+  lines.push(`export const idPrefixes = {`)
+  for (const [tableName, table] of Object.entries(schema.tables)) {
+    const prefix = table.idPrefix ?? tableName
+    lines.push(`  ${quotePropertyName(tableName)}: "${prefix}",`)
+  }
+  lines.push(`} as const;`)
+  lines.push("")
+
   const authParam = hasAuth ? `, AuthCtx` : ``;
   lines.push(`export const query = createQueryFactory<${dataModelName}${authParam}>();`);
   lines.push(`export const mutation = createMutationFactory<${dataModelName}${authParam}>();`);

@@ -31,6 +31,15 @@ export function generateDataModel(schema: SchemaJSON, outputPath: string): void 
 
   lines.push(`};`);
 
+  // Generate idPrefixes map
+  lines.push("")
+  lines.push(`export const idPrefixes = {`)
+  for (const [tableName, table] of Object.entries(schema.tables)) {
+    const prefix = table.idPrefix ?? tableName
+    lines.push(`  ${quotePropertyName(tableName)}: "${prefix}",`)
+  }
+  lines.push(`} as const;`)
+
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, lines.join("\n") + "\n");
 }
