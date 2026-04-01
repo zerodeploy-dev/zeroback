@@ -316,7 +316,8 @@ function isSystemTable(name: string): boolean {
     SYSTEM_TABLES.has(name) ||
     name.startsWith("_migration_temp_") ||
     name.startsWith("_cf_") ||
-    name.startsWith("sqlite_")
+    name.startsWith("sqlite_") ||
+    name.startsWith("_auth_")
   );
 }
 
