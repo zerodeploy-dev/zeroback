@@ -20,6 +20,8 @@ function buildSocialProviders(
         clientId: env.GITHUB_CLIENT_ID as string,
         clientSecret: env.GITHUB_CLIENT_SECRET as string,
       }
+    } else {
+      console.warn(`[zeroback] Unknown auth provider type "${(p as { type: string }).type}" — skipping`)
     }
   }
   return result
@@ -35,7 +37,10 @@ export class AuthManager {
     this.sql = sql
 
     const options: BetterAuthOptions = {
-      secret: (env.BETTER_AUTH_SECRET as string) ?? "dev-secret",
+      secret: (env.BETTER_AUTH_SECRET as string | undefined) ?? (() => {
+        console.warn("[zeroback] BETTER_AUTH_SECRET is not set — using insecure dev-secret")
+        return "dev-secret"
+      })(),
       database: createDOSQLiteAdapter(sql),
 
       emailAndPassword: { enabled: authDef.emailAndPassword ?? true },
@@ -55,7 +60,7 @@ export class AuthManager {
     this.auth = betterAuth(options)
   }
 
-  runMigrations(): void {
+  async runMigrations(): Promise<void> {
     runAuthMigrations(this.sql, this.authOptions)
   }
 
@@ -68,6 +73,7 @@ export class AuthManager {
 
     if (!url.pathname.startsWith("/auth/")) return null
 
+    // X-Zeroback-Base-Url is set by the Worker before forwarding to the DO — not user-accessible
     const baseUrl = req.headers.get("X-Zeroback-Base-Url") ?? this.baseUrl
     if (baseUrl) {
       const publicUrl = new URL(url.pathname + url.search, baseUrl)
@@ -84,11 +90,12 @@ export class AuthManager {
     return {
       subject: session.user.id,
       issuer: "zeroback",
-      tokenIdentifier: `${session.user.id}|zeroback`,
+      tokenIdentifier: `zeroback|${session.user.id}`,
       email: session.user.email ?? undefined,
       emailVerified: session.user.emailVerified ?? undefined,
       name: session.user.name ?? undefined,
-      pictureUrl: (session.user as Record<string, unknown>).image as string | undefined,
+      // better-auth exposes profile picture as `image` — not in its public User type
+      pictureUrl: (session.user as { image?: string }).image,
     }
   }
 }
