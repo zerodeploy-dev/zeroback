@@ -100,7 +100,7 @@ describe("v.id()", () => {
     expect(() => validate(123, json)).toThrow("Expected id");
   });
   it("type string", () => {
-    expect(validatorToTypeString(json)).toBe("string");
+    expect(validatorToTypeString(json)).toBe('Id<"users">');
   });
 });
 

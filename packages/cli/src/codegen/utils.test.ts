@@ -62,7 +62,7 @@ describe("validatorTypeToTs", () => {
     expect(validatorTypeToTs({ type: "boolean" })).toBe("boolean");
     expect(validatorTypeToTs({ type: "null" })).toBe("null");
     expect(validatorTypeToTs({ type: "any" })).toBe("any");
-    expect(validatorTypeToTs({ type: "id", tableName: "tasks" })).toBe("string");
+    expect(validatorTypeToTs({ type: "id", tableName: "tasks" })).toBe('Id<"tasks">');
     expect(validatorTypeToTs({ type: "float64" })).toBe("number");
     expect(validatorTypeToTs({ type: "int64" })).toBe("bigint");
     expect(validatorTypeToTs({ type: "bytes" })).toBe("ArrayBuffer");

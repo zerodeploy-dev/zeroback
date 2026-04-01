@@ -47,7 +47,7 @@ export function validatorToTypeString(json: ValidatorJSON | null | undefined): s
     case "boolean": return "boolean";
     case "null": return "null";
     case "any": return "any";
-    case "id": return "string";
+    case "id": return `Id<"${json.tableName}">`;
     case "float64": return "number";
     case "int64": return "bigint";
     case "bytes": return "ArrayBuffer";
