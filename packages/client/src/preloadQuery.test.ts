@@ -84,4 +84,9 @@ describe("preloadQuery", () => {
     await expect(preloadQuery("ws://localhost:8788/ws", fakeRef))
       .rejects.toThrow("HTTP 500")
   })
+
+  it("throws a clear error when URL does not end with /ws", async () => {
+    await expect(preloadQuery("wss://example.com", fakeRef))
+      .rejects.toThrow('deploymentUrl must end with "/ws"')
+  })
 })

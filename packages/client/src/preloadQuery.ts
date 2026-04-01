@@ -12,6 +12,9 @@ export type Preloaded<Ref extends FunctionReference<"query", any, any>> = {
  *   wss://example.com/ws   → https://example.com/query
  */
 function toQueryUrl(wsUrl: string): string {
+  if (!wsUrl.endsWith("/ws")) {
+    throw new Error(`preloadQuery: deploymentUrl must end with "/ws" (got: ${wsUrl})`)
+  }
   return wsUrl
     .replace(/^wss:\/\//, "https://")
     .replace(/^ws:\/\//, "http://")
