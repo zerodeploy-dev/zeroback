@@ -9,8 +9,8 @@ export type PaginationState = {
   numItemsPerPage: number[];
 };
 
-export type PaginationCallbacks = {
-  setPages: (updater: (prev: unknown[][]) => unknown[][]) => void;
+export type PaginationCallbacks<T = unknown> = {
+  setPages: (updater: (prev: T[][]) => T[][]) => void;
   setCursors: (updater: (prev: (string | null)[]) => (string | null)[]) => void;
   setIsDone: (value: boolean) => void;
   setNumItemsPerPage: (updater: (prev: number[]) => number[]) => void;
@@ -25,7 +25,7 @@ export function initialPaginationState(initialNumItems: number): PaginationState
   };
 }
 
-export function resetPagination(initialNumItems: number, callbacks: PaginationCallbacks): void {
+export function resetPagination<T = unknown>(initialNumItems: number, callbacks: PaginationCallbacks<T>): void {
   callbacks.setPages(() => []);
   callbacks.setCursors(() => [null]);
   callbacks.setIsDone(false);
@@ -38,14 +38,14 @@ export function computeStatus(pages: unknown[][], isDone: boolean): PaginationSt
   return "CanLoadMore";
 }
 
-export function subscribePaginationPages(
+export function subscribePaginationPages<T = unknown>(
   client: ZerobackClient,
   fnName: string,
   argsKey: string,
   pageCount: number,
   cursors: (string | null)[],
   numItemsPerPage: number[],
-  callbacks: PaginationCallbacks,
+  callbacks: PaginationCallbacks<T>,
 ): (() => void)[] {
   const unsubscribes: (() => void)[] = [];
 
@@ -72,7 +72,7 @@ export function subscribePaginationPages(
 
       callbacks.setPages((prev) => {
         const updated = [...prev];
-        updated[pageIndex] = result.page;
+        updated[pageIndex] = result.page as T[];
         return updated;
       });
 

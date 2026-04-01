@@ -9,7 +9,7 @@ export interface ZerobackProviderProps {
   client: ZerobackClient;
 }
 
-export function ZerobackProvider({ children, client }: ZerobackProviderProps): JSX.Element {
+export function ZerobackProvider({ children, client }: ZerobackProviderProps): React.JSX.Element {
   return (
     <ZerobackContext.Provider value={client}>
       {children}
