@@ -214,6 +214,7 @@ export function createZerobackDO(config: RuntimeConfig): {
 
     // Admin: invoke any function (public or internal) from CLI
     if (path === "/__admin/run" && req.method === "POST") return this.handleAdminRun(req);
+    // /query is a reserved Zeroback path and is dispatched before user httpRouter
     if (path === "/query" && req.method === "POST") return this.handleQueryHttp(req);
 
     // HTTP actions — user-defined routes
@@ -324,7 +325,7 @@ export function createZerobackDO(config: RuntimeConfig): {
 
       if (fn.type !== "query") {
         return new Response(
-          JSON.stringify({ error: `"${fnName}" is a ${fn.type}, not a query`, code: ErrorCode.BAD_REQUEST }),
+          JSON.stringify({ error: `"${fnName}" is not a query`, code: ErrorCode.BAD_REQUEST }),
           { status: 400, headers: json }
         )
       }
