@@ -1,4 +1,4 @@
-import { ulid } from "ulidx";
+import { typeid } from "typeid-js";
 import type { CronSchedule, CronJobDef } from "@zeroback/server";
 import { getNextRunTime } from "@zeroback/server";
 import type { SqlApi } from "./types";
@@ -89,7 +89,7 @@ export class CronManager {
   }
 
   private async scheduleJob(runAt: number, fnName: string, args: unknown): Promise<string> {
-    const id = ulid();
+    const id = typeid("job").toString();
     this.sql.exec(
       `INSERT INTO scheduled_jobs (id, run_at, fn_name, args, status) VALUES (?, ?, ?, ?, 'pending')`,
       id, runAt, fnName, JSON.stringify(args)
