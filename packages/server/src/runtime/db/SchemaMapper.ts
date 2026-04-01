@@ -1,6 +1,5 @@
-import { decodeTime } from "ulidx";
+import { toUUID } from "typeid-js";
 import type { ValidatorJSON, SchemaJSON } from "@zeroback/server";
-import { ulidFromId } from "@zeroback/values";
 import type { SqlApi } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -251,12 +250,14 @@ export function sqlRowToDoc(
   row: Record<string, unknown>,
   info: TableColumnInfo
 ): Record<string, unknown> {
-  const id = row._id as string;
-  const ulidPart = ulidFromId(id);
+  const id = row._id as string
+  const uuid = toUUID(id)
+  const hex = uuid.replace(/-/g, "")
+  const timestamp = parseInt(hex.slice(0, 12), 16)
   const doc: Record<string, unknown> = {
     _id: id,
-    _creationTime: decodeTime(ulidPart),
-  };
+    _creationTime: timestamp,
+  }
 
   for (const fieldName of info.orderedFieldNames) {
     const col = info.columns.get(fieldName)!;

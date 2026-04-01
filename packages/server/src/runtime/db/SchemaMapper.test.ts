@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest"
+import { typeid } from "typeid-js"
 import {
   validatorToSQLType,
   generateTableDDL,
@@ -221,14 +222,15 @@ describe("docToSQLParams", () => {
     }
     const info = buildTableColumns(schema).get("tasks")!
 
+    const id = typeid("tasks").toString()
     const params = docToSQLParams(
-      { _id: "tasks:abc", title: "Test", done: true, tags: ["a", "b"] },
+      { _id: id, title: "Test", done: true, tags: ["a", "b"] },
       info,
       42
     )
 
     expect(params).toEqual([
-      "tasks:abc",   // _id
+      id,            // _id
       42,            // commitTs
       "Test",        // title (string)
       1,             // done (boolean → 1)
@@ -247,8 +249,9 @@ describe("docToSQLParams", () => {
       },
     }
     const info = buildTableColumns(schema).get("t")!
-    const params = docToSQLParams({ _id: "t:1" }, info, 1)
-    expect(params).toEqual(["t:1", 1, null])
+    const id = typeid("t").toString()
+    const params = docToSQLParams({ _id: id }, info, 1)
+    expect(params).toEqual([id, 1, null])
   })
 })
 
@@ -269,9 +272,7 @@ describe("sqlRowToDoc", () => {
     }
     const info = buildTableColumns(schema).get("tasks")!
 
-    // Use a valid ULID-based ID so decodeTime works
-    // ULID "01ARZ3NDEKTSV4RRFFQ69G5FAV" decodes to a known timestamp
-    const id = "tasks:01ARZ3NDEKTSV4RRFFQ69G5FAV"
+    const id = typeid("tasks").toString()
 
     const doc = sqlRowToDoc(
       { _id: id, _ts: 42, title: "Test", done: 1, tags: '["a","b"]' },
@@ -296,8 +297,9 @@ describe("sqlRowToDoc", () => {
       },
     }
     const info = buildTableColumns(schema).get("t")!
+    const id = typeid("t").toString()
     const doc = sqlRowToDoc(
-      { _id: "t:01ARZ3NDEKTSV4RRFFQ69G5FAV", _ts: 1, active: 0 },
+      { _id: id, _ts: 1, active: 0 },
       info
     )
     expect(doc.active).toBe(false)
@@ -314,8 +316,9 @@ describe("sqlRowToDoc", () => {
       },
     }
     const info = buildTableColumns(schema).get("t")!
+    const id = typeid("t").toString()
     const doc = sqlRowToDoc(
-      { _id: "t:01ARZ3NDEKTSV4RRFFQ69G5FAV", _ts: 1, bio: null },
+      { _id: id, _ts: 1, bio: null },
       info
     )
     expect("bio" in doc).toBe(false)
@@ -332,8 +335,9 @@ describe("sqlRowToDoc", () => {
       },
     }
     const info = buildTableColumns(schema).get("t")!
+    const id = typeid("t").toString()
     const doc = sqlRowToDoc(
-      { _id: "t:01ARZ3NDEKTSV4RRFFQ69G5FAV", _ts: 1, name: null },
+      { _id: id, _ts: 1, name: null },
       info
     )
     expect(doc.name).toBeNull()
@@ -346,8 +350,9 @@ describe("sqlRowToDoc", () => {
       },
     }
     const info = buildTableColumns(schema).get("t")!
+    const id = typeid("t").toString()
     const doc = sqlRowToDoc(
-      { _id: "t:01ARZ3NDEKTSV4RRFFQ69G5FAV", _ts: 99 },
+      { _id: id, _ts: 99 },
       info
     )
     expect("_ts" in doc).toBe(false)
