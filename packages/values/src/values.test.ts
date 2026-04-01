@@ -93,11 +93,22 @@ describe("v.any()", () => {
 describe("v.id()", () => {
   const json = v.id("users").json;
 
-  it("accepts a string", () => {
-    expect(validate("abc123", json)).toBe("abc123");
+  it("accepts a valid TypeID with matching prefix", () => {
+    expect(validate("users_01h455vb4pex5vsknk084sn02q", json)).toBe("users_01h455vb4pex5vsknk084sn02q");
   });
   it("rejects a number", () => {
     expect(() => validate(123, json)).toThrow("Expected id");
+  });
+  it("rejects a plain string without TypeID format", () => {
+    expect(() => validate("abc123", json)).toThrow("Expected id");
+  });
+  it("rejects a TypeID with wrong prefix", () => {
+    expect(() => validate("posts_01h455vb4pex5vsknk084sn02q", json)).toThrow('Expected id for table "users" (prefix "users"), got prefix "posts"');
+  });
+  it("uses custom idPrefix for validation", () => {
+    const customJson = v.id("customers", "cus").json;
+    expect(validate("cus_01h455vb4pex5vsknk084sn02q", customJson)).toBe("cus_01h455vb4pex5vsknk084sn02q");
+    expect(() => validate("customers_01h455vb4pex5vsknk084sn02q", customJson)).toThrow('Expected id for table "customers" (prefix "cus"), got prefix "customers"');
   });
   it("type string", () => {
     expect(validatorToTypeString(json)).toBe('Id<"users">');

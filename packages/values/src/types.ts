@@ -20,7 +20,7 @@ export type ValidatorJSON =
   | { type: "number" }
   | { type: "boolean" }
   | { type: "null" }
-  | { type: "id"; tableName: string }
+  | { type: "id"; tableName: string; idPrefix?: string }
   | { type: "object"; value: Record<string, ValidatorJSON> }
   | { type: "array"; value: ValidatorJSON }
   | { type: "union"; value: ValidatorJSON[] }

@@ -126,9 +126,22 @@ export function validate<T>(value: unknown, json: ValidatorJSON): T {
 
   if (json.type === "id") {
     if (typeof value !== "string") {
-      throw new Error(`Expected id (string), got ${typeof value}`);
+      throw new Error(`Expected id (string), got ${typeof value}`)
     }
-    return value as T;
+    const underscoreIdx = (value as string).lastIndexOf("_")
+    if (underscoreIdx < 1) {
+      throw new Error(
+        `Expected id for table "${json.tableName}" in TypeID format (prefix_suffix), got "${value}"`
+      )
+    }
+    const prefix = (value as string).slice(0, underscoreIdx)
+    const expectedPrefix = json.idPrefix ?? json.tableName
+    if (prefix !== expectedPrefix) {
+      throw new Error(
+        `Expected id for table "${json.tableName}" (prefix "${expectedPrefix}"), got prefix "${prefix}"`
+      )
+    }
+    return value as T
   }
 
   if (json.type === "array") {

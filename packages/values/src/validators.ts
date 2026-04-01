@@ -29,8 +29,8 @@ export const v = {
     return createValidator<any, "any">("any", { type: "any" });
   },
 
-  id<T extends string>(tableName: T): Validator<Id<T>> {
-    return createValidator<Id<T>, "id">("id", { type: "id", tableName });
+  id<T extends string>(tableName: T, idPrefix?: string): Validator<Id<T>> {
+    return createValidator<Id<T>, "id">("id", { type: "id", tableName, idPrefix })
   },
 
   literal<T extends string | number | boolean>(value: T): Validator<T> {
