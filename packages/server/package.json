@@ -24,6 +24,7 @@
   ],
   "dependencies": {
     "@zeroback/values": "workspace:^",
+    "better-auth": "^1.5.6",
     "ulidx": "^2.4.1"
   },
   "scripts": {
