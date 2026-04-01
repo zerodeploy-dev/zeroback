@@ -10,7 +10,7 @@ export interface UserIdentity {
 
 export interface AuthDef {
   emailAndPassword?: boolean
-  providers?: Array<{ type: "google" } | { type: "github" }>
+  providers?: Array<{ type: "google" | "github" | (string & {}) }>
   trustedOrigins?: string[]
   session?: {
     expiresIn?: number  // seconds

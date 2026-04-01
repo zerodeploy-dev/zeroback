@@ -421,4 +421,31 @@ describe("migrateSchema", () => {
     migrateSchema(sql, { tables: {} })
     expect(calls.some((c) => c.includes("DROP TABLE") && c.includes("old_table"))).toBe(true)
   })
+
+  it("does not drop _auth_ tables", () => {
+    const sql = {
+      exec(query: string, ...bindings: unknown[]) {
+        if (query.includes("sqlite_master") && query.includes("fts5")) {
+          return { toArray: () => [] }
+        }
+        if (query.includes("sqlite_master")) {
+          return { toArray: () => [{ name: "_auth_user" }] }
+        }
+        if (query.includes("PRAGMA table_info")) {
+          return { toArray: () => [] }
+        }
+        return { toArray: () => [] }
+      },
+    } as SqlApi
+
+    const calls: string[] = []
+    const original = sql.exec.bind(sql)
+    sql.exec = (query: string, ...bindings: unknown[]) => {
+      calls.push(query.trim())
+      return original(query, ...bindings)
+    }
+
+    migrateSchema(sql, { tables: {} })
+    expect(calls.some((c) => c.includes("DROP TABLE") && c.includes("_auth_user"))).toBe(false)
+  })
 })
