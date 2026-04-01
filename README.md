@@ -34,6 +34,7 @@ Convex introduced a great developer experience: define your backend as plain Typ
 - **Pagination** — built-in cursor-based pagination with `.paginate()`
 - **Single Durable Object** — all state, transactions, and WebSocket connections in one place for strong consistency
 - **Offline support** — opt-in IndexedDB persistence for instant cached renders, offline reads, and mutation replay
+- **SSR support** — preload queries server-side with `preloadQuery` for instant hydration without a loading flash
 
 ## Quick Start
 
@@ -201,8 +202,8 @@ For many apps (internal tools, collaborative docs, moderate-traffic SaaS), these
 | Package | Description |
 |---------|-------------|
 | `@zeroback/server` | Define schemas, queries, mutations. Database reader/writer, query builder, filter DSL |
-| `@zeroback/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence |
-| `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState` |
+| `@zeroback/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence. Also exports `preloadQuery` for SSR. |
+| `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState`, `usePreloadedQuery` |
 | `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createQueryWithStatus`, `createMutation`, `createAction`, `createPaginatedQuery`, `createConnectionState` |
 | `@zeroback/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
 | `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`, `zeroback run`, `zeroback reset` — scaffold, develop, deploy |

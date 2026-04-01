@@ -299,3 +299,9 @@ interface CachedEntry {
 ### Offline Mutation Replay
 
 When persistence is enabled, mutations are persisted to IndexedDB before being sent. If the client disconnects before the server confirms, the mutations are replayed on the next `init()` call.
+
+## SSR — `preloadQuery`
+
+`preloadQuery` fetches a query result over HTTP (no WebSocket) for use during server-side rendering. Import it from `@zeroback/client` and call it in your server-side loader. Pass the result to `usePreloadedQuery` in the client component.
+
+See the [React Hooks — SSR](/react#ssr--server-side-rendering) guide for the full pattern and a TanStack Start example.

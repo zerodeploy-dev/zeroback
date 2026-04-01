@@ -10,8 +10,8 @@ Monorepo with Bun workspaces:
 packages/
   values/     - Validators (v.string(), v.number(), etc.) and core types
   server/     - Server APIs: schema, functions, database, queries, http, crons, storage
-  client/     - ZerobackClient: WebSocket client with subscriptions, optimistic updates, persistence
-  react/      - React hooks: useQuery, useMutation, useAction, usePaginatedQuery
+  client/     - ZerobackClient: WebSocket client with subscriptions, optimistic updates, persistence. Also exports preloadQuery for SSR.
+  react/      - React hooks: useQuery, useMutation, useAction, usePaginatedQuery, usePreloadedQuery
   cli/        - CLI (zeroback init/dev/deploy/codegen)
   solid/      - SolidJS bindings (experimental)
 examples/
