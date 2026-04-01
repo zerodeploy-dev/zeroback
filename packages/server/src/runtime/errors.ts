@@ -7,6 +7,7 @@ export const ErrorCode = {
   FORBIDDEN: "forbidden",
   RATE_LIMITED: "rate_limited",
   NOT_FOUND: "not_found",
+  BAD_REQUEST: "bad_request",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
