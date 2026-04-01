@@ -1,5 +1,10 @@
 {
   "name": "@zeroback/server",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zerodeploy-dev/zeroback",
+    "directory": "packages/server"
+  },
   "version": "0.0.23",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +19,9 @@
       "import": "./dist/runtime/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "@zeroback/values": "workspace:^",
     "ulidx": "^2.4.1"
