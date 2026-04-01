@@ -37,7 +37,8 @@ describe("executeMutation", () => {
     expect(deps.invokeFunction).toHaveBeenCalledWith(
       "api:tasks:create",
       { title: "Test" },
-      expect.any(String) // txId
+      expect.any(String), // txId
+      undefined // identity
     )
   })
 

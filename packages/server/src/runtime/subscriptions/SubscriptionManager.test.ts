@@ -112,7 +112,7 @@ describe("SubscriptionManager", () => {
         invokeFunction
       )
 
-      expect(invokeFunction).toHaveBeenCalledWith("api:tasks:list", {})
+      expect(invokeFunction).toHaveBeenCalledWith("api:tasks:list", {}, undefined)
       expect(ws.sent).toHaveLength(1)
       const msg = JSON.parse(ws.sent[0])
       expect(msg.type).toBe("update")
