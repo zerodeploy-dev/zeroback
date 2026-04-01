@@ -96,19 +96,19 @@ describe("SubscriptionManager", () => {
         id: "sub-1",
         ws,
         fnName: "api:tasks:list",
-        readSet: [{ table: "tasks", documentId: "tasks:1", ts: 10 }],
+        readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 10 }],
         queryDescriptors: [],
         lastResultJSON: "[1]",
       }))
 
       const invokeFunction = vi.fn().mockResolvedValue({
         result: [1, 2],
-        readSet: [{ table: "tasks", documentId: "tasks:1", ts: 20 }],
+        readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 20 }],
         queryDescriptors: [],
       })
 
       await sm.invalidate(
-        [{ table: "tasks", documentId: "tasks:1", data: { _id: "tasks:1" } }],
+        [{ table: "tasks", documentId: "tasks_0000000000000000000000001", data: { _id: "tasks_0000000000000000000000001" } }],
         invokeFunction
       )
 
@@ -126,14 +126,14 @@ describe("SubscriptionManager", () => {
       sm.subscribe(makeSub({
         id: "sub-1",
         ws,
-        readSet: [{ table: "users", documentId: "users:1", ts: 10 }],
+        readSet: [{ table: "users", documentId: "users_0000000000000000000000001", ts: 10 }],
         queryDescriptors: [],
       }))
 
       const invokeFunction = vi.fn()
 
       await sm.invalidate(
-        [{ table: "tasks", documentId: "tasks:1", data: { _id: "tasks:1" } }],
+        [{ table: "tasks", documentId: "tasks_0000000000000000000000001", data: { _id: "tasks_0000000000000000000000001" } }],
         invokeFunction
       )
 
@@ -147,18 +147,18 @@ describe("SubscriptionManager", () => {
       sm.subscribe(makeSub({
         id: "sub-1",
         ws,
-        readSet: [{ table: "tasks", documentId: "tasks:1", ts: 10 }],
+        readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 10 }],
         lastResultJSON: "[1]",
       }))
 
       const invokeFunction = vi.fn().mockResolvedValue({
         result: [1], // same as lastResultJSON
-        readSet: [{ table: "tasks", documentId: "tasks:1", ts: 20 }],
+        readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 20 }],
         queryDescriptors: [],
       })
 
       await sm.invalidate(
-        [{ table: "tasks", documentId: "tasks:1", data: { _id: "tasks:1" } }],
+        [{ table: "tasks", documentId: "tasks_0000000000000000000000001", data: { _id: "tasks_0000000000000000000000001" } }],
         invokeFunction
       )
 
@@ -178,13 +178,13 @@ describe("SubscriptionManager", () => {
       }))
 
       const invokeFunction = vi.fn().mockResolvedValue({
-        result: [{ _id: "tasks:new" }],
+        result: [{ _id: "tasks_0000000000000000000000new" }],
         readSet: [],
         queryDescriptors: [{ table: "tasks", filter: null }],
       })
 
       await sm.invalidate(
-        [{ table: "tasks", documentId: "tasks:new", data: { _id: "tasks:new" } }],
+        [{ table: "tasks", documentId: "tasks_0000000000000000000000new", data: { _id: "tasks_0000000000000000000000new" } }],
         invokeFunction
       )
 
@@ -215,7 +215,7 @@ describe("SubscriptionManager", () => {
 
       // Matching data
       await sm.invalidate(
-        [{ table: "tasks", documentId: "tasks:1", data: { status: "active" } }],
+        [{ table: "tasks", documentId: "tasks_0000000000000000000000001", data: { status: "active" } }],
         invokeFunction
       )
       expect(invokeFunction).toHaveBeenCalled()
@@ -229,14 +229,14 @@ describe("SubscriptionManager", () => {
         id: "sub-1",
         ws,
         fnName: "fn1",
-        readSet: [{ table: "tasks", documentId: "tasks:1", ts: 10 }],
+        readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 10 }],
         lastResultJSON: '"a"',
       }))
       sm.subscribe(makeSub({
         id: "sub-2",
         ws,
         fnName: "fn2",
-        readSet: [{ table: "tasks", documentId: "tasks:1", ts: 10 }],
+        readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 10 }],
         lastResultJSON: '"b"',
       }))
 
@@ -245,7 +245,7 @@ describe("SubscriptionManager", () => {
         .mockResolvedValueOnce({ result: "b2", readSet: [], queryDescriptors: [] })
 
       await sm.invalidate(
-        [{ table: "tasks", documentId: "tasks:1", data: {} }],
+        [{ table: "tasks", documentId: "tasks_0000000000000000000000001", data: {} }],
         invokeFunction
       )
 
@@ -302,13 +302,13 @@ describe("SubscriptionManager", () => {
       // Subscribe to tasks table
       sm.subscribe(makeSub({
         id: "sub-tasks",
-        readSet: [{ table: "tasks", documentId: "tasks:1", ts: 10 }],
+        readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 10 }],
       }))
 
       // Subscribe to users table
       sm.subscribe(makeSub({
         id: "sub-users",
-        readSet: [{ table: "users", documentId: "users:1", ts: 10 }],
+        readSet: [{ table: "users", documentId: "users_0000000000000000000000001", ts: 10 }],
       }))
 
       const invokeFunction = vi.fn().mockResolvedValue({
@@ -319,7 +319,7 @@ describe("SubscriptionManager", () => {
 
       // Write to tasks only
       await sm.invalidate(
-        [{ table: "tasks", documentId: "tasks:1", data: {} }],
+        [{ table: "tasks", documentId: "tasks_0000000000000000000000001", data: {} }],
         invokeFunction
       )
 
@@ -351,7 +351,7 @@ describe("SubscriptionManager", () => {
 
       // Delete with oldData that matches the filter
       await sm.invalidate(
-        [{ table: "tasks", documentId: "tasks:1", data: null, oldData: { status: "active" } }],
+        [{ table: "tasks", documentId: "tasks_0000000000000000000000001", data: null, oldData: { status: "active" } }],
         invokeFunction
       )
 

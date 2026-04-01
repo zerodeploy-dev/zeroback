@@ -42,18 +42,18 @@ describe("TransactionStore", () => {
     it("adds a read entry", () => {
       const store = new TransactionStore()
       store.begin("tx-1", 100, "query")
-      store.addRead("tx-1", { table: "tasks", documentId: "tasks:1", ts: 99 })
+      store.addRead("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 99 })
 
       expect(store.get("tx-1")!.readSet).toEqual([
-        { table: "tasks", documentId: "tasks:1", ts: 99 },
+        { table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 99 },
       ])
     })
 
     it("deduplicates by table + documentId", () => {
       const store = new TransactionStore()
       store.begin("tx-1", 100, "query")
-      store.addRead("tx-1", { table: "tasks", documentId: "tasks:1", ts: 99 })
-      store.addRead("tx-1", { table: "tasks", documentId: "tasks:1", ts: 99 })
+      store.addRead("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 99 })
+      store.addRead("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 99 })
 
       expect(store.get("tx-1")!.readSet).toHaveLength(1)
     })
@@ -61,15 +61,15 @@ describe("TransactionStore", () => {
     it("allows different documents", () => {
       const store = new TransactionStore()
       store.begin("tx-1", 100, "query")
-      store.addRead("tx-1", { table: "tasks", documentId: "tasks:1", ts: 99 })
-      store.addRead("tx-1", { table: "tasks", documentId: "tasks:2", ts: 99 })
+      store.addRead("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 99 })
+      store.addRead("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000002", ts: 99 })
 
       expect(store.get("tx-1")!.readSet).toHaveLength(2)
     })
 
     it("no-ops for unknown transaction", () => {
       const store = new TransactionStore()
-      store.addRead("unknown", { table: "tasks", documentId: "tasks:1", ts: 99 })
+      store.addRead("unknown", { table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 99 })
       // No error thrown
     })
   })
@@ -78,7 +78,7 @@ describe("TransactionStore", () => {
     it("adds a write entry", () => {
       const store = new TransactionStore()
       store.begin("tx-1", 100, "mutation")
-      store.addWrite("tx-1", { table: "tasks", documentId: "tasks:1", data: { title: "A" } })
+      store.addWrite("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { title: "A" } })
 
       expect(store.get("tx-1")!.writeSet).toHaveLength(1)
       expect(store.get("tx-1")!.writeSet[0].data).toEqual({ title: "A" })
@@ -87,8 +87,8 @@ describe("TransactionStore", () => {
     it("replaces existing write for same document", () => {
       const store = new TransactionStore()
       store.begin("tx-1", 100, "mutation")
-      store.addWrite("tx-1", { table: "tasks", documentId: "tasks:1", data: { title: "A" } })
-      store.addWrite("tx-1", { table: "tasks", documentId: "tasks:1", data: { title: "B" } })
+      store.addWrite("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { title: "A" } })
+      store.addWrite("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { title: "B" } })
 
       expect(store.get("tx-1")!.writeSet).toHaveLength(1)
       expect(store.get("tx-1")!.writeSet[0].data).toEqual({ title: "B" })
@@ -97,8 +97,8 @@ describe("TransactionStore", () => {
     it("allows different documents", () => {
       const store = new TransactionStore()
       store.begin("tx-1", 100, "mutation")
-      store.addWrite("tx-1", { table: "tasks", documentId: "tasks:1", data: { title: "A" } })
-      store.addWrite("tx-1", { table: "tasks", documentId: "tasks:2", data: { title: "B" } })
+      store.addWrite("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { title: "A" } })
+      store.addWrite("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000002", data: { title: "B" } })
 
       expect(store.get("tx-1")!.writeSet).toHaveLength(2)
     })
@@ -106,14 +106,14 @@ describe("TransactionStore", () => {
     it("supports null data (deletes)", () => {
       const store = new TransactionStore()
       store.begin("tx-1", 100, "mutation")
-      store.addWrite("tx-1", { table: "tasks", documentId: "tasks:1", data: null })
+      store.addWrite("tx-1", { table: "tasks", documentId: "tasks_0000000000000000000000001", data: null })
 
       expect(store.get("tx-1")!.writeSet[0].data).toBeNull()
     })
 
     it("no-ops for unknown transaction", () => {
       const store = new TransactionStore()
-      store.addWrite("unknown", { table: "tasks", documentId: "tasks:1", data: {} })
+      store.addWrite("unknown", { table: "tasks", documentId: "tasks_0000000000000000000000001", data: {} })
     })
   })
 

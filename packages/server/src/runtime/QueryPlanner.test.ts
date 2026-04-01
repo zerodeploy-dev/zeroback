@@ -1,10 +1,9 @@
 import { describe, it, expect, vi } from "vitest"
+import { typeid } from "typeid-js"
 import { queryTable } from "./QueryPlanner"
 import { buildTableColumns } from "./db/SchemaMapper"
 import type { SqlApi } from "./types"
 import type { SchemaJSON } from "@zeroback/server"
-
-const ULID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 
 const schema: SchemaJSON = {
   tables: {
@@ -48,14 +47,15 @@ describe("queryTable", () => {
   })
 
   it("queries with basic defaults", () => {
+    const taskId = typeid("tasks").toString()
     const sql = makeSql([
-      { _id: `tasks:${ULID}`, _ts: 10, title: "Hello", status: "active", priority: 1, metadata: null },
+      { _id: taskId, _ts: 10, title: "Hello", status: "active", priority: 1, metadata: null },
     ])
 
     const result = queryTable(sql, schema, tableColumns, "tasks", 100, null, null, null, "asc", null)
 
     expect(result).toHaveLength(1)
-    expect(result[0].documentId).toBe(`tasks:${ULID}`)
+    expect(result[0].documentId).toBe(taskId)
     expect((result[0].data as any).title).toBe("Hello")
     expect(result[0].ts).toBe(10)
     expect(sql.lastQuery).toContain("_ts <= ?")
@@ -102,7 +102,7 @@ describe("queryTable", () => {
   it("applies keyset cursor", () => {
     const sql = makeSql([])
     queryTable(sql, schema, tableColumns, "tasks", 100, null, null, "priority", "asc", null,
-      { sortField: "priority", sortValue: 5, lastId: "tasks:abc", direction: "asc" }
+      { sortField: "priority", sortValue: 5, lastId: "tasks_0000000000000000000000abc", direction: "asc" }
     )
 
     expect(sql.lastQuery).toContain('"priority" > ?')
@@ -112,7 +112,7 @@ describe("queryTable", () => {
   it("applies keyset cursor desc", () => {
     const sql = makeSql([])
     queryTable(sql, schema, tableColumns, "tasks", 100, null, null, "priority", "desc", null,
-      { sortField: "priority", sortValue: 5, lastId: "tasks:abc", direction: "desc" }
+      { sortField: "priority", sortValue: 5, lastId: "tasks_0000000000000000000000abc", direction: "desc" }
     )
 
     expect(sql.lastQuery).toContain('"priority" < ?')
@@ -144,8 +144,8 @@ describe("queryTable", () => {
 
   it("falls back to JS filter when SQL compilation fails", () => {
     const sql = makeSql([
-      { _id: `tasks:${ULID}`, _ts: 10, title: "Hello", status: "active", priority: 1, metadata: '{"nested":"val"}' },
-      { _id: `tasks:01B3EAF48EPPJCR0YJGPWZJM7X`, _ts: 10, title: "World", status: "done", priority: 2, metadata: '{"nested":"other"}' },
+      { _id: typeid("tasks").toString(), _ts: 10, title: "Hello", status: "active", priority: 1, metadata: '{"nested":"val"}' },
+      { _id: typeid("tasks").toString(), _ts: 10, title: "World", status: "done", priority: 2, metadata: '{"nested":"other"}' },
     ])
 
     // Filter on nested path without JSON column hint → falls back to JS

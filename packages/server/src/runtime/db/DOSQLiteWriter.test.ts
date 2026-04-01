@@ -43,14 +43,14 @@ describe("DOSQLiteWriter", () => {
       const writer = new DOSQLiteWriter(sql, tableColumns)
 
       await writer.commitWrites([
-        { table: "tasks", documentId: "tasks:1", data: { _id: "tasks:1", title: "Hello", done: true } },
+        { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { _id: "tasks_0000000000000000000000001", title: "Hello", done: true } },
       ], 42)
 
       expect(sql.calls).toHaveLength(1)
       expect(sql.calls[0].query).toContain("INSERT OR REPLACE")
       expect(sql.calls[0].query).toContain('"tasks"')
       // Params: _id, _ts, title, done (as 1)
-      expect(sql.calls[0].params).toContain("tasks:1")
+      expect(sql.calls[0].params).toContain("tasks_0000000000000000000000001")
       expect(sql.calls[0].params).toContain(42)
       expect(sql.calls[0].params).toContain("Hello")
       expect(sql.calls[0].params).toContain(1) // boolean true → 1
@@ -61,12 +61,12 @@ describe("DOSQLiteWriter", () => {
       const writer = new DOSQLiteWriter(sql, tableColumns)
 
       await writer.commitWrites([
-        { table: "tasks", documentId: "tasks:1", data: null },
+        { table: "tasks", documentId: "tasks_0000000000000000000000001", data: null },
       ], 42)
 
       expect(sql.calls).toHaveLength(1)
       expect(sql.calls[0].query).toContain("DELETE FROM")
-      expect(sql.calls[0].params).toContain("tasks:1")
+      expect(sql.calls[0].params).toContain("tasks_0000000000000000000000001")
     })
 
     it("handles mixed inserts and deletes", async () => {
@@ -74,8 +74,8 @@ describe("DOSQLiteWriter", () => {
       const writer = new DOSQLiteWriter(sql, tableColumns)
 
       await writer.commitWrites([
-        { table: "tasks", documentId: "tasks:1", data: null },
-        { table: "tasks", documentId: "tasks:2", data: { _id: "tasks:2", title: "New", done: false } },
+        { table: "tasks", documentId: "tasks_0000000000000000000000001", data: null },
+        { table: "tasks", documentId: "tasks_0000000000000000000000002", data: { _id: "tasks_0000000000000000000000002", title: "New", done: false } },
       ], 50)
 
       const deleteCall = sql.calls.find((c) => c.query.includes("DELETE"))
@@ -89,8 +89,8 @@ describe("DOSQLiteWriter", () => {
       const writer = new DOSQLiteWriter(sql, tableColumns)
 
       await writer.commitWrites([
-        { table: "tasks", documentId: "tasks:1", data: { _id: "tasks:1", title: "A", done: false } },
-        { table: "tasks", documentId: "tasks:2", data: { _id: "tasks:2", title: "B", done: true } },
+        { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { _id: "tasks_0000000000000000000000001", title: "A", done: false } },
+        { table: "tasks", documentId: "tasks_0000000000000000000000002", data: { _id: "tasks_0000000000000000000000002", title: "B", done: true } },
       ], 10)
 
       const insertCalls = sql.calls.filter((c) => c.query.includes("INSERT OR REPLACE"))
@@ -103,7 +103,7 @@ describe("DOSQLiteWriter", () => {
       const writer = new DOSQLiteWriter(sql, tableColumns)
 
       await writer.commitWrites([
-        { table: "unknown", documentId: "unknown:1", data: { title: "X" } },
+        { table: "unknown", documentId: "unknown_0000000000000000000000001", data: { title: "X" } },
       ], 10)
 
       const insertCalls = sql.calls.filter((c) => c.query.includes("INSERT"))
