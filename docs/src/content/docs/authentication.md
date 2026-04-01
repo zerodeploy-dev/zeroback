@@ -124,7 +124,28 @@ export default {
 }
 ```
 
-This applies to **all** Zeroback traffic — WebSocket connections (`/ws`), HTTP actions, and function calls. If the auth check fails, the request never reaches the Durable Object.
+This applies to **all** Zeroback traffic — WebSocket connections (`/ws`), the SSR query endpoint (`POST /query`), HTTP actions, and function calls. If the auth check fails, the request never reaches the Durable Object.
+
+:::note[SSR and `preloadQuery`]
+`preloadQuery` calls `POST /query` from your server-side loader. Because the request originates on the server (not from a browser), it won't carry the user's cookies or tokens automatically. To authenticate SSR queries, forward a token from the loader context:
+
+```ts
+export const loader = createServerFn().handler(async ({ context }) => {
+  const preloaded = await preloadQuery(
+    ZEROBACK_URL,
+    api.tasks.list,
+    {},
+    { headers: { Authorization: `Bearer ${context.token}` } }  // forward auth
+  )
+  return { preloaded }
+})
+```
+
+Your Worker's `verifyAuth` function will then receive and validate that token before forwarding to the DO.
+
+Note: the optional `headers` parameter for `preloadQuery` is not yet implemented — this is a preview of the planned API. For now, `preloadQuery` is unauthenticated, matching the current WebSocket transport.
+:::
+
 
 ### 3. Add CORS (if your frontend is on a different origin)
 
