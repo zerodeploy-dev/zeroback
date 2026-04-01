@@ -4,6 +4,8 @@ export { v } from "@zeroback/values";
 export * from "./schema.js";
 export * from "./functions.js";
 export * from "./context.js";
+export { defineAuth } from "./auth.js";
+export type { AuthDef } from "./auth.js";
 export { DatabaseReader } from "./db/reader.js";
 export { DatabaseWriter } from "./db/writer.js";
 export { QueryBuilder, IndexRangeBuilder } from "./db/query-builder.js";

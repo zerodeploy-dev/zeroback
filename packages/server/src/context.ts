@@ -1,1 +1,1 @@
-export type { DbOps } from "./types.js";
+export type { DbOps, AuthCtx } from "./types.js";

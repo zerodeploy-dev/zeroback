@@ -22,38 +22,38 @@ function makeFunctionFactory<DataModel>(type: FunctionType, isInternal: boolean)
   };
 }
 
-export function createQueryFactory<DataModel>() {
+export function createQueryFactory<DataModel, Auth = undefined>() {
   return makeFunctionFactory<DataModel>("query", false) as <Args extends PropertyValidators, Returns>(config: {
     args: Args;
     returns?: Validator<Returns>;
-    handler: (ctx: QueryCtx<DataModel>, args: ObjectType<Args>) => Promise<Returns>;
-  }) => RegisteredQuery<ObjectType<Args>, Returns> & { handler: (ctx: QueryCtx<DataModel>, args: ObjectType<Args>) => Promise<Returns>; _argsValidator: Args; _returnsValidator?: Validator<Returns> };
+    handler: (ctx: QueryCtx<DataModel, Auth>, args: ObjectType<Args>) => Promise<Returns>;
+  }) => RegisteredQuery<ObjectType<Args>, Returns> & { handler: (ctx: QueryCtx<DataModel, Auth>, args: ObjectType<Args>) => Promise<Returns>; _argsValidator: Args; _returnsValidator?: Validator<Returns> };
 }
 
-export function createMutationFactory<DataModel>() {
+export function createMutationFactory<DataModel, Auth = undefined>() {
   return makeFunctionFactory<DataModel>("mutation", false) as <Args extends PropertyValidators, Returns>(config: {
     args: Args;
     returns?: Validator<Returns>;
-    handler: (ctx: MutationCtx<DataModel>, args: ObjectType<Args>) => Promise<Returns>;
-  }) => RegisteredMutation<ObjectType<Args>, Returns> & { handler: (ctx: MutationCtx<DataModel>, args: ObjectType<Args>) => Promise<Returns>; _argsValidator: Args; _returnsValidator?: Validator<Returns> };
+    handler: (ctx: MutationCtx<DataModel, Auth>, args: ObjectType<Args>) => Promise<Returns>;
+  }) => RegisteredMutation<ObjectType<Args>, Returns> & { handler: (ctx: MutationCtx<DataModel, Auth>, args: ObjectType<Args>) => Promise<Returns>; _argsValidator: Args; _returnsValidator?: Validator<Returns> };
 }
 
-export function createActionFactory<DataModel>() {
+export function createActionFactory<DataModel, Auth = undefined>() {
   return makeFunctionFactory<DataModel>("action", false) as <Args extends PropertyValidators, Returns>(config: {
     args: Args;
     returns?: Validator<Returns>;
-    handler: (ctx: ActionCtx<DataModel>, args: ObjectType<Args>) => Promise<Returns>;
-  }) => RegisteredAction<ObjectType<Args>, Returns> & { handler: (ctx: ActionCtx<DataModel>, args: ObjectType<Args>) => Promise<Returns>; _argsValidator: Args; _returnsValidator?: Validator<Returns> };
+    handler: (ctx: ActionCtx<DataModel, Auth>, args: ObjectType<Args>) => Promise<Returns>;
+  }) => RegisteredAction<ObjectType<Args>, Returns> & { handler: (ctx: ActionCtx<DataModel, Auth>, args: ObjectType<Args>) => Promise<Returns>; _argsValidator: Args; _returnsValidator?: Validator<Returns> };
 }
 
-export function createInternalQueryFactory<DataModel>() {
-  return makeFunctionFactory<DataModel>("query", true) as ReturnType<typeof createQueryFactory<DataModel>>;
+export function createInternalQueryFactory<DataModel, Auth = undefined>() {
+  return makeFunctionFactory<DataModel>("query", true) as ReturnType<typeof createQueryFactory<DataModel, Auth>>;
 }
 
-export function createInternalMutationFactory<DataModel>() {
-  return makeFunctionFactory<DataModel>("mutation", true) as ReturnType<typeof createMutationFactory<DataModel>>;
+export function createInternalMutationFactory<DataModel, Auth = undefined>() {
+  return makeFunctionFactory<DataModel>("mutation", true) as ReturnType<typeof createMutationFactory<DataModel, Auth>>;
 }
 
-export function createInternalActionFactory<DataModel>() {
-  return makeFunctionFactory<DataModel>("action", true) as ReturnType<typeof createActionFactory<DataModel>>;
+export function createInternalActionFactory<DataModel, Auth = undefined>() {
+  return makeFunctionFactory<DataModel>("action", true) as ReturnType<typeof createActionFactory<DataModel, Auth>>;
 }

@@ -23,24 +23,32 @@ export type Scheduler = {
   cancel(id: string): Promise<void>;
 };
 
-export type QueryCtx<DataModel> = {
+import type { UserIdentity } from "@zeroback/values";
+
+export type AuthCtx = {
+  getUserIdentity(): Promise<UserIdentity | null>
+}
+
+type WithAuth<Base, Auth> = Auth extends undefined ? Base : Base & { auth: NonNullable<Auth> }
+
+export type QueryCtx<DataModel, Auth = undefined> = WithAuth<{
   db: import("./db/reader.js").DatabaseReader<DataModel>;
   storage: import("./storage.js").StorageReader;
-};
+}, Auth>
 
-export type MutationCtx<DataModel> = {
+export type MutationCtx<DataModel, Auth = undefined> = WithAuth<{
   db: import("./db/writer.js").DatabaseWriter<DataModel>;
   scheduler: Scheduler;
   storage: import("./storage.js").StorageWriter;
-};
+}, Auth>
 
-export type ActionCtx<DataModel> = {
+export type ActionCtx<DataModel, Auth = undefined> = WithAuth<{
   runQuery<T>(fnName: string, args?: Record<string, unknown>): Promise<T>;
   runMutation<T>(fnName: string, args?: Record<string, unknown>): Promise<T>;
   runAction<T>(fnName: string, args?: Record<string, unknown>): Promise<T>;
   scheduler: Scheduler;
   storage: import("./storage.js").StorageActions;
-};
+}, Auth>
 
 export type RegisteredQuery<Args, Returns> = {
   _name: string;

@@ -35,6 +35,7 @@ export interface RuntimeConfig {
   schema: SchemaJSON;
   httpRouter: HttpRouterLike | null;
   cronJobsDef: { jobs: CronJobDef[] } | null;
+  authDef?: import("@zeroback/values").AuthDef;
 }
 
 export function createZerobackDO(config: RuntimeConfig): {
