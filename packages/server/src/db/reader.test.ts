@@ -32,24 +32,24 @@ describe("DatabaseReader", () => {
   describe("get()", () => {
     it("extracts table from id and calls ops.get (single-arg form)", async () => {
       const ops = makeMockOps()
-      ;(ops.get as any).mockResolvedValue({ _id: "tasks:abc", title: "test" })
+      ;(ops.get as any).mockResolvedValue({ _id: "tasks_abc", title: "test" })
 
       const reader = new DatabaseReader<TestDataModel>(ops)
-      const result = await reader.get("tasks:abc")
+      const result = await reader.get("tasks_abc")
 
-      expect(ops.get).toHaveBeenCalledWith("tasks", "tasks:abc")
-      expect(result).toEqual({ _id: "tasks:abc", title: "test" })
+      expect(ops.get).toHaveBeenCalledWith("tasks", "tasks_abc")
+      expect(result).toEqual({ _id: "tasks_abc", title: "test" })
     })
 
     it("uses explicit table when provided (two-arg form)", async () => {
       const ops = makeMockOps()
-      ;(ops.get as any).mockResolvedValue({ _id: "tasks:abc", title: "test" })
+      ;(ops.get as any).mockResolvedValue({ _id: "tasks_abc", title: "test" })
 
       const reader = new DatabaseReader<TestDataModel>(ops)
-      const result = await reader.get("tasks", "tasks:abc")
+      const result = await reader.get("tasks", "tasks_abc")
 
-      expect(ops.get).toHaveBeenCalledWith("tasks", "tasks:abc")
-      expect(result).toEqual({ _id: "tasks:abc", title: "test" })
+      expect(ops.get).toHaveBeenCalledWith("tasks", "tasks_abc")
+      expect(result).toEqual({ _id: "tasks_abc", title: "test" })
     })
 
     it("returns null when not found", async () => {
@@ -57,7 +57,7 @@ describe("DatabaseReader", () => {
       ;(ops.get as any).mockResolvedValue(null)
 
       const reader = new DatabaseReader<TestDataModel>(ops)
-      const result = await reader.get("tasks:missing")
+      const result = await reader.get("tasks_missing")
       expect(result).toBeNull()
     })
   })
@@ -74,31 +74,31 @@ describe("DatabaseReader", () => {
     it("fetches multiple docs and returns a Map (single-arg form)", async () => {
       const ops = makeMockOps()
       const mockMap = new Map([
-        ["tasks:1", { _id: "tasks:1", title: "A" }],
-        ["tasks:2", { _id: "tasks:2", title: "B" }],
+        ["tasks_0000000000000000000000001", { _id: "tasks_0000000000000000000000001", title: "A" }],
+        ["tasks_0000000000000000000000002", { _id: "tasks_0000000000000000000000002", title: "B" }],
       ])
       ;(ops.getMany as any).mockResolvedValue(mockMap)
 
       const reader = new DatabaseReader<TestDataModel>(ops)
-      const result = await reader.getMany(["tasks:1", "tasks:2"])
+      const result = await reader.getMany(["tasks_0000000000000000000000001", "tasks_0000000000000000000000002"])
 
-      expect(ops.getMany).toHaveBeenCalledWith("tasks", ["tasks:1", "tasks:2"])
-      expect(result.get("tasks:1")).toEqual({ _id: "tasks:1", title: "A" })
-      expect(result.get("tasks:2")).toEqual({ _id: "tasks:2", title: "B" })
+      expect(ops.getMany).toHaveBeenCalledWith("tasks", ["tasks_0000000000000000000000001", "tasks_0000000000000000000000002"])
+      expect(result.get("tasks_0000000000000000000000001")).toEqual({ _id: "tasks_0000000000000000000000001", title: "A" })
+      expect(result.get("tasks_0000000000000000000000002")).toEqual({ _id: "tasks_0000000000000000000000002", title: "B" })
     })
 
     it("fetches multiple docs with explicit table (two-arg form)", async () => {
       const ops = makeMockOps()
       const mockMap = new Map([
-        ["tasks:1", { _id: "tasks:1", title: "A" }],
+        ["tasks_0000000000000000000000001", { _id: "tasks_0000000000000000000000001", title: "A" }],
       ])
       ;(ops.getMany as any).mockResolvedValue(mockMap)
 
       const reader = new DatabaseReader<TestDataModel>(ops)
-      const result = await reader.getMany("tasks", ["tasks:1"])
+      const result = await reader.getMany("tasks", ["tasks_0000000000000000000000001"])
 
-      expect(ops.getMany).toHaveBeenCalledWith("tasks", ["tasks:1"])
-      expect(result.get("tasks:1")).toEqual({ _id: "tasks:1", title: "A" })
+      expect(ops.getMany).toHaveBeenCalledWith("tasks", ["tasks_0000000000000000000000001"])
+      expect(result.get("tasks_0000000000000000000000001")).toEqual({ _id: "tasks_0000000000000000000000001", title: "A" })
     })
 
     it("returns null for missing docs in map", async () => {
@@ -106,15 +106,15 @@ describe("DatabaseReader", () => {
       ;(ops.getMany as any).mockResolvedValue(new Map())
 
       const reader = new DatabaseReader<TestDataModel>(ops)
-      const result = await reader.getMany(["tasks:1"])
-      expect(result.get("tasks:1")).toBeNull()
+      const result = await reader.getMany(["tasks_0000000000000000000000001"])
+      expect(result.get("tasks_0000000000000000000000001")).toBeNull()
     })
   })
 
   describe("queryRaw()", () => {
     it("delegates to ops.query", async () => {
       const ops = makeMockOps()
-      ;(ops.query as any).mockResolvedValue([{ _id: "t:1" }])
+      ;(ops.query as any).mockResolvedValue([{ _id: "t_0000000000000000000000001" }])
 
       const reader = new DatabaseReader<TestDataModel>(ops)
       const result = await reader.queryRaw("tasks", null, null, "asc", 10)
@@ -122,7 +122,7 @@ describe("DatabaseReader", () => {
       expect(ops.query).toHaveBeenCalledWith(
         "tasks", null, null, "asc", 10, undefined, undefined, undefined,
       )
-      expect(result).toEqual([{ _id: "t:1" }])
+      expect(result).toEqual([{ _id: "t_0000000000000000000000001" }])
     })
   })
 })

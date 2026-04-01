@@ -46,7 +46,7 @@ describe("executeMutation", () => {
     const deps = makeDeps({
       transactions,
       invokeFunction: vi.fn().mockImplementation(async (fn, args, txId) => {
-        transactions.addWrite(txId, { table: "tasks", documentId: "tasks:1", data: { title: "A" } })
+        transactions.addWrite(txId, { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { title: "A" } })
         return { result: "ok", readSet: [], queryDescriptors: [] }
       }),
     })
@@ -73,7 +73,7 @@ describe("executeMutation", () => {
       transactions,
       subscriptions,
       invokeFunction: vi.fn().mockImplementation(async (fn, args, txId) => {
-        transactions.addWrite(txId, { table: "tasks", documentId: "tasks:1", data: { title: "A" } })
+        transactions.addWrite(txId, { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { title: "A" } })
         return { result: "ok", readSet: [], queryDescriptors: [] }
       }),
     })
@@ -124,9 +124,9 @@ describe("executeMutation", () => {
       } as unknown as SqlApi,
       invokeFunction: vi.fn().mockImplementation(async (fn, args, txId) => {
         invokeFnCallCount++
-        transactions.addRead(txId, { table: "tasks", documentId: "tasks:1", ts: 50 })
-        transactions.addWrite(txId, { table: "tasks", documentId: "tasks:1", data: { title: "A" } })
-        return { result: "ok", readSet: [{ table: "tasks", documentId: "tasks:1", ts: 50 }], queryDescriptors: [] }
+        transactions.addRead(txId, { table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 50 })
+        transactions.addWrite(txId, { table: "tasks", documentId: "tasks_0000000000000000000000001", data: { title: "A" } })
+        return { result: "ok", readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 50 }], queryDescriptors: [] }
       }),
     })
 
@@ -144,8 +144,8 @@ describe("executeMutation", () => {
         exec: vi.fn().mockReturnValue({ toArray: () => [{ 1: 1 }] }), // always conflict
       } as unknown as SqlApi,
       invokeFunction: vi.fn().mockImplementation(async (fn, args, txId) => {
-        transactions.addRead(txId, { table: "tasks", documentId: "tasks:1", ts: 50 })
-        return { result: "ok", readSet: [{ table: "tasks", documentId: "tasks:1", ts: 50 }], queryDescriptors: [] }
+        transactions.addRead(txId, { table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 50 })
+        return { result: "ok", readSet: [{ table: "tasks", documentId: "tasks_0000000000000000000000001", ts: 50 }], queryDescriptors: [] }
       }),
     })
 
@@ -164,7 +164,7 @@ describe("executeMutation", () => {
         getDocument: vi.fn().mockResolvedValue({ data: { title: "Old" }, ts: 50 }),
       } as any,
       invokeFunction: vi.fn().mockImplementation(async (fn, args, txId) => {
-        transactions.addWrite(txId, { table: "tasks", documentId: "tasks:1", data: null })
+        transactions.addWrite(txId, { table: "tasks", documentId: "tasks_0000000000000000000000001", data: null })
         return { result: "ok", readSet: [], queryDescriptors: [] }
       }),
     })
