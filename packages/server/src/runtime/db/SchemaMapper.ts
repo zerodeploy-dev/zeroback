@@ -1,4 +1,4 @@
-import { toUUID } from "typeid-js";
+import { fromString, toUUID } from "typeid-js";
 import type { ValidatorJSON, SchemaJSON } from "@zeroback/server";
 import type { SqlApi } from "../types";
 
@@ -251,7 +251,7 @@ export function sqlRowToDoc(
   info: TableColumnInfo
 ): Record<string, unknown> {
   const id = row._id as string
-  const uuid = toUUID(id)
+  const uuid = toUUID(fromString(id))
   const hex = uuid.replace(/-/g, "")
   const timestamp = parseInt(hex.slice(0, 12), 16)
   const doc: Record<string, unknown> = {

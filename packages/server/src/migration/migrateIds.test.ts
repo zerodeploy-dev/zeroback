@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { convertOldIdToTypeId, buildIdMappings } from "./migrateIds"
-import { toUUID } from "typeid-js"
+import { fromString, toUUID } from "typeid-js"
 
 describe("convertOldIdToTypeId", () => {
   it("converts table:ULID to TypeID format", () => {
@@ -29,7 +29,7 @@ describe("convertOldIdToTypeId", () => {
     const newId = convertOldIdToTypeId(oldId, "posts")
 
     // Extract timestamp from new TypeID's UUIDv7
-    const uuid = toUUID(newId)
+    const uuid = toUUID(fromString(newId))
     const hex = uuid.replace(/-/g, "")
     const newTimestamp = parseInt(hex.slice(0, 12), 16)
 

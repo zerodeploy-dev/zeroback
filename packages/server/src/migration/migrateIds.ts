@@ -1,5 +1,6 @@
 import { fromUUID } from "typeid-js"
 import type { SchemaJSON } from "../types.js"
+import type { SqlApi } from "../runtime/types.js"
 
 /**
  * Decode a ULID's 48-bit timestamp (Crockford base32, first 10 chars).
@@ -21,14 +22,11 @@ function ulidTimestampToUuidV7(ulid: string): string {
   const ms = ulidTimestamp(ulid)
   const tsHex = ms.toString(16).padStart(12, "0")
 
-  // Random 12 bits for rand_a
   const randA = Math.floor(Math.random() * 0x1000).toString(16).padStart(3, "0")
-  // Random 62 bits for rand_b (we generate 64 bits and mask)
   const randBHigh = Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0")
   const randBLow = Math.floor(Math.random() * 0x1000000000000).toString(16).padStart(12, "0")
 
   // UUIDv7: tttttttt-tttt-7rrr-Nrrr-rrrrrrrrrrrr
-  // N = variant (8,9,a,b)
   const variantNibble = (0x8 | (parseInt(randBHigh[0], 16) & 0x3)).toString(16)
 
   return [
@@ -66,21 +64,18 @@ export function buildIdMappings(
 }
 
 export type MigrateOptions = {
-  dbPath: string
+  sql: SqlApi
   schema: SchemaJSON
   dryRun?: boolean
 }
 
 /**
- * Migrate all IDs in a SQLite database from old "table:ULID" format to TypeID format.
- * Runs in a single transaction (all-or-nothing).
+ * Migrate all IDs from old "table:ULID" format to TypeID format.
+ * Updates _id primary keys and v.id() foreign key references.
  * Preserves _creationTime by copying the 48-bit ULID timestamp into UUIDv7.
  */
-export async function migrateIds(options: MigrateOptions): Promise<void> {
-  const { Database } = await import("bun:sqlite")
-  const db = new Database(options.dbPath)
-
-  const { schema, dryRun } = options
+export function migrateIds(options: MigrateOptions): void {
+  const { sql, schema, dryRun } = options
 
   const prefixMap = new Map<string, string>()
   for (const [tableName, table] of Object.entries(schema.tables)) {
@@ -89,74 +84,63 @@ export async function migrateIds(options: MigrateOptions): Promise<void> {
 
   const globalIdMap = new Map<string, string>()
 
-  try {
-    db.exec("BEGIN TRANSACTION")
+  // Phase 1: Build ID mappings
+  for (const [tableName] of Object.entries(schema.tables)) {
+    const prefix = prefixMap.get(tableName)!
+    const rows = sql.exec(`SELECT _id FROM "${tableName}"`).toArray() as { _id: string }[]
 
-    // Phase 1: Build ID mappings
-    for (const [tableName] of Object.entries(schema.tables)) {
-      const prefix = prefixMap.get(tableName)!
-      const rows = db.query(`SELECT _id FROM "${tableName}"`).all() as { _id: string }[]
-
-      for (const row of rows) {
-        if (row._id.includes(":")) {
-          const newId = convertOldIdToTypeId(row._id, prefix)
-          globalIdMap.set(row._id, newId)
-          if (dryRun) {
-            console.log(`[dry-run] ${tableName}: ${row._id} → ${newId}`)
-          }
+    for (const row of rows) {
+      if (row._id.includes(":")) {
+        const newId = convertOldIdToTypeId(row._id, prefix)
+        globalIdMap.set(row._id, newId)
+        if (dryRun) {
+          console.log(`[dry-run] ${tableName}: ${row._id} → ${newId}`)
         }
       }
     }
-
-    if (dryRun) {
-      console.log(`\n[dry-run] ${globalIdMap.size} IDs would be migrated.`)
-      db.exec("ROLLBACK")
-      return
-    }
-
-    // Phase 2: Update _id primary keys
-    for (const [tableName] of Object.entries(schema.tables)) {
-      const rows = db.query(`SELECT _id FROM "${tableName}"`).all() as { _id: string }[]
-      for (const row of rows) {
-        const newId = globalIdMap.get(row._id)
-        if (newId) {
-          db.exec(`UPDATE "${tableName}" SET _id = ? WHERE _id = ?`, newId, row._id)
-        }
-      }
-    }
-
-    // Phase 3: Update foreign key references (v.id() fields)
-    for (const [tableName, table] of Object.entries(schema.tables)) {
-      for (const [fieldName, fieldValidator] of Object.entries(table.fields)) {
-        const isIdField =
-          fieldValidator.type === "id" ||
-          (fieldValidator.type === "optional" && (fieldValidator as any).value?.type === "id")
-
-        if (isIdField) {
-          const rows = db.query(
-            `SELECT _id, "${fieldName}" FROM "${tableName}" WHERE "${fieldName}" IS NOT NULL`
-          ).all() as Record<string, string>[]
-          for (const row of rows) {
-            const oldRef = row[fieldName]
-            const newRef = globalIdMap.get(oldRef)
-            if (newRef) {
-              db.exec(
-                `UPDATE "${tableName}" SET "${fieldName}" = ? WHERE _id = ?`,
-                newRef,
-                row._id
-              )
-            }
-          }
-        }
-      }
-    }
-
-    db.exec("COMMIT")
-    console.log(`Migrated ${globalIdMap.size} IDs successfully.`)
-  } catch (err) {
-    db.exec("ROLLBACK")
-    throw err
-  } finally {
-    db.close()
   }
+
+  if (dryRun) {
+    console.log(`\n[dry-run] ${globalIdMap.size} IDs would be migrated.`)
+    return
+  }
+
+  // Phase 2: Update _id primary keys
+  for (const [tableName] of Object.entries(schema.tables)) {
+    const rows = sql.exec(`SELECT _id FROM "${tableName}"`).toArray() as { _id: string }[]
+    for (const row of rows) {
+      const newId = globalIdMap.get(row._id)
+      if (newId) {
+        sql.exec(`UPDATE "${tableName}" SET _id = ? WHERE _id = ?`, newId, row._id)
+      }
+    }
+  }
+
+  // Phase 3: Update foreign key references (v.id() fields)
+  for (const [tableName, table] of Object.entries(schema.tables)) {
+    for (const [fieldName, fieldValidator] of Object.entries(table.fields)) {
+      const isIdField =
+        fieldValidator.type === "id" ||
+        (fieldValidator.type === "optional" && (fieldValidator as any).value?.type === "id")
+
+      if (isIdField) {
+        const rows = sql.exec(
+          `SELECT _id, "${fieldName}" FROM "${tableName}" WHERE "${fieldName}" IS NOT NULL`
+        ).toArray() as Record<string, string>[]
+        for (const row of rows) {
+          const oldRef = row[fieldName]
+          const newRef = globalIdMap.get(oldRef)
+          if (newRef) {
+            sql.exec(
+              `UPDATE "${tableName}" SET "${fieldName}" = ? WHERE _id = ?`,
+              newRef,
+              row._id
+            )
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`Migrated ${globalIdMap.size} IDs successfully.`)
 }
