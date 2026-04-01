@@ -8,13 +8,18 @@ function isOptionalValidator(v: ValidatorJSON): v is { type: "optional"; value: 
   return v.type === "optional";
 }
 
-export function generateServer(schema: SchemaJSON, outputPath: string): void {
+export function generateServer(schema: SchemaJSON, outputPath: string, hasAuth = false): void {
   const lines: string[] = [
     `import { createQueryFactory, createMutationFactory, createActionFactory, createInternalQueryFactory, createInternalMutationFactory, createInternalActionFactory, v } from "@zeroback/server";`,
-    "",
-    `export { v };`,
-    "",
   ];
+
+  if (hasAuth) {
+    lines.push(`import type { AuthCtx } from "@zeroback/server";`);
+  }
+
+  lines.push("");
+  lines.push(`export { v };`);
+  lines.push("");
 
   lines.push(`export const schema = {`);
   for (const [tableName, table] of Object.entries(schema.tables)) {
@@ -45,12 +50,13 @@ export function generateServer(schema: SchemaJSON, outputPath: string): void {
   lines.push(`};`);
   lines.push("");
 
-  lines.push(`export const query = createQueryFactory<${dataModelName}>();`);
-  lines.push(`export const mutation = createMutationFactory<${dataModelName}>();`);
-  lines.push(`export const action = createActionFactory<${dataModelName}>();`);
-  lines.push(`export const internalQuery = createInternalQueryFactory<${dataModelName}>();`);
-  lines.push(`export const internalMutation = createInternalMutationFactory<${dataModelName}>();`);
-  lines.push(`export const internalAction = createInternalActionFactory<${dataModelName}>();`);
+  const authParam = hasAuth ? `, AuthCtx` : ``;
+  lines.push(`export const query = createQueryFactory<${dataModelName}${authParam}>();`);
+  lines.push(`export const mutation = createMutationFactory<${dataModelName}${authParam}>();`);
+  lines.push(`export const action = createActionFactory<${dataModelName}${authParam}>();`);
+  lines.push(`export const internalQuery = createInternalQueryFactory<${dataModelName}${authParam}>();`);
+  lines.push(`export const internalMutation = createInternalMutationFactory<${dataModelName}${authParam}>();`);
+  lines.push(`export const internalAction = createInternalActionFactory<${dataModelName}${authParam}>();`);
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, lines.join("\n") + "\n");

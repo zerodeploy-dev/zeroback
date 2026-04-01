@@ -20,6 +20,7 @@ export async function buildAndGenerate(functionsDir: string): Promise<void> {
   const schemaPath = path.join(functionsDir, "schema.ts");
   const schema = existsSync(schemaPath) ? extractSchema(schemaPath) : { tables: {} };
   const manifest = extractFunctions(functionsDir);
+  const hasAuth = existsSync(path.join(functionsDir, "auth.ts"));
 
   const fnCount = Object.keys(manifest).length;
   const tableCount = Object.keys(schema.tables).length;
@@ -28,7 +29,7 @@ export async function buildAndGenerate(functionsDir: string): Promise<void> {
   const generatedDir = path.join(functionsDir, "_generated");
   mkdirSync(generatedDir, { recursive: true });
   generateApi(manifest, path.join(generatedDir, "api.ts"));
-  generateServer(schema, path.join(generatedDir, "server.ts"));
+  generateServer(schema, path.join(generatedDir, "server.ts"), hasAuth);
   generateDataModel(schema, path.join(generatedDir, "dataModel.ts"));
 
   // 3. Generate _generated/manifest.ts with functions + schema
