@@ -81,6 +81,11 @@ function parseSent(ws: MockWebSocket): any[] {
   return ws.sent.map((s) => JSON.parse(s))
 }
 
+/** Trigger lazy WebSocket connection by calling subscribe. */
+function triggerConnect(client: ZerobackClient): void {
+  client.subscribe("_connect", {})
+}
+
 /** Flush pending microtasks (promise continuations). */
 async function flush(): Promise<void> {
   for (let i = 0; i < 10; i++) {
@@ -109,32 +114,47 @@ describe("ZerobackClient", () => {
   // Connection lifecycle
   // =============================================
   describe("connection lifecycle", () => {
-    it("creates a WebSocket on construction", () => {
+    it("does not create a WebSocket on construction", () => {
       new ZerobackClient("ws://localhost:1234")
+      expect(MockWebSocket.instances).toHaveLength(0)
+    })
+
+    it("creates a WebSocket on first subscribe", () => {
+      const client = new ZerobackClient("ws://localhost:1234")
+      client.subscribe("fn", {})
       expect(MockWebSocket.instances).toHaveLength(1)
       expect(latestWs().url).toBe("ws://localhost:1234")
     })
 
-    it("starts in connecting state", () => {
+    it("starts in disconnected state before first subscribe", () => {
       const client = new ZerobackClient("ws://localhost:1234")
+      expect(client.connectionState).toBe("disconnected")
+    })
+
+    it("transitions to connecting after first subscribe", () => {
+      const client = new ZerobackClient("ws://localhost:1234")
+      triggerConnect(client)
       expect(client.connectionState).toBe("connecting")
     })
 
     it("transitions to connected on WS open", () => {
       const client = new ZerobackClient("ws://localhost:1234")
+      triggerConnect(client)
       latestWs().simulateOpen()
       expect(client.connectionState).toBe("connected")
     })
 
     it("transitions to disconnected on WS close", () => {
       const client = new ZerobackClient("ws://localhost:1234")
+      triggerConnect(client)
       latestWs().simulateOpen()
       latestWs().simulateClose()
       expect(client.connectionState).toBe("disconnected")
     })
 
     it("defers connect when persistence is enabled", () => {
-      new ZerobackClient("ws://localhost:1234", { persistence: true })
+      const client = new ZerobackClient("ws://localhost:1234", { persistence: true })
+      client.subscribe("fn", {})
       expect(MockWebSocket.instances).toHaveLength(0)
     })
   })
@@ -147,6 +167,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234")
       const listener = vi.fn()
       client.onConnectionChange(listener)
+      triggerConnect(client)
 
       latestWs().simulateOpen()
       expect(listener).toHaveBeenCalledWith("connected")
@@ -154,9 +175,13 @@ describe("ZerobackClient", () => {
 
     it("skips duplicate state notifications", () => {
       const client = new ZerobackClient("ws://localhost:1234")
+      triggerConnect(client)
       const listener = vi.fn()
       client.onConnectionChange(listener)
 
+      // Already "connecting" — calling simulateOpen transitions to "connected" (1 call)
+      // A second simulateOpen would be a no-op (already connected)
+      latestWs().simulateOpen()
       latestWs().simulateOpen()
       expect(listener).toHaveBeenCalledTimes(1)
     })
@@ -166,6 +191,7 @@ describe("ZerobackClient", () => {
       const listener = vi.fn()
       const unsub = client.onConnectionChange(listener)
       unsub()
+      triggerConnect(client)
 
       latestWs().simulateOpen()
       expect(listener).not.toHaveBeenCalled()
@@ -181,6 +207,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         backoff: { baseMs: 100, maxMs: 10_000, maxAttempts: 3 },
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
       latestWs().simulateClose()
 
@@ -197,11 +224,11 @@ describe("ZerobackClient", () => {
         backoff: { baseMs: 100, maxMs: 10_000, maxAttempts: 3 },
         heartbeatIntervalMs: 0,
       })
+      client.subscribe("tasks:list", { status: "active" })
       const ws1 = latestWs()
       ws1.simulateOpen()
 
-      client.subscribe("tasks:list", { status: "active" })
-      const queryMsg = parseSent(ws1).find((m) => m.type === "query")
+      const queryMsg = parseSent(ws1).find((m) => m.fn === "tasks:list")
       expect(queryMsg).toBeDefined()
 
       ws1.simulateClose()
@@ -210,7 +237,7 @@ describe("ZerobackClient", () => {
       const ws2 = latestWs()
       ws2.simulateOpen()
 
-      const resubs = parseSent(ws2).filter((m) => m.type === "query")
+      const resubs = parseSent(ws2).filter((m) => m.type === "query" && m.fn === "tasks:list")
       expect(resubs).toHaveLength(1)
       expect(resubs[0].fn).toBe("tasks:list")
     })
@@ -222,6 +249,7 @@ describe("ZerobackClient", () => {
         backoff: { baseMs: 10, maxMs: 1000, maxAttempts: 1 },
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
 
       // Initial connection fails
       latestWs().simulateClose() // scheduleReconnect: shouldRetry (0<1)=true, next()→attempt=1
@@ -242,6 +270,7 @@ describe("ZerobackClient", () => {
         backoff: { baseMs: 10, maxMs: 1000, maxAttempts: 5 },
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
       client.close()
 
@@ -258,11 +287,12 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       client.subscribe("tasks:get", { id: "123" })
       const msgs = parseSent(latestWs())
-      const query = msgs.find((m) => m.type === "query")
+      const query = msgs.find((m) => m.type === "query" && m.fn === "tasks:get")
       expect(query).toMatchObject({
         type: "query",
         fn: "tasks:get",
@@ -290,13 +320,14 @@ describe("ZerobackClient", () => {
       const msgs = parseSent(latestWs())
       const queries = msgs.filter((m) => m.type === "query")
       expect(queries.length).toBeGreaterThanOrEqual(1)
-      expect(queries[0].fn).toBe("fn")
+      expect(queries.find((m) => m.fn === "fn")).toBeDefined()
     })
 
     it("unsubscribe sends unsubscribe message", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const unsub = client.subscribe("fn", {})
@@ -316,12 +347,13 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const cb = vi.fn()
       client.subscribe("tasks:list", {}, cb)
 
-      const queryMsg = parseSent(latestWs()).find((m) => m.type === "query")
+      const queryMsg = parseSent(latestWs()).find((m) => m.type === "query" && m.fn === "tasks:list")
       const subId = queryMsg.id
 
       latestWs().simulateMessage({
@@ -337,11 +369,12 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const cb = vi.fn()
       client.subscribe("fn", {}, cb)
-      const subId = parseSent(latestWs()).find((m) => m.type === "query").id
+      const subId = parseSent(latestWs()).find((m) => m.type === "query" && m.fn === "fn").id
 
       latestWs().simulateMessage({
         type: "update",
@@ -356,6 +389,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const cb1 = vi.fn()
@@ -364,8 +398,8 @@ describe("ZerobackClient", () => {
       client.subscribe("fn2", {}, cb2)
 
       const msgs = parseSent(latestWs()).filter((m) => m.type === "query")
-      const id1 = msgs[0].id
-      const id2 = msgs[1].id
+      const id1 = msgs.find((m) => m.fn === "fn1").id
+      const id2 = msgs.find((m) => m.fn === "fn2").id
 
       latestWs().simulateMessage({
         type: "updates",
@@ -383,6 +417,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const promise = client.mutation("tasks:create", { title: "test" })
@@ -405,6 +440,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const promise = client.mutation("tasks:create", {})
@@ -427,6 +463,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       latestWs().simulateMessage({ type: "pong" })
@@ -437,10 +474,9 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
-      latestWs().simulateOpen()
-
       client.subscribe("fn1", {})
       client.subscribe("fn2", {})
+      latestWs().simulateOpen()
 
       latestWs().sent.length = 0
 
@@ -460,6 +496,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       client.mutation("tasks:create", { title: "test" })
@@ -478,6 +515,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const promise = client.mutation("fn", {})
@@ -498,6 +536,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const promise = client.mutation("fn", {})
@@ -519,6 +558,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const key = "counter|{}"
@@ -553,6 +593,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const order: number[] = []
@@ -594,6 +635,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const p1 = client.mutation("fn1", {}).catch(() => {})
@@ -636,6 +678,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       client.action("sendEmail", { to: "a@b.com" })
@@ -652,6 +695,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const promise = client.action("fn", {})
@@ -670,6 +714,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const promise = client.action("fn", {})
@@ -695,6 +740,7 @@ describe("ZerobackClient", () => {
         heartbeatIntervalMs: 0,
         requestTimeoutMs: 5000,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const promise = client.mutation("fn", {})
@@ -710,6 +756,7 @@ describe("ZerobackClient", () => {
         heartbeatIntervalMs: 0,
         requestTimeoutMs: 3000,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       const promise = client.action("fn", {})
@@ -728,6 +775,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 1000,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       vi.advanceTimersByTime(1000)
@@ -747,6 +795,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 1000,
       })
+      triggerConnect(client)
       const ws = latestWs()
       ws.simulateOpen()
       // lastPongAt = Date.now() = 1000
@@ -774,6 +823,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       vi.advanceTimersByTime(60_000)
@@ -785,6 +835,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 1000,
       })
+      triggerConnect(client)
       const ws = latestWs()
       ws.simulateOpen()
 
@@ -804,6 +855,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       const ws = latestWs()
       ws.simulateOpen()
 
@@ -815,6 +867,7 @@ describe("ZerobackClient", () => {
       const client = new ZerobackClient("ws://localhost:1234", {
         heartbeatIntervalMs: 0,
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
 
       client.close()
@@ -827,6 +880,7 @@ describe("ZerobackClient", () => {
         heartbeatIntervalMs: 0,
         backoff: { baseMs: 10, maxMs: 1000, maxAttempts: 10 },
       })
+      triggerConnect(client)
       latestWs().simulateOpen()
       client.close()
 

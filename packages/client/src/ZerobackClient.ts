@@ -69,10 +69,10 @@ export class ZerobackClient {
             });
       this.queryStore.setPersistence(adapter);
       this.persistedMutationQueue = new MutationQueue(url);
-      // When persistence is enabled, defer connect() to init()
-    } else {
-      this.connect();
+      // connect() is deferred to init() when persistence is enabled
     }
+    // Without persistence, connect() is deferred to the first send() call,
+    // making construction safe in SSR environments where WebSocket is unavailable.
   }
 
   /**
@@ -260,6 +260,9 @@ export class ZerobackClient {
   }
 
   private send(msg: ClientMessage): void {
+    // Lazy connect: trigger on first send when not using persistence
+    // (persistence path requires explicit init() for hydration first).
+    if (!this.options.persistence) this.connect();
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     } else {

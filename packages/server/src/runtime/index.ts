@@ -4,6 +4,44 @@ import { dashboardHtml } from "./dashboard-html"
 export { createZerobackDO } from "./ZerobackDO"
 export type { RuntimeConfig, FunctionDef, HttpRouterLike, Env } from "./ZerobackDO"
 
+// ---------------------------------------------------------------------------
+// CORS support
+// ---------------------------------------------------------------------------
+
+export interface CorsOptions {
+  /**
+   * Allowed origin(s).
+   *   - `"*"` — allow any origin (no credentials)
+   *   - A single origin string — reflect that origin
+   *   - An array of origin strings — reflect request origin if it is in the list
+   */
+  origin: string | string[]
+}
+
+export interface WorkerHandlerOptions {
+  cors?: CorsOptions
+}
+
+function resolveOrigin(cors: CorsOptions, requestOrigin: string | null): string | null {
+  if (!requestOrigin) return null
+  const { origin } = cors
+  if (origin === "*") return "*"
+  const list = Array.isArray(origin) ? origin : [origin]
+  return list.includes(requestOrigin) ? requestOrigin : null
+}
+
+function buildCorsHeaders(cors: CorsOptions, requestOrigin: string | null): Headers {
+  const headers = new Headers()
+  const allowed = resolveOrigin(cors, requestOrigin)
+  if (!allowed) return headers
+  headers.set("Access-Control-Allow-Origin", allowed)
+  if (allowed !== "*") headers.set("Vary", "Origin")
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+  headers.set("Access-Control-Max-Age", "86400")
+  return headers
+}
+
 /**
  * Extract tenant slug from URL path.
  *
@@ -47,73 +85,124 @@ async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export const workerHandler = {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+async function handleWorkerFetch(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
 
-    // Worker-level health check (not tenant-specific)
-    if (url.pathname === "/health") {
-      return new Response("OK");
-    }
+  // Worker-level health check (not tenant-specific)
+  if (url.pathname === "/health") {
+    return new Response("OK");
+  }
 
-    // Dashboard SPA (dev only — enabled via ZEROBACK_DASHBOARD=true)
-    if (url.pathname === "/_dashboard" || url.pathname.startsWith("/_dashboard/")) {
-      if (env.ZEROBACK_DASHBOARD !== "true") {
-        return new Response("Not found", { status: 404 });
-      }
-      return new Response(dashboardHtml, {
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "no-cache",
-        },
-      });
-    }
-
-    if (!env.ZEROBACK_DO) {
-      return new Response("ZEROBACK_DO binding not configured", { status: 500 });
-    }
-
-    const tenant = extractTenant(url.pathname);
-    if (!tenant) {
+  // Dashboard SPA (dev only — enabled via ZEROBACK_DASHBOARD=true)
+  if (url.pathname === "/_dashboard" || url.pathname.startsWith("/_dashboard/")) {
+    if (env.ZEROBACK_DASHBOARD !== "true") {
       return new Response("Not found", { status: 404 });
     }
+    return new Response(dashboardHtml, {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
+    });
+  }
 
-    // Derive base URL from Host header (url.origin may be an internal
-    // hostname in wrangler dev / workerd).
-    const host = request.headers.get("Host") ?? url.host;
-    const protocol = url.protocol;
-    const baseUrl = `${protocol}//${host}${tenantPrefix(tenant.slug)}`;
+  if (!env.ZEROBACK_DO) {
+    return new Response("ZEROBACK_DO binding not configured", { status: 500 });
+  }
 
-    // -- Storage upload route (Worker handles file I/O, DO handles metadata) --
-    if (tenant.forwardPath === "/storage/upload" && request.method === "POST") {
-      return handleStorageUpload(request, env, tenant.slug, baseUrl, url);
-    }
+  const tenant = extractTenant(url.pathname);
+  if (!tenant) {
+    return new Response("Not found", { status: 404 });
+  }
 
-    // -- Storage download route (Worker only, zero DO calls) --
-    const storageMatch = tenant.forwardPath.match(/^\/storage\/(_storage\/[0-9a-f-]+)$/);
-    if (storageMatch && request.method === "GET") {
-      return handleStorageDownload(env, tenant.slug, storageMatch[1]);
-    }
+  // Derive base URL from Host header (url.origin may be an internal
+  // hostname in wrangler dev / workerd).
+  const host = request.headers.get("Host") ?? url.host;
+  const protocol = url.protocol;
+  const baseUrl = `${protocol}//${host}${tenantPrefix(tenant.slug)}`;
 
-    const doId = env.ZEROBACK_DO.idFromName(tenant.slug);
-    const doStub = env.ZEROBACK_DO.get(doId);
+  // -- Storage upload route (Worker handles file I/O, DO handles metadata) --
+  if (tenant.forwardPath === "/storage/upload" && request.method === "POST") {
+    return handleStorageUpload(request, env, tenant.slug, baseUrl, url);
+  }
 
-    // Forward to DO with the tenant prefix stripped + base URL header
-    const forwardUrl = new URL(request.url);
-    forwardUrl.pathname = tenant.forwardPath;
-    const headers = new Headers(request.headers);
-    headers.set("X-Zeroback-Base-Url", baseUrl);
-    const init = {
-      method: request.method,
-      headers,
-      body: request.body,
-      duplex: request.body ? ("half" as const) : undefined,
-    };
-    const forwardReq = new Request(forwardUrl.toString(), init);
+  // -- Storage download route (Worker only, zero DO calls) --
+  const storageMatch = tenant.forwardPath.match(/^\/storage\/(_storage\/[0-9a-f-]+)$/);
+  if (storageMatch && request.method === "GET") {
+    return handleStorageDownload(env, tenant.slug, storageMatch[1]);
+  }
 
-    return doStub.fetch(forwardReq);
-  },
-};
+  const doId = env.ZEROBACK_DO.idFromName(tenant.slug);
+  const doStub = env.ZEROBACK_DO.get(doId);
+
+  // Forward to DO with the tenant prefix stripped + base URL header
+  const forwardUrl = new URL(request.url);
+  forwardUrl.pathname = tenant.forwardPath;
+  const headers = new Headers(request.headers);
+  headers.set("X-Zeroback-Base-Url", baseUrl);
+  const init = {
+    method: request.method,
+    headers,
+    body: request.body,
+    duplex: request.body ? ("half" as const) : undefined,
+  };
+  const forwardReq = new Request(forwardUrl.toString(), init);
+
+  return doStub.fetch(forwardReq);
+}
+
+/**
+ * Create a worker handler with optional CORS support.
+ *
+ * @example
+ * // Allow a single origin
+ * export default createWorkerHandler({ cors: { origin: "https://myapp.com" } })
+ *
+ * @example
+ * // Allow multiple origins
+ * export default createWorkerHandler({ cors: { origin: ["https://myapp.com", "https://staging.myapp.com"] } })
+ *
+ * @example
+ * // Allow all origins (dev / public APIs)
+ * export default createWorkerHandler({ cors: { origin: "*" } })
+ */
+export function createWorkerHandler(options: WorkerHandlerOptions = {}): { fetch(request: Request, env: Env): Promise<Response> } {
+  const { cors } = options
+  return {
+    async fetch(request: Request, env: Env): Promise<Response> {
+      const requestOrigin = request.headers.get("Origin")
+
+      // Respond to CORS preflight immediately — never forward OPTIONS to the DO
+      // (forwarding would also break WebSocket upgrade negotiation if a proxy
+      // sends a speculative OPTIONS before the GET /ws).
+      if (cors && request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: buildCorsHeaders(cors, requestOrigin) })
+      }
+
+      const response = await handleWorkerFetch(request, env)
+
+      // Attach CORS headers to every response except WebSocket upgrades (101).
+      // Mutating a 101 response breaks the handshake in Cloudflare Workers.
+      if (cors && response.status !== 101) {
+        const corsHdrs = buildCorsHeaders(cors, requestOrigin)
+        const newHeaders = new Headers(response.headers)
+        for (const [key, value] of corsHdrs.entries()) {
+          newHeaders.set(key, value)
+        }
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: newHeaders,
+        })
+      }
+
+      return response
+    },
+  }
+}
+
+/** Default worker handler with no CORS configuration. Use {@link createWorkerHandler} to enable CORS. */
+export const workerHandler = createWorkerHandler()
 
 async function handleStorageUpload(
   request: Request,

@@ -34,11 +34,16 @@ new_sqlite_classes = ["ZerobackDO"]
 `
 }
 
-export const ENTRY_TEMPLATE = `import { createZerobackDO, workerHandler } from "@zeroback/server/runtime"
+export const ENTRY_TEMPLATE = `import { createZerobackDO, createWorkerHandler } from "@zeroback/server/runtime"
 import { functions, schema, httpRouter, cronJobsDef } from "../zeroback/_generated/manifest"
 
 export const ZerobackDO = createZerobackDO({ functions, schema, httpRouter, cronJobsDef })
-export default workerHandler
+
+// Enable CORS so your web app can connect from a different origin.
+// Set origin to your app's URL, or use "*" to allow all origins.
+export default createWorkerHandler({
+  cors: { origin: "*" },
+})
 `;
 
 /**
