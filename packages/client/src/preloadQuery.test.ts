@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach } from "vitest"
 import { preloadQuery } from "./preloadQuery"
 
 const mockFetch = vi.fn()
-vi.stubGlobal("fetch", mockFetch)
+const originalFetch = globalThis.fetch
+globalThis.fetch = mockFetch as any
 
 afterEach(() => {
   vi.resetAllMocks()
