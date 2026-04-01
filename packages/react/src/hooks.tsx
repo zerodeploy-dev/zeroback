@@ -49,19 +49,27 @@ export function useQuery<Ref extends FunctionReference<"query", any, any>>(
     () => client.getQueryResult(queryKey) as Ref["_returns"] | undefined,
     [client, queryKey],
   );
+  const getServerSnapshot = useCallback(
+    (): Ref["_returns"] | undefined => {
+      throw new Error(
+        "useQuery cannot be used during SSR. Use preloadQuery in your loader and usePreloadedQuery in your component instead."
+      )
+    },
+    []
+  );
 
-  return useSyncExternalStore(subscribe, getSnapshot);
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 export function useQueryWithStatus<Ref extends FunctionReference<"query", any, any>>(
   ref: Ref,
   args?: Ref["_args"]
 ): { data: Ref["_returns"] | undefined; isStale: boolean; isLoading: boolean } {
-  const client = useZerobackClient();
+  const client = useContext(ZerobackContext);
   const data = useQuery(ref, args);
   const queryKey = QueryStore.makeKey(ref._name, args ?? {});
   const isLoading = data === undefined;
-  const isStale = !isLoading && !client.hasServerResult(queryKey);
+  const isStale = !isLoading && !(client?.hasServerResult(queryKey) ?? false);
 
   return { data, isStale, isLoading };
 }
@@ -123,42 +131,54 @@ export function useMutation<Ref extends FunctionReference<"mutation", any, any>>
     optimisticUpdate?: (store: LocalStore, args: Ref["_args"]) => void;
   },
 ): (args: Ref["_args"]) => Promise<Ref["_returns"]> {
-  const client = useZerobackClient();
+  // Use context directly (returns null on server) rather than useZerobackClient()
+  // which throws. The client is only needed when the returned function is called,
+  // which only happens on the client after user interaction.
+  const clientRef = useRef(useContext(ZerobackContext));
+  clientRef.current = useContext(ZerobackContext);
   const optimisticUpdateRef = useRef(opts?.optimisticUpdate);
   optimisticUpdateRef.current = opts?.optimisticUpdate;
+  const refNameRef = useRef(ref._name);
+  refNameRef.current = ref._name;
 
   return useCallback(
     async (args: Ref["_args"]): Promise<Ref["_returns"]> => {
+      if (!clientRef.current) throw new Error("useMutation must be used within a ZerobackProvider");
       const ouFn = optimisticUpdateRef.current;
-      return await client.mutation(
-        ref._name,
+      return await clientRef.current.mutation(
+        refNameRef.current,
         args,
         ouFn ? { optimisticUpdate: (store) => ouFn(store, args) } : undefined,
       ) as Ref["_returns"];
     },
-    [client, ref._name]
+    []
   );
 }
 
 export function useAction<Ref extends FunctionReference<"action", any, any>>(
   ref: Ref
 ): (args: Ref["_args"]) => Promise<Ref["_returns"]> {
-  const client = useZerobackClient();
+  const clientRef = useRef(useContext(ZerobackContext));
+  clientRef.current = useContext(ZerobackContext);
+  const refNameRef = useRef(ref._name);
+  refNameRef.current = ref._name;
 
   return useCallback(
     async (args: Ref["_args"]): Promise<Ref["_returns"]> => {
-      return await client.action(ref._name, args) as Ref["_returns"];
+      if (!clientRef.current) throw new Error("useAction must be used within a ZerobackProvider");
+      return await clientRef.current.action(refNameRef.current, args) as Ref["_returns"];
     },
-    [client, ref._name]
+    []
   );
 }
 
 export function useConnectionState(): ConnectionState {
-  const client = useZerobackClient();
+  const client = useContext(ZerobackContext);
 
   return useSyncExternalStore(
-    (onStoreChange) => client.onConnectionChange(onStoreChange),
-    () => client.connectionState
+    (onStoreChange) => client ? client.onConnectionChange(onStoreChange) : () => {},
+    () => client ? client.connectionState : "disconnected" as ConnectionState,
+    () => "disconnected" as ConnectionState
   );
 }
 
@@ -174,7 +194,7 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
   opts: { initialNumItems: number }
 ): UsePaginatedQueryResult<Ref["_returns"] extends Array<infer Item> ? Item : Ref["_returns"]> {
   type Item = Ref["_returns"] extends Array<infer I> ? I : Ref["_returns"];
-  const client = useZerobackClient();
+  const client = useContext(ZerobackContext);
   const [pages, setPages] = useState<Item[][]>([]);
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [isDone, setIsDone] = useState(false);
@@ -196,6 +216,7 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
   // Subscribe to each page
   const pageCount = numItemsPerPage.length;
   useEffect(() => {
+    if (!client) return;
     const unsubscribes = subscribePaginationPages(
       client, ref._name, argsKey, pageCount, cursors, numItemsPerPage,
       { setPages, setCursors, setIsDone, setNumItemsPerPage },

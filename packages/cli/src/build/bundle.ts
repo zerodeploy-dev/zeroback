@@ -17,6 +17,7 @@ function scanFiles(dir: string, rootDir: string): { relPath: string; moduleName:
       }
 
       if (entry.endsWith(".d.ts") || entry.endsWith(".map")) continue;
+      if (entry.endsWith(".test.ts") || entry.endsWith(".spec.ts")) continue;
       if (!entry.endsWith(".ts") && !entry.endsWith(".js")) continue;
       const baseName = path.basename(entry, path.extname(entry));
 

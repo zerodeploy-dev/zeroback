@@ -2,6 +2,28 @@
 
 All notable changes to Zeroback are documented here.
 
+## [0.0.24] — 2026-04-01
+
+### Added
+
+- **Built-in CORS support** via `createWorkerHandler({ cors: { origin: "..." } })` in `@zeroback/server/runtime`. Handles `OPTIONS` preflights immediately (never forwarded to the Durable Object), injects `Access-Control-Allow-Origin` / `Allow-Methods` / `Allow-Headers` on all responses, and skips CORS headers on WebSocket upgrade responses (status 101) to preserve the handshake. The scaffolded `entry.ts` now uses `createWorkerHandler` with `cors: { origin: "*" }` by default.
+
+- **Branded `Id<T>` type** in `@zeroback/values`. `v.id("posts")` now infers `Id<"posts">` — a distinct type from plain `string` — so `ctx.db.get(args.postId)` resolves the correct document type without a cast. Generated `DataModel` uses `_id: Id<"tableName">` instead of `_id: string`.
+
+- **Two-arg `ctx.db.get(table, id)` overload**: pass a table name and a plain string ID when you don't have a branded `Id<T>` value (e.g. from URL params). `getMany` gains the same `(table, ids[])` overload.
+
+### Fixed
+
+- **`useMutation`, `useAction`, `useConnectionState`, `usePaginatedQuery` SSR safety**: hooks no longer throw `"must be used within a ZerobackProvider"` during server-side render. `useQuery` throws a helpful error directing to `preloadQuery` / `usePreloadedQuery` instead.
+
+- **`preloadQuery` URL normalisation**: accepts HTTP/HTTPS URLs directly, bare WebSocket URLs (`ws://host`), and the full `ws://host/ws` form — all resolve to the correct `POST /query` endpoint.
+
+- **`defineTable` validator at runtime**: `table.validator.json` now correctly reflects the field schema (previously the `v.object(fields)` validator was discarded, breaking runtime introspection).
+
+- **Codegen and bundler skip `*.test.ts` / `*.spec.ts` files**: both `extract.ts` (analysis) and `bundle.ts` (bundler) now skip test files at any nesting depth, preventing test helpers from being included in the generated manifest or bundle.
+
+- **`ZerobackClient` defers WebSocket connection**: constructing a `ZerobackClient` no longer opens a WebSocket immediately, making it safe to instantiate in SSR environments. The connection is established lazily on the first `subscribe()`, `mutation()`, or `action()` call.
+
 ## [0.0.23] — 2026-04-01
 
 ### Added

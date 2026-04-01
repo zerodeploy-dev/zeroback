@@ -1,4 +1,4 @@
-import type { SchemaJSON, FilterExpressionJSON, ExprJSON } from "@zeroback/server"
+import type { SchemaJSON, FilterExpressionJSON, ExprJSON, Id } from "@zeroback/server"
 import { DatabaseReader, DatabaseWriter } from "@zeroback/server"
 import type { TableColumnInfo } from "./db/SchemaMapper"
 import type { SqlApi } from "./types"
@@ -160,11 +160,11 @@ export function createSystemFunctions(deps: SystemFunctionDeps): Record<string, 
     }),
 
     "_system:updateDocument": systemMutation(async (ctx, args: { id: string; fields: Record<string, unknown> }) => {
-      await ctx.db.patch(args.id, args.fields)
+      await ctx.db.patch(args.id as Id, args.fields)
     }),
 
     "_system:deleteDocument": systemMutation(async (ctx, args: { id: string }) => {
-      await ctx.db.delete(args.id)
+      await ctx.db.delete(args.id as Id)
     }),
 
     "_system:runSQL": systemAction(async (_ctx, args: { query: string }) => {

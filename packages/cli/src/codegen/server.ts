@@ -11,6 +11,7 @@ function isOptionalValidator(v: ValidatorJSON): v is { type: "optional"; value: 
 export function generateServer(schema: SchemaJSON, outputPath: string, hasAuth = false): void {
   const lines: string[] = [
     `import { createQueryFactory, createMutationFactory, createActionFactory, createInternalQueryFactory, createInternalMutationFactory, createInternalActionFactory, v } from "@zeroback/server";`,
+    `import type { Id } from "@zeroback/server";`,
   ];
 
   if (hasAuth) {
@@ -43,7 +44,7 @@ export function generateServer(schema: SchemaJSON, outputPath: string, hasAuth =
         lines.push(`    ${quotePropertyName(fieldName)}: ${validatorTypeToTs(field)},`);
       }
     }
-    lines.push(`    _id: string,`);
+    lines.push(`    _id: Id<"${tableName}">,`);
     lines.push(`    _creationTime: number,`);
     lines.push(`  },`);
   }

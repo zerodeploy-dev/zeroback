@@ -28,6 +28,7 @@ function scanFunctionFiles(dir: string, rootDir: string): { filePath: string; mo
 
     if (!entry.endsWith(".ts")) continue;
     if (entry === "schema.ts") continue;
+    if (entry.endsWith(".test.ts") || entry.endsWith(".spec.ts")) continue;
 
     // Module name is the path relative to rootDir without extension, using dots for namespace hierarchy
     // e.g., "messages" or "users.auth"

@@ -10,6 +10,8 @@ function isOptionalValidator(v: ValidatorJSON): v is { type: "optional"; value: 
 
 export function generateDataModel(schema: SchemaJSON, outputPath: string): void {
   const lines: string[] = [
+    `import type { Id } from "@zeroback/values";`,
+    ``,
     `export type DataModel = {`,
   ];
 
@@ -22,7 +24,7 @@ export function generateDataModel(schema: SchemaJSON, outputPath: string): void 
         lines.push(`    ${quotePropertyName(fieldName)}: ${validatorTypeToTs(field)},`);
       }
     }
-    lines.push(`    _id: string,`);
+    lines.push(`    _id: Id<"${tableName}">,`);
     lines.push(`    _creationTime: number,`);
     lines.push(`  },`);
   }

@@ -52,4 +52,5 @@ export type ObjectType<F extends PropertyValidators> = {
     : never]?: F[K] extends Validator<infer T> ? Exclude<T, undefined> : never
 };
 
-export type Id<TableName extends string = string> = string;
+declare const idBrand: unique symbol
+export type Id<TableName extends string = string> = string & { readonly [idBrand]: TableName }

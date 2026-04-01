@@ -9,21 +9,42 @@ export class DatabaseReader<DataModel> {
     return new QueryBuilder(table, this);
   }
 
+  async get<T extends keyof DataModel & string>(table: T, id: string): Promise<DataModel[T] | null>
+  async get(id: string): Promise<DataModel[keyof DataModel & string] | null>
   async get<T extends keyof DataModel & string>(
-    id: Id<T>
-  ): Promise<DataModel[T] | null> {
-    const table = tableFromId(id);
-    return (await this.ops.get(table, id)) as DataModel[T] | null;
+    tableOrId: T | string,
+    id?: string
+  ): Promise<DataModel[T] | DataModel[keyof DataModel & string] | null> {
+    if (id !== undefined) {
+      return (await this.ops.get(tableOrId, id)) as DataModel[T] | null;
+    }
+    const table = tableFromId(tableOrId);
+    return (await this.ops.get(table, tableOrId)) as DataModel[keyof DataModel & string] | null;
   }
 
+  async getMany<T extends keyof DataModel & string>(table: T, ids: string[]): Promise<Map<string, DataModel[T] | null>>
+  async getMany(ids: string[]): Promise<Map<string, DataModel[keyof DataModel & string] | null>>
   async getMany<T extends keyof DataModel & string>(
-    ...ids: Id<T>[]
-  ): Promise<Map<Id<T>, DataModel[T] | null>> {
-    if (ids.length === 0) return new Map();
-    const table = tableFromId(ids[0]);
-    const result = await this.ops.getMany(table, ids as string[]);
-    const out = new Map<Id<T>, DataModel[T] | null>();
-    for (const id of ids) {
+    tableOrIds: T | string[],
+    ids?: string[]
+  ): Promise<Map<string, DataModel[T] | DataModel[keyof DataModel & string] | null>> {
+    if (Array.isArray(tableOrIds)) {
+      // plain-string overload: getMany(ids)
+      if (tableOrIds.length === 0) return new Map();
+      const table = tableFromId(tableOrIds[0]);
+      const result = await this.ops.getMany(table, tableOrIds);
+      const out = new Map<string, DataModel[keyof DataModel & string] | null>();
+      for (const id of tableOrIds) {
+        out.set(id, (result.get(id) ?? null) as DataModel[keyof DataModel & string] | null);
+      }
+      return out;
+    }
+    // table-explicit overload: getMany(table, ids)
+    const resolvedIds = ids ?? [];
+    if (resolvedIds.length === 0) return new Map();
+    const result = await this.ops.getMany(tableOrIds, resolvedIds);
+    const out = new Map<string, DataModel[T] | null>();
+    for (const id of resolvedIds) {
       out.set(id, (result.get(id) ?? null) as DataModel[T] | null);
     }
     return out;

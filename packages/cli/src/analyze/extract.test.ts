@@ -241,4 +241,36 @@ describe("extractFunctions", () => {
       expect(manifest["_shared.helpers:util"]).toBeUndefined();
     });
   });
+
+  it("skips *.test.ts and *.spec.ts files regardless of location", () => {
+    withTempVexDir({
+      "tasks.ts": `
+        import { query } from "./server";
+        export const list = query({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+      "tasks.test.ts": `
+        import { query } from "./server";
+        export const shouldBeIgnored = query({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+      "inbox/threads.spec.ts": `
+        import { mutation } from "../server";
+        export const alsoIgnored = mutation({
+          args: {},
+          handler: async (ctx) => {},
+        });
+      `,
+    }, (vexDir) => {
+      const manifest = extractFunctions(vexDir);
+
+      expect(manifest["tasks:list"]).toBeDefined();
+      expect(manifest["tasks:shouldBeIgnored"]).toBeUndefined();
+      expect(manifest["inbox.threads:alsoIgnored"]).toBeUndefined();
+    });
+  });
 });

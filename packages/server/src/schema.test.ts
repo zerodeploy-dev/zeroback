@@ -9,6 +9,14 @@ describe("defineTable", () => {
     expect(table.searchIndexes).toEqual([])
   })
 
+  it("exposes fields on validator.json at runtime", () => {
+    const table = defineTable({ name: v.string(), age: v.number() })
+    expect(table.validator.json).toEqual({
+      type: "object",
+      value: { name: { type: "string" }, age: { type: "number" } },
+    })
+  })
+
   it("supports chaining .index()", () => {
     const table = defineTable({ name: v.string(), status: v.string() })
       .index("by_status", ["status"])
