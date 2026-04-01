@@ -377,3 +377,84 @@ function AdvancedComponent() {
   // Direct access to client.subscribe(), client.mutation(), etc.
 }
 ```
+
+## SSR / Server-Side Rendering
+
+Zeroback supports server-side rendering with `preloadQuery` and `usePreloadedQuery`. Call `preloadQuery` in your server-side loader to fetch data over HTTP (no WebSocket required), pass the result as a prop, and use `usePreloadedQuery` in the component to receive the preloaded data and subscribe to live updates after hydration.
+
+Components that don't need SSR keep using `useQuery` unchanged. Adoption is opt-in per component.
+
+### `preloadQuery(deploymentUrl, ref, args?)`
+
+Fetches a query result over HTTP. Import from `@zeroback/client`. Safe to call in Node.js, Edge runtime, or any server environment.
+
+```ts
+import { preloadQuery } from "@zeroback/client"
+import { api } from "../zeroback/_generated/api"
+
+const preloaded = await preloadQuery(
+  process.env.ZEROBACK_URL!,  // same URL you pass to ZerobackClient
+  api.tasks.recent,
+  { limit: 20 }
+)
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `deploymentUrl` | `string` | Your Zeroback WebSocket URL (same as `ZerobackClient`) |
+| `ref` | `FunctionReference<"query">` | A query reference from `api.*` |
+| `args` | `Ref["_args"]` | Query arguments. Defaults to `{}`. |
+
+**Returns:** `Promise<Preloaded<Ref>>` — a serializable object to pass as a prop to `usePreloadedQuery`.
+
+**Throws** if the function is not found, is internal, is not a query type, or if the server returns an error.
+
+### `usePreloadedQuery(preloaded)`
+
+Client hook that starts with the preloaded data (no loading state, no `undefined`) and subscribes to real-time WebSocket updates after hydration. Import from `@zeroback/react`.
+
+```ts
+function usePreloadedQuery<Ref extends FunctionReference<"query">>(
+  preloaded: Preloaded<Ref>
+): Ref["_returns"]
+```
+
+**Returns:** The query result — always defined, never `undefined`.
+
+Must be used inside a `ZerobackProvider` for real-time updates after hydration.
+
+### TanStack Start example
+
+```ts
+// app/routes/tasks.tsx
+import { createServerFn, createFileRoute } from "@tanstack/start"
+import { preloadQuery } from "@zeroback/client"
+import { usePreloadedQuery } from "@zeroback/react"
+import { api } from "../zeroback/_generated/api"
+
+const ZEROBACK_URL = process.env.ZEROBACK_URL!
+
+const loadTasks = createServerFn().handler(async () => {
+  return { preloaded: await preloadQuery(ZEROBACK_URL, api.tasks.recent, { limit: 20 }) }
+})
+
+export const Route = createFileRoute("/tasks")({
+  loader: () => loadTasks(),
+  component: TasksPage,
+})
+
+function TasksPage() {
+  const { preloaded } = Route.useLoaderData()
+  const tasks = usePreloadedQuery(preloaded)  // never undefined, real-time after hydration
+
+  return (
+    <ul>
+      {tasks.map((task) => (
+        <li key={task._id}>{task.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+> **Note:** `ZerobackClient` should be constructed browser-side only. For TanStack Start, create the client and render `ZerobackProvider` in a client-only layout component. The `usePreloadedQuery` hook handles the case where no provider is present during SSR rendering.
