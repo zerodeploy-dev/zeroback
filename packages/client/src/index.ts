@@ -17,4 +17,6 @@ export {
   type PaginationStatus,
   type PaginationState,
   type PaginationCallbacks,
-} from "./PaginationCore.js";
+} from "./PaginationCore.js"
+export { preloadQuery } from "./preloadQuery.js"
+export type { Preloaded } from "./preloadQuery.js"
