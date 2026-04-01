@@ -1,254 +1,347 @@
 ---
 title: Authentication
-description: Bring your own authentication to Zeroback. Verify users in your Worker before they reach the Durable Object.
-sidebar:
-  badge:
-    text: BYOA
-    variant: caution
+description: Built-in authentication powered by better-auth
 ---
 
-Zeroback does not (yet) include a built-in auth system. Instead, you **bring your own authentication** — verify users in your Worker's `fetch()` handler before forwarding requests to the Durable Object.
+## Overview
 
-:::note[Built-in auth is coming]
-We're working on adding built-in authentication to Zeroback — session management, OAuth, and magic links, all running inside your Durable Object with zero external dependencies. Until then, the BYOA pattern described here is the recommended approach and will continue to be supported.
-:::
+Zeroback ships with built-in authentication powered by [better-auth](https://www.better-auth.com/), running entirely inside your Durable Object. There is no external auth service to configure or pay for — sessions, user accounts, and OAuth tokens all live in the same SQLite database as your application data.
 
-This keeps auth decoupled from the framework: use any provider (Clerk, Auth0, Lucia, WorkOS, cookie sessions, JWTs) and any verification strategy. Zeroback doesn't care how you authenticate — it only needs the Worker to gate access.
+Key properties:
 
-## How It Works
+- **Email/password** sign-up and sign-in out of the box
+- **OAuth providers** — Google and GitHub with minimal config
+- **Cookie-based sessions** with configurable expiry
+- **Zero-schema pollution** — auth tables are hidden from codegen and your functions
+- **Opt-out** with `zeroback init --no-auth` if you prefer to bring your own auth
 
+---
+
+## Getting Started
+
+### 1. Scaffold your project
+
+`zeroback init` creates `zeroback/auth.ts` automatically:
+
+```bash
+zeroback init my-app
 ```
-┌────────────┐                ┌───────────────────┐                ┌────────────────┐
-│            │   cookie/JWT   │                   │    forward     │                │
-│   Browser  │ ─────────────→ │  Worker fetch()   │ ─────────────→ │  ZerobackDO    │
-│            │                │  verify auth      │    request     │  (trusted)     │
-│            │                │  reject or forward│                │                │
-└────────────┘                └───────────────────┘                └────────────────┘
+
+To skip auth entirely:
+
+```bash
+zeroback init my-app --no-auth
 ```
 
-The Worker acts as a gateway. Unauthenticated requests get a `401` and never reach the Durable Object. Authenticated requests are forwarded as-is.
+### 2. Configure auth
 
-## Setup
-
-### 1. Write a verify function
-
-Create an `auth.ts` that verifies the incoming request. This example validates a session cookie against an external API via a [service binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/):
+The generated `zeroback/auth.ts` exports an `auth` constant created with `defineAuth`:
 
 ```typescript
-// auth.ts
-import type { Env } from "./index"
+// zeroback/auth.ts
+import { defineAuth } from "@zeroback/server"
 
-export type AuthResult =
-  | { ok: true; userId: string }
-  | { ok: false; error: string }
-
-export async function verifyAuth(
-  request: Request,
-  env: Env
-): Promise<AuthResult> {
-  const cookie = request.headers.get("Cookie")
-  if (!cookie) {
-    return { ok: false, error: "Not authenticated" }
-  }
-
-  try {
-    // Call your auth service — service binding, JWT verify, etc.
-    const res = await env.AUTH_API.fetch(
-      new Request("https://auth.example.com/me", {
-        headers: { Cookie: cookie },
-      })
-    )
-
-    if (!res.ok) {
-      return { ok: false, error: "Not authenticated" }
-    }
-
-    const data = (await res.json()) as { id: string }
-    return { ok: true, userId: data.id }
-  } catch {
-    return { ok: false, error: "Auth service unavailable" }
-  }
-}
-```
-
-**Other verification strategies:**
-
-- **JWT**: Use `jose` or `@clerk/backend` to verify a JWT from the `Authorization` header. No external call needed.
-- **Session cookie**: Look up a session token in KV or D1.
-- **Service binding**: Forward the cookie to another Worker that owns auth (zero network roundtrip — shown above).
-
-### 2. Gate requests in your Worker
-
-Your Worker's `fetch()` handler verifies auth before forwarding to the Durable Object:
-
-```typescript
-// index.ts
-import { createZerobackDO } from "@zeroback/server/runtime"
-import { functions, schema, httpRouter, cronJobsDef } from "./zeroback/_generated/manifest"
-import { verifyAuth } from "./auth"
-
-export const ZerobackDO = createZerobackDO({ functions, schema, httpRouter, cronJobsDef })
-
-export interface Env {
-  ZEROBACK_DO: DurableObjectNamespace
-  AUTH_API: Fetcher  // service binding to your auth worker
-}
-
-function getDOStub(env: Env): DurableObjectStub {
-  const doId = env.ZEROBACK_DO.idFromName("default")
-  return env.ZEROBACK_DO.get(doId)
-}
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url)
-
-    // Public routes (no auth)
-    if (url.pathname === "/health") {
-      return new Response("ok")
-    }
-
-    // Verify auth
-    const auth = await verifyAuth(request, env)
-    if (!auth.ok) {
-      return new Response(
-        JSON.stringify({ error: auth.error }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      )
-    }
-
-    // Forward to Zeroback DO
-    const doStub = getDOStub(env)
-    return doStub.fetch(request)
-  },
-}
-```
-
-This applies to **all** Zeroback traffic — WebSocket connections (`/ws`), the SSR query endpoint (`POST /query`), HTTP actions, and function calls. If the auth check fails, the request never reaches the Durable Object.
-
-:::note[SSR and `preloadQuery`]
-`preloadQuery` calls `POST /query` from your server-side loader. Because the request originates on the server (not from a browser), it won't carry the user's cookies or tokens automatically. To authenticate SSR queries, forward a token from the loader context:
-
-```ts
-export const loader = createServerFn().handler(async ({ context }) => {
-  const preloaded = await preloadQuery(
-    ZEROBACK_URL,
-    api.tasks.list,
-    {},
-    { headers: { Authorization: `Bearer ${context.token}` } }  // forward auth
-  )
-  return { preloaded }
+export const auth = defineAuth({
+  emailAndPassword: true,
 })
 ```
 
-Your Worker's `verifyAuth` function will then receive and validate that token before forwarding to the DO.
+That is all that is required to get email/password auth working.
 
-Note: the optional `headers` parameter for `preloadQuery` is not yet implemented — this is a preview of the planned API. For now, `preloadQuery` is unauthenticated, matching the current WebSocket transport.
-:::
+### 3. Set the secret
 
+Add `BETTER_AUTH_SECRET` to your environment. For local development, create `.dev.vars` in your project root (Wrangler picks this up automatically):
 
-### 3. Add CORS (if your frontend is on a different origin)
-
-If your frontend and backend are on different origins, add CORS headers:
-
-```typescript
-function corsHeaders(origin: string): Record<string, string> {
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Credentials": "true",
-  }
-}
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const origin = request.headers.get("Origin") ?? ""
-
-    // CORS preflight
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) })
-    }
-
-    // ... auth check ...
-
-    const response = await doStub.fetch(request)
-
-    // Add CORS headers to response
-    const newResponse = new Response(response.body, response)
-    for (const [key, value] of Object.entries(corsHeaders(origin))) {
-      newResponse.headers.set(key, value)
-    }
-    return newResponse
-  },
-}
+```bash
+# .dev.vars
+BETTER_AUTH_SECRET=a-long-random-string-at-least-32-characters
 ```
 
-**Important:** Set `Access-Control-Allow-Credentials: "true"` so cookies are sent with cross-origin requests. Your frontend must also set `credentials: "include"` on fetch calls (the Zeroback client does this automatically for WebSocket connections).
+For production, set it via Wrangler secrets:
 
-## JWT Verification Example
+```bash
+wrangler secret put BETTER_AUTH_SECRET
+```
 
-If your auth provider issues JWTs (Clerk, Auth0, Supabase), you can verify them directly in the Worker without an external call:
+If the secret is missing, Zeroback logs a warning and uses an insecure fallback value — fine for development, not for production.
+
+---
+
+## Configuration (`defineAuth`)
 
 ```typescript
-// auth.ts
-import { jwtVerify, createRemoteJWKSet } from "jose"
+import { defineAuth } from "@zeroback/server"
 
-const JWKS = createRemoteJWKSet(
-  new URL("https://your-app.clerk.accounts.dev/.well-known/jwks.json")
-)
+export const auth = defineAuth({
+  // Enable email + password sign-up and sign-in
+  emailAndPassword: true,
 
-export async function verifyAuth(request: Request): Promise<AuthResult> {
-  const token = request.headers.get("Authorization")?.replace("Bearer ", "")
-  if (!token) {
-    return { ok: false, error: "No token" }
-  }
+  // OAuth providers — reads client credentials from env automatically
+  providers: [
+    { type: "google" },   // reads GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
+    { type: "github" },   // reads GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET
+  ],
 
-  try {
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: "https://your-app.clerk.accounts.dev",
-      audience: "your-app",
+  // Allow cross-origin requests from specific origins
+  trustedOrigins: ["https://your-app.com"],
+
+  // Session lifetime — default is 7 days
+  session: {
+    expiresIn: 60 * 60 * 24 * 30, // 30 days in seconds
+  },
+})
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `emailAndPassword` | `boolean` | `true` | Enable email/password auth |
+| `providers` | `Array<{ type: "google" \| "github" }>` | `[]` | OAuth providers |
+| `trustedOrigins` | `string[]` | `[]` | Allowed origins for cross-origin requests |
+| `session.expiresIn` | `number` | 604800 (7 days) | Session lifetime in seconds |
+
+---
+
+## Using Auth in Functions
+
+Inside queries, mutations, and actions, `ctx.auth.getUserIdentity()` returns the signed-in user or `null` for unauthenticated requests.
+
+```typescript
+import { query, mutation } from "./_generated/server"
+
+// Return the current user's profile
+export const me = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return null
+    }
+    return {
+      id: identity.subject,
+      email: identity.email,
+      name: identity.name,
+    }
+  },
+})
+
+// Only allow authenticated users to create records
+export const create = mutation({
+  args: { text: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Must be signed in to create a task")
+    }
+    await ctx.db.insert("tasks", {
+      text: args.text,
+      userId: identity.subject,
     })
-    return { ok: true, userId: payload.sub! }
-  } catch {
-    return { ok: false, error: "Invalid token" }
+  },
+})
+```
+
+### `UserIdentity` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `subject` | `string` | Unique user ID |
+| `issuer` | `string` | Always `"zeroback"` for built-in auth |
+| `tokenIdentifier` | `string` | `"zeroback|<subject>"` — unique across providers |
+| `email` | `string \| undefined` | User's email address |
+| `emailVerified` | `boolean \| undefined` | Whether the email has been verified |
+| `name` | `string \| undefined` | Display name |
+| `pictureUrl` | `string \| undefined` | Profile picture URL |
+
+If the request has no valid session cookie, `getUserIdentity()` returns `null`. Functions that require authentication should always check for `null` and throw or return early.
+
+---
+
+## Auth HTTP Endpoints
+
+Zeroback mounts all better-auth routes under `/auth/`. The most commonly used endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/auth/sign-up/email` | Create a new account |
+| `POST` | `/auth/sign-in/email` | Sign in with email and password |
+| `POST` | `/auth/sign-out` | End the current session |
+| `GET` | `/auth/get-session` | Return the current session |
+| `GET` | `/auth/sign-in/social?provider=google` | Start OAuth sign-in |
+
+These are handled automatically — you do not need to write any HTTP routes for them.
+
+---
+
+## Client SDK
+
+Pass `auth: true` when creating your `ZerobackClient` to enable the auth namespace:
+
+```typescript
+import { ZerobackClient } from "@zeroback/client"
+
+const client = new ZerobackClient("wss://your-worker.workers.dev/ws", {
+  auth: true,
+})
+
+// Sign up
+await client.auth.signUp({
+  email: "user@example.com",
+  password: "password123",
+  name: "Alice",
+})
+
+// Sign in
+await client.auth.signIn({
+  email: "user@example.com",
+  password: "password123",
+})
+
+// Get the current session
+const session = await client.auth.getSession()
+// { user: { id, email, name, image } } or null
+
+// Sign out
+await client.auth.signOut()
+```
+
+### OAuth (browser only)
+
+```typescript
+// Redirects the browser to the OAuth provider
+client.auth.signInWithGoogle()
+client.auth.signInWithGitHub()
+```
+
+After the OAuth flow completes, the provider redirects back to your app. The client reconnects automatically with the new session.
+
+---
+
+## React Hooks
+
+Use `useAuth()` to access session state in React components:
+
+```tsx
+import { useAuth } from "@zeroback/react"
+
+function Header() {
+  const { isLoading, isAuthenticated, user, signOut } = useAuth()
+
+  if (isLoading) return <span>Loading...</span>
+
+  if (!isAuthenticated) {
+    return <a href="/login">Sign in</a>
   }
+
+  return (
+    <div>
+      <span>Hello, {user?.name}</span>
+      <button onClick={signOut}>Sign out</button>
+    </div>
+  )
 }
 ```
 
-## Multi-Tenant Routing
+`useAuth()` requires `auth: true` in your `ZerobackClient` options and a `<ZerobackProvider>` wrapping your component tree:
 
-For multi-tenant apps, you can use the authenticated user to route to different Durable Objects:
+```tsx
+import { ZerobackProvider, ZerobackClient } from "@zeroback/react"
+
+const client = new ZerobackClient("wss://...", { auth: true })
+
+export default function App() {
+  return (
+    <ZerobackProvider client={client}>
+      <Header />
+      {/* rest of app */}
+    </ZerobackProvider>
+  )
+}
+```
+
+---
+
+## Cross-Origin Deployments
+
+If your frontend is on a different origin than your Zeroback Worker (for example, `app.example.com` vs `api.example.com`), you need two things:
+
+**1. Add trusted origins to `defineAuth`:**
 
 ```typescript
-function getDOStub(env: Env, tenantId: string): DurableObjectStub {
-  const doId = env.ZEROBACK_DO.idFromName(tenantId)
-  return env.ZEROBACK_DO.get(doId)
-}
+export const auth = defineAuth({
+  emailAndPassword: true,
+  trustedOrigins: ["https://app.example.com"],
+})
+```
 
+**2. Configure CORS in your Worker** to allow credentials from that origin.
+
+**3. Use `credentials: "include"` in fetch calls** (the Zeroback client handles this automatically).
+
+### Vite dev proxy
+
+During development, the easiest approach is to proxy `/auth` requests through Vite so they appear same-origin:
+
+```typescript
+// vite.config.ts
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const auth = await verifyAuth(request, env)
-    if (!auth.ok) {
-      return new Response("Unauthorized", { status: 401 })
-    }
-
-    // Route to tenant-specific DO
-    const doStub = getDOStub(env, auth.tenantId)
-    return doStub.fetch(request)
+  server: {
+    proxy: {
+      "/auth": "http://localhost:8788",
+    },
   },
 }
 ```
 
-Each tenant gets its own Durable Object with isolated SQLite storage. Auth determines which DO handles the request.
+This avoids CORS issues entirely during local development. In production, set `trustedOrigins` for your deployed frontend domain.
 
-## Summary
+---
 
-| Concern | Where it lives |
-|---------|---------------|
-| Authentication (who are you?) | Worker `fetch()` — your code |
-| Transport (WebSocket, HTTP) | Zeroback runtime |
-| Authorization (can you do this?) | Your Zeroback functions |
-| Data isolation | DO routing (single or multi-tenant) |
+## Auth Without Init (--no-auth)
 
-The Worker is the security boundary. Everything behind it — queries, mutations, subscriptions — is trusted internal traffic.
+If you don't need built-in auth, scaffold without it:
+
+```bash
+zeroback init my-app --no-auth
+```
+
+No `zeroback/auth.ts` is created, no auth routes are mounted, and `ctx.auth` is not available in functions. This is the right choice if you want to authenticate users before they reach Zeroback (for example, using a Cloudflare Access policy or a JWT you verify in your Worker).
+
+---
+
+## Alternative: Bring Your Own Auth
+
+Built-in auth is opt-in. You can keep using any external auth provider with the BYOA pattern — verify users in your Worker's `fetch()` handler before forwarding requests to the Durable Object.
+
+```typescript
+// index.ts (Worker entry point)
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    // Verify your JWT or session cookie here
+    const token = request.headers.get("Authorization")?.replace("Bearer ", "")
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+
+    // Validate the token (using jose, @clerk/backend, etc.)
+    // ...
+
+    // Forward to Zeroback
+    const doId = env.ZEROBACK_DO.idFromName("default")
+    const stub = env.ZEROBACK_DO.get(doId)
+    return stub.fetch(request)
+  },
+}
+```
+
+The Worker acts as a security boundary. Everything behind it — WebSocket connections, queries, mutations — is trusted internal traffic.
+
+Common BYOA providers:
+- **Clerk** — verify JWTs using `@clerk/backend`
+- **Auth0** — verify JWTs using `jose` and the Auth0 JWKS endpoint
+- **WorkOS** — use their Node.js SDK
+- **KV sessions** — look up a session token in Cloudflare KV
