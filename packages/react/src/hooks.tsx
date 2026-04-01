@@ -66,6 +66,15 @@ export function useQueryWithStatus<Ref extends FunctionReference<"query", any, a
   return { data, isStale, isLoading };
 }
 
+/**
+ * Subscribe to a query with preloaded SSR data. Starts with the preloaded result
+ * (never undefined) and subscribes to real-time WebSocket updates after hydration.
+ *
+ * Note: on mount this seeds the QueryStore with the preloaded result and marks it
+ * as server-confirmed. Any sibling `useQueryWithStatus` on the same query will
+ * immediately report `isStale: false` — this is correct since the data came from
+ * the server.
+ */
 export function usePreloadedQuery<Ref extends FunctionReference<"query", any, any>>(
   preloaded: Preloaded<Ref>
 ): Ref["_returns"] {
@@ -80,7 +89,7 @@ export function usePreloadedQuery<Ref extends FunctionReference<"query", any, an
     client.queryStore.setServerResult(queryKey, preloaded._result)
     const unsubscribe = client.subscribe(preloaded._fn, preloaded._args ?? {})
     return unsubscribe
-  }, [client, preloaded._fn, argsStr])
+  }, [client, preloaded._fn, argsStr, queryKey])
 
   const subscribe = useCallback(
     (cb: () => void) => {
@@ -96,13 +105,13 @@ export function usePreloadedQuery<Ref extends FunctionReference<"query", any, an
       ? (client.getQueryResult(queryKey) ?? preloaded._result) as Ref["_returns"]
       : preloaded._result as Ref["_returns"]
     ),
-    [client, queryKey],
+    [client, queryKey, preloaded._result],
   )
 
   // On the server: always return the preloaded result — never undefined.
   const getServerSnapshot = useCallback(
     () => preloaded._result as Ref["_returns"],
-    [],
+    [preloaded._result],
   )
 
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
