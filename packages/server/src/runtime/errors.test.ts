@@ -8,6 +8,7 @@ describe("ErrorCode", () => {
     expect(ErrorCode.FORBIDDEN).toBe("forbidden")
     expect(ErrorCode.RATE_LIMITED).toBe("rate_limited")
     expect(ErrorCode.NOT_FOUND).toBe("not_found")
+    expect(ErrorCode.BAD_REQUEST).toBe("bad_request")
   })
 })
 
