@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import type { SqlApi } from "../types"
 import type { CleanedWhere } from "better-auth/adapters"
+import { buildWhere } from "./DOSQLiteAdapter"
 
 // ---------------------------------------------------------------------------
 // Mock SqlApi factory
@@ -22,80 +23,10 @@ function makeSql(
 }
 
 // ---------------------------------------------------------------------------
-// We test the internal helpers by extracting the CustomAdapter directly.
-// Rather than going through createAdapterFactory (which needs BetterAuthOptions),
-// we pull the adapter factory function out by patching createAdapterFactory.
-// ---------------------------------------------------------------------------
-
-// Re-implement buildWhere to test it independently (mirrors the implementation)
-function buildWhere(where: CleanedWhere[]): { sql: string; params: unknown[] } {
-  const parts: string[] = []
-  const params: unknown[] = []
-
-  for (let i = 0; i < where.length; i++) {
-    const clause = where[i]
-    const { field, operator, value, connector } = clause
-    const prefix = i === 0 ? "" : connector === "OR" ? " OR " : " AND "
-
-    switch (operator) {
-      case "in": {
-        const arr = value as (string | number)[]
-        const placeholders = arr.map(() => "?").join(", ")
-        parts.push(`${prefix}"${field}" IN (${placeholders})`)
-        params.push(...arr)
-        break
-      }
-      case "not_in": {
-        const arr = value as (string | number)[]
-        const placeholders = arr.map(() => "?").join(", ")
-        parts.push(`${prefix}"${field}" NOT IN (${placeholders})`)
-        params.push(...arr)
-        break
-      }
-      case "contains":
-        parts.push(`${prefix}"${field}" LIKE ?`)
-        params.push(`%${value}%`)
-        break
-      case "starts_with":
-        parts.push(`${prefix}"${field}" LIKE ?`)
-        params.push(`${value}%`)
-        break
-      case "ends_with":
-        parts.push(`${prefix}"${field}" LIKE ?`)
-        params.push(`%${value}`)
-        break
-      case "ne":
-        parts.push(`${prefix}"${field}" != ?`)
-        params.push(value)
-        break
-      case "lt":
-        parts.push(`${prefix}"${field}" < ?`)
-        params.push(value)
-        break
-      case "lte":
-        parts.push(`${prefix}"${field}" <= ?`)
-        params.push(value)
-        break
-      case "gt":
-        parts.push(`${prefix}"${field}" > ?`)
-        params.push(value)
-        break
-      case "gte":
-        parts.push(`${prefix}"${field}" >= ?`)
-        params.push(value)
-        break
-      default:
-        parts.push(`${prefix}"${field}" = ?`)
-        params.push(value)
-        break
-    }
-  }
-
-  return { sql: parts.join(""), params }
-}
-
-// ---------------------------------------------------------------------------
-// Inline adapter logic (same as DOSQLiteAdapter.ts) for direct unit testing
+// Inline adapter logic (same as DOSQLiteAdapter.ts) for direct unit testing.
+// NOTE: The adapter methods below are tested via the inline createAdapter helper
+// which mirrors DOSQLiteAdapter.ts. The buildWhere function is imported directly
+// from the real implementation above.
 // ---------------------------------------------------------------------------
 
 function createAdapter(sql: SqlApi) {
@@ -135,11 +66,15 @@ function createAdapter(sql: SqlApi) {
       model,
       where,
       select,
+      join,
     }: {
       model: string
       where: CleanedWhere[]
       select?: string[]
+      join?: unknown
     }): Promise<T | null> {
+      if (join) throw new Error("DOSQLiteAdapter: join queries are not supported. Use separate queries instead.")
+
       const table = `_auth_${model}`
       const selectCols =
         select && select.length > 0
@@ -168,6 +103,7 @@ function createAdapter(sql: SqlApi) {
       select,
       sortBy,
       offset,
+      join,
     }: {
       model: string
       where?: CleanedWhere[]
@@ -175,7 +111,10 @@ function createAdapter(sql: SqlApi) {
       select?: string[]
       sortBy?: { field: string; direction: "asc" | "desc" }
       offset?: number
+      join?: unknown
     }): Promise<T[]> {
+      if (join) throw new Error("DOSQLiteAdapter: join queries are not supported. Use separate queries instead.")
+
       const table = `_auth_${model}`
       const selectCols =
         select && select.length > 0
@@ -214,6 +153,8 @@ function createAdapter(sql: SqlApi) {
       where: CleanedWhere[]
       update: T
     }): Promise<T | null> {
+      if (where.length === 0) throw new Error("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+
       const table = `_auth_${model}`
       const updateData = update as Record<string, unknown>
       const keys = Object.keys(updateData)
@@ -239,25 +180,22 @@ function createAdapter(sql: SqlApi) {
       where: CleanedWhere[]
       update: Record<string, any>
     }): Promise<number> {
+      if (where.length === 0) throw new Error("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+
       const table = `_auth_${model}`
       const keys = Object.keys(update)
       const setClauses = keys.map((k) => `"${k}" = ?`).join(", ")
       const setValues = keys.map((k) => update[k])
 
       const built = buildWhere(where)
-
-      const countRows = sql
-        .exec(`SELECT COUNT(*) as cnt FROM "${table}" WHERE ${built.sql}`, ...built.params)
-        .toArray()
-      const count = (countRows[0]?.cnt ?? 0) as number
-
       sql.exec(
         `UPDATE "${table}" SET ${setClauses} WHERE ${built.sql}`,
         ...setValues,
         ...built.params
       )
 
-      return count
+      const cnt = sql.exec("SELECT changes() as cnt").toArray()[0]?.cnt ?? 0
+      return cnt as number
     },
 
     async delete({
@@ -267,6 +205,8 @@ function createAdapter(sql: SqlApi) {
       model: string
       where: CleanedWhere[]
     }): Promise<void> {
+      if (where.length === 0) throw new Error("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+
       const table = `_auth_${model}`
       const built = buildWhere(where)
       sql.exec(`DELETE FROM "${table}" WHERE ${built.sql}`, ...built.params)
@@ -279,16 +219,14 @@ function createAdapter(sql: SqlApi) {
       model: string
       where: CleanedWhere[]
     }): Promise<number> {
+      if (where.length === 0) throw new Error("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+
       const table = `_auth_${model}`
       const built = buildWhere(where)
-
-      const countRows = sql
-        .exec(`SELECT COUNT(*) as cnt FROM "${table}" WHERE ${built.sql}`, ...built.params)
-        .toArray()
-      const count = (countRows[0]?.cnt ?? 0) as number
-
       sql.exec(`DELETE FROM "${table}" WHERE ${built.sql}`, ...built.params)
-      return count
+
+      const cnt = sql.exec("SELECT changes() as cnt").toArray()[0]?.cnt ?? 0
+      return cnt as number
     },
 
     async count({
@@ -325,13 +263,15 @@ function fieldTypeToSQLite(type: DBFieldAttribute["type"]): string {
   if ((type as string).endsWith("[]")) return "TEXT"
   switch (type) {
     case "string": return "TEXT"
-    case "number": return "REAL"
+    case "number": return "INTEGER"
     case "boolean": return "INTEGER"
     case "date": return "TEXT"
     case "json": return "TEXT"
     default: return "TEXT"
   }
 }
+
+type DBFieldAttributeConfig = DBFieldAttribute & { unique?: boolean }
 
 function runMigrations(
   sql: SqlApi,
@@ -369,6 +309,16 @@ function runMigrations(
           const sqlType = fieldTypeToSQLite(attr.type)
           sql.exec(`ALTER TABLE "${table}" ADD COLUMN "${fieldName}" ${sqlType}`)
         }
+      }
+    }
+
+    // Create UNIQUE indexes for fields marked unique
+    for (const [fieldName, attr] of Object.entries(fields)) {
+      const fieldDef = attr as DBFieldAttributeConfig
+      if (fieldDef.unique === true) {
+        sql.exec(
+          `CREATE UNIQUE INDEX IF NOT EXISTS "idx_${table}_${fieldName}" ON "${table}" ("${fieldName}")`
+        )
       }
     }
   }
@@ -411,28 +361,49 @@ describe("buildWhere", () => {
     expect(result.params).toEqual(["banned"])
   })
 
-  it("builds contains clause", () => {
+  it("builds contains clause with ESCAPE", () => {
     const result = buildWhere([
       { field: "name", operator: "contains", value: "doe", connector: "AND" },
     ])
-    expect(result.sql).toBe('"name" LIKE ?')
+    expect(result.sql).toBe(`"name" LIKE ? ESCAPE '\\'`)
     expect(result.params).toEqual(["%doe%"])
   })
 
-  it("builds starts_with clause", () => {
+  it("builds starts_with clause with ESCAPE", () => {
     const result = buildWhere([
       { field: "name", operator: "starts_with", value: "John", connector: "AND" },
     ])
-    expect(result.sql).toBe('"name" LIKE ?')
+    expect(result.sql).toBe(`"name" LIKE ? ESCAPE '\\'`)
     expect(result.params).toEqual(["John%"])
   })
 
-  it("builds ends_with clause", () => {
+  it("builds ends_with clause with ESCAPE", () => {
     const result = buildWhere([
       { field: "email", operator: "ends_with", value: "@example.com", connector: "AND" },
     ])
-    expect(result.sql).toBe('"email" LIKE ?')
+    expect(result.sql).toBe(`"email" LIKE ? ESCAPE '\\'`)
     expect(result.params).toEqual(["%@example.com"])
+  })
+
+  it("escapes LIKE wildcards in contains", () => {
+    const result = buildWhere([
+      { field: "name", operator: "contains", value: "50% off_deal", connector: "AND" },
+    ])
+    expect(result.params).toEqual(["%50\\% off\\_deal%"])
+  })
+
+  it("escapes LIKE wildcards in starts_with", () => {
+    const result = buildWhere([
+      { field: "name", operator: "starts_with", value: "100%_", connector: "AND" },
+    ])
+    expect(result.params).toEqual(["100\\%\\_%"])
+  })
+
+  it("escapes LIKE wildcards in ends_with", () => {
+    const result = buildWhere([
+      { field: "name", operator: "ends_with", value: "%done", connector: "AND" },
+    ])
+    expect(result.params).toEqual(["%\\%done"])
   })
 
   it("combines multiple clauses with AND", () => {
@@ -529,6 +500,19 @@ describe("Adapter: findOne", () => {
 
     expect(sql.calls[0].query).toContain('SELECT "email" FROM "_auth_user"')
   })
+
+  it("throws when join is provided", async () => {
+    const sql = makeSql([])
+    const adapter = createAdapter(sql)
+
+    await expect(
+      adapter.findOne({
+        model: "user",
+        where: [{ field: "id", operator: "eq", value: "u1", connector: "AND" }],
+        join: { table: "session", on: "userId" },
+      })
+    ).rejects.toThrow("DOSQLiteAdapter: join queries are not supported")
+  })
 })
 
 describe("Adapter: findMany", () => {
@@ -570,6 +554,19 @@ describe("Adapter: findMany", () => {
     const result = await adapter.findMany({ model: "user", limit: 10 })
     expect(result).toEqual([])
   })
+
+  it("throws when join is provided", async () => {
+    const sql = makeSql([])
+    const adapter = createAdapter(sql)
+
+    await expect(
+      adapter.findMany({
+        model: "user",
+        limit: 10,
+        join: { table: "session", on: "userId" },
+      })
+    ).rejects.toThrow("DOSQLiteAdapter: join queries are not supported")
+  })
 })
 
 describe("Adapter: update", () => {
@@ -606,11 +603,19 @@ describe("Adapter: update", () => {
 
     expect(result).toBeNull()
   })
+
+  it("throws when where is empty", async () => {
+    const sql = makeSql([])
+    const adapter = createAdapter(sql)
+
+    await expect(
+      adapter.update({ model: "user", where: [], update: { name: "X" } })
+    ).rejects.toThrow("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+  })
 })
 
 describe("Adapter: updateMany", () => {
-  it("counts then updates and returns count", async () => {
-    // First exec (COUNT) returns 3 rows
+  it("updates and returns affected count via changes()", async () => {
     let callCount = 0
     const calls: SqlCall[] = []
     const sql: SqlApi & { calls: SqlCall[] } = {
@@ -618,7 +623,8 @@ describe("Adapter: updateMany", () => {
       exec(query: string, ...bindings: unknown[]) {
         calls.push({ query, params: bindings })
         callCount++
-        if (callCount === 1) {
+        // Second call is SELECT changes()
+        if (query.includes("changes()")) {
           return { toArray: () => [{ cnt: 3 }] }
         }
         return { toArray: () => [] }
@@ -634,8 +640,20 @@ describe("Adapter: updateMany", () => {
     })
 
     expect(count).toBe(3)
-    expect(sql.calls[0].query).toContain("COUNT(*)")
-    expect(sql.calls[1].query).toContain('UPDATE "_auth_user" SET "role" = ?')
+    // First call is UPDATE (not COUNT)
+    expect(sql.calls[0].query).toContain('UPDATE "_auth_user" SET "role" = ?')
+    expect(sql.calls[0].query).not.toContain("COUNT")
+    // Second call is SELECT changes()
+    expect(sql.calls[1].query).toBe("SELECT changes() as cnt")
+  })
+
+  it("throws when where is empty", async () => {
+    const sql = makeSql([])
+    const adapter = createAdapter(sql)
+
+    await expect(
+      adapter.updateMany({ model: "user", where: [], update: { role: "x" } })
+    ).rejects.toThrow("DOSQLiteAdapter: empty where clause not allowed in update/delete")
   })
 })
 
@@ -652,10 +670,19 @@ describe("Adapter: delete", () => {
     expect(sql.calls[0].query).toBe('DELETE FROM "_auth_session" WHERE "id" = ?')
     expect(sql.calls[0].params).toEqual(["sess_1"])
   })
+
+  it("throws when where is empty", async () => {
+    const sql = makeSql([])
+    const adapter = createAdapter(sql)
+
+    await expect(
+      adapter.delete({ model: "session", where: [] })
+    ).rejects.toThrow("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+  })
 })
 
 describe("Adapter: deleteMany", () => {
-  it("counts then deletes and returns count", async () => {
+  it("deletes and returns affected count via changes()", async () => {
     let callCount = 0
     const calls: SqlCall[] = []
     const sql: SqlApi & { calls: SqlCall[] } = {
@@ -663,7 +690,7 @@ describe("Adapter: deleteMany", () => {
       exec(query: string, ...bindings: unknown[]) {
         calls.push({ query, params: bindings })
         callCount++
-        if (callCount === 1) {
+        if (query.includes("changes()")) {
           return { toArray: () => [{ cnt: 5 }] }
         }
         return { toArray: () => [] }
@@ -678,8 +705,20 @@ describe("Adapter: deleteMany", () => {
     })
 
     expect(count).toBe(5)
-    expect(sql.calls[0].query).toContain("COUNT(*)")
-    expect(sql.calls[1].query).toContain('DELETE FROM "_auth_session"')
+    // First call is DELETE (not COUNT)
+    expect(sql.calls[0].query).toContain('DELETE FROM "_auth_session"')
+    expect(sql.calls[0].query).not.toContain("COUNT")
+    // Second call is SELECT changes()
+    expect(sql.calls[1].query).toBe("SELECT changes() as cnt")
+  })
+
+  it("throws when where is empty", async () => {
+    const sql = makeSql([])
+    const adapter = createAdapter(sql)
+
+    await expect(
+      adapter.deleteMany({ model: "session", where: [] })
+    ).rejects.toThrow("DOSQLiteAdapter: empty where clause not allowed in update/delete")
   })
 })
 
@@ -739,7 +778,7 @@ describe("runAuthMigrations", () => {
 
     runMigrations(sql, schema)
 
-    // Should have: 1 sqlite_master check + 1 CREATE TABLE
+    // Should have: 1 sqlite_master check + 1 CREATE TABLE (no unique fields)
     expect(calls).toHaveLength(2)
     expect(calls[0].query).toContain("sqlite_master")
     expect(calls[0].params).toEqual(["_auth_user"])
@@ -858,5 +897,60 @@ describe("runAuthMigrations", () => {
     const createCalls = calls.filter((c) => c.query.includes("CREATE TABLE"))
     expect(createCalls[0].query).toContain("_auth_user")
     expect(createCalls[1].query).toContain("_auth_account")
+  })
+
+  it("maps number fields to INTEGER", () => {
+    const calls: SqlCall[] = []
+    const sql: SqlApi & { calls: SqlCall[] } = {
+      calls,
+      exec(query: string, ...bindings: unknown[]) {
+        calls.push({ query, params: bindings })
+        if (query.includes("sqlite_master")) return { toArray: () => [] }
+        return { toArray: () => [] }
+      },
+    }
+
+    const schema: Record<string, { fields: Record<string, DBFieldAttribute>; order: number }> = {
+      user: {
+        order: 1,
+        fields: {
+          score: { type: "number" },
+        },
+      },
+    }
+
+    runMigrations(sql, schema)
+
+    const createQuery = calls.find((c) => c.query.includes("CREATE TABLE"))?.query ?? ""
+    expect(createQuery).toContain('"score" INTEGER')
+  })
+
+  it("creates UNIQUE INDEX for fields with unique: true", () => {
+    const calls: SqlCall[] = []
+    const sql: SqlApi & { calls: SqlCall[] } = {
+      calls,
+      exec(query: string, ...bindings: unknown[]) {
+        calls.push({ query, params: bindings })
+        if (query.includes("sqlite_master")) return { toArray: () => [] }
+        return { toArray: () => [] }
+      },
+    }
+
+    const schema: Record<string, { fields: Record<string, DBFieldAttributeConfig>; order: number }> = {
+      user: {
+        order: 1,
+        fields: {
+          email: { type: "string", unique: true },
+          name: { type: "string" },
+        },
+      },
+    }
+
+    runMigrations(sql, schema as any)
+
+    const indexCalls = calls.filter((c) => c.query.includes("CREATE UNIQUE INDEX"))
+    expect(indexCalls).toHaveLength(1)
+    expect(indexCalls[0].query).toContain('"idx__auth_user_email"')
+    expect(indexCalls[0].query).toContain('ON "_auth_user" ("email")')
   })
 })

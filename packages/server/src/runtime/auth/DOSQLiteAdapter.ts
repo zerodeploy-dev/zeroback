@@ -8,7 +8,7 @@ import type { SqlApi } from "../types"
 // WHERE clause builder
 // ---------------------------------------------------------------------------
 
-function buildWhere(where: CleanedWhere[]): { sql: string; params: unknown[] } {
+export function buildWhere(where: CleanedWhere[]): { sql: string; params: unknown[] } {
   const parts: string[] = []
   const params: unknown[] = []
 
@@ -33,18 +33,33 @@ function buildWhere(where: CleanedWhere[]): { sql: string; params: unknown[] } {
         params.push(...arr)
         break
       }
-      case "contains":
-        parts.push(`${prefix}"${field}" LIKE ?`)
-        params.push(`%${value}%`)
+      case "contains": {
+        const escaped = (value as string)
+          .replace(/\\/g, "\\\\")
+          .replace(/%/g, "\\%")
+          .replace(/_/g, "\\_")
+        parts.push(`${prefix}"${field}" LIKE ? ESCAPE '\\'`)
+        params.push(`%${escaped}%`)
         break
-      case "starts_with":
-        parts.push(`${prefix}"${field}" LIKE ?`)
-        params.push(`${value}%`)
+      }
+      case "starts_with": {
+        const escaped = (value as string)
+          .replace(/\\/g, "\\\\")
+          .replace(/%/g, "\\%")
+          .replace(/_/g, "\\_")
+        parts.push(`${prefix}"${field}" LIKE ? ESCAPE '\\'`)
+        params.push(`${escaped}%`)
         break
-      case "ends_with":
-        parts.push(`${prefix}"${field}" LIKE ?`)
-        params.push(`%${value}`)
+      }
+      case "ends_with": {
+        const escaped = (value as string)
+          .replace(/\\/g, "\\\\")
+          .replace(/%/g, "\\%")
+          .replace(/_/g, "\\_")
+        parts.push(`${prefix}"${field}" LIKE ? ESCAPE '\\'`)
+        params.push(`%${escaped}`)
         break
+      }
       case "ne":
         parts.push(`${prefix}"${field}" != ?`)
         params.push(value)
@@ -128,12 +143,15 @@ export function createDOSQLiteAdapter(sql: SqlApi) {
         model,
         where,
         select,
+        join,
       }: {
         model: string
         where: CleanedWhere[]
         select?: string[]
         join?: unknown
       }): Promise<T | null> {
+        if (join) throw new Error("DOSQLiteAdapter: join queries are not supported. Use separate queries instead.")
+
         const table = `_auth_${model}`
         const selectCols =
           select && select.length > 0
@@ -162,6 +180,7 @@ export function createDOSQLiteAdapter(sql: SqlApi) {
         select,
         sortBy,
         offset,
+        join,
       }: {
         model: string
         where?: CleanedWhere[]
@@ -171,6 +190,8 @@ export function createDOSQLiteAdapter(sql: SqlApi) {
         offset?: number
         join?: unknown
       }): Promise<T[]> {
+        if (join) throw new Error("DOSQLiteAdapter: join queries are not supported. Use separate queries instead.")
+
         const table = `_auth_${model}`
         const selectCols =
           select && select.length > 0
@@ -209,6 +230,8 @@ export function createDOSQLiteAdapter(sql: SqlApi) {
         where: CleanedWhere[]
         update: T
       }): Promise<T | null> {
+        if (where.length === 0) throw new Error("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+
         const table = `_auth_${model}`
         const updateData = update as Record<string, unknown>
         const keys = Object.keys(updateData)
@@ -235,22 +258,19 @@ export function createDOSQLiteAdapter(sql: SqlApi) {
         where: CleanedWhere[]
         update: Record<string, any>
       }): Promise<number> {
+        if (where.length === 0) throw new Error("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+
         const table = `_auth_${model}`
         const keys = Object.keys(update)
         const setClauses = keys.map((k) => `"${k}" = ?`).join(", ")
         const setValues = keys.map((k) => update[k])
 
         const built = buildWhere(where)
-
-        // Count affected rows before update
-        const countQuery = `SELECT COUNT(*) as cnt FROM "${table}" WHERE ${built.sql}`
-        const countRows = sql.exec(countQuery, ...built.params).toArray()
-        const count = (countRows[0]?.cnt ?? 0) as number
-
         const query = `UPDATE "${table}" SET ${setClauses} WHERE ${built.sql}`
         sql.exec(query, ...setValues, ...built.params)
 
-        return count
+        const cnt = sql.exec("SELECT changes() as cnt").toArray()[0]?.cnt ?? 0
+        return cnt as number
       },
 
       async delete({
@@ -260,6 +280,8 @@ export function createDOSQLiteAdapter(sql: SqlApi) {
         model: string
         where: CleanedWhere[]
       }): Promise<void> {
+        if (where.length === 0) throw new Error("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+
         const table = `_auth_${model}`
         const built = buildWhere(where)
         sql.exec(`DELETE FROM "${table}" WHERE ${built.sql}`, ...built.params)
@@ -272,17 +294,14 @@ export function createDOSQLiteAdapter(sql: SqlApi) {
         model: string
         where: CleanedWhere[]
       }): Promise<number> {
+        if (where.length === 0) throw new Error("DOSQLiteAdapter: empty where clause not allowed in update/delete")
+
         const table = `_auth_${model}`
         const built = buildWhere(where)
-
-        // Count before deletion
-        const countRows = sql
-          .exec(`SELECT COUNT(*) as cnt FROM "${table}" WHERE ${built.sql}`, ...built.params)
-          .toArray()
-        const count = (countRows[0]?.cnt ?? 0) as number
-
         sql.exec(`DELETE FROM "${table}" WHERE ${built.sql}`, ...built.params)
-        return count
+
+        const cnt = sql.exec("SELECT changes() as cnt").toArray()[0]?.cnt ?? 0
+        return cnt as number
       },
 
       async count({
@@ -318,13 +337,15 @@ function fieldTypeToSQLite(type: DBFieldAttribute["type"]): string {
   if (type.endsWith("[]")) return "TEXT"
   switch (type) {
     case "string": return "TEXT"
-    case "number": return "REAL"
+    case "number": return "INTEGER"
     case "boolean": return "INTEGER"
     case "date": return "TEXT"
     case "json": return "TEXT"
     default: return "TEXT"
   }
 }
+
+type DBFieldAttributeConfig = DBFieldAttribute & { unique?: boolean }
 
 export function runAuthMigrations(sql: SqlApi, options: BetterAuthOptions): void {
   const schema = getSchema(options)
@@ -364,6 +385,16 @@ export function runAuthMigrations(sql: SqlApi, options: BetterAuthOptions): void
           const sqlType = fieldTypeToSQLite(attr.type)
           sql.exec(`ALTER TABLE "${table}" ADD COLUMN "${fieldName}" ${sqlType}`)
         }
+      }
+    }
+
+    // Create UNIQUE indexes for fields marked unique
+    for (const [fieldName, attr] of Object.entries(fields)) {
+      const fieldDef = attr as DBFieldAttributeConfig
+      if (fieldDef.unique === true) {
+        sql.exec(
+          `CREATE UNIQUE INDEX IF NOT EXISTS "idx_${table}_${fieldName}" ON "${table}" ("${fieldName}")`
+        )
       }
     }
   }
