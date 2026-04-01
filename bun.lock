@@ -49,7 +49,7 @@
     },
     "packages/cli": {
       "name": "@zeroback/cli",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "bin": {
         "zeroback": "./dist/index.js",
       },
@@ -69,7 +69,7 @@
     },
     "packages/client": {
       "name": "@zeroback/client",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@zeroback/server": "workspace:^",
         "@zeroback/values": "workspace:^",
@@ -80,7 +80,7 @@
     },
     "packages/dashboard": {
       "name": "@zeroback/dashboard",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@tanstack/react-router": "^1.167.0",
         "@tanstack/react-table": "^8.21.0",
@@ -108,7 +108,7 @@
     },
     "packages/react": {
       "name": "@zeroback/react",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@zeroback/client": "workspace:^",
         "@zeroback/server": "workspace:^",
@@ -124,11 +124,11 @@
     },
     "packages/server": {
       "name": "@zeroback/server",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@zeroback/values": "workspace:^",
         "better-auth": "^1.5.6",
-        "ulidx": "^2.4.1",
+        "typeid-js": "^1.2.0",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "^4.20260301.1",
@@ -137,7 +137,7 @@
     },
     "packages/solid": {
       "name": "@zeroback/solid",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@zeroback/client": "workspace:*",
         "@zeroback/server": "workspace:*",
@@ -156,7 +156,10 @@
     },
     "packages/values": {
       "name": "@zeroback/values",
-      "version": "0.0.23",
+      "version": "0.0.24",
+      "dependencies": {
+        "typeid-js": "^1.2.0",
+      },
       "devDependencies": {
         "typescript": "^5.6.0",
       },
@@ -1573,6 +1576,8 @@
 
     "type-fest": ["type-fest@4.41.0", "", {}, "sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA=="],
 
+    "typeid-js": ["typeid-js@1.2.0", "", { "dependencies": { "uuid": "^10.0.0" } }, "sha512-t76ZucAnvGC60ea/HjVsB0TSoB0cw9yjnfurUgtInXQWUI/VcrlZGpO23KN3iSe8yOGUgb1zr7W7uEzJ3hSljA=="],
+
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "ufo": ["ufo@1.6.3", "", {}, "sha512-yDJTmhydvl5lJzBmy/hyOAA0d+aqCBuwl818haVdYCRrWV84o7YyeVm4QlVHStqNrrJSTb6jKuFAVqAFsr+K3Q=="],
@@ -1622,6 +1627,8 @@
     "use-sync-external-store": ["use-sync-external-store@1.6.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w=="],
 
     "util-deprecate": ["util-deprecate@1.0.2", "", {}, "sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw=="],
+
+    "uuid": ["uuid@10.0.0", "", { "bin": { "uuid": "dist/bin/uuid" } }, "sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ=="],
 
     "vfile": ["vfile@6.0.3", "", { "dependencies": { "@types/unist": "^3.0.0", "vfile-message": "^4.0.0" } }, "sha512-KzIbH/9tXat2u30jf+smMwFCsno4wHVdNmzFyL+T/L3UGqqk6JKfVqOFOZEpZSHADH1k40ab6NUIXZq422ov3Q=="],
 
