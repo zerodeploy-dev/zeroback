@@ -84,6 +84,10 @@ export function migrateIds(options: MigrateOptions): void {
 
   const globalIdMap = new Map<string, string>()
 
+  // Wrap in a transaction for all-or-nothing migration
+  sql.exec("BEGIN TRANSACTION")
+
+  try {
   // Phase 1: Build ID mappings
   for (const [tableName] of Object.entries(schema.tables)) {
     const prefix = prefixMap.get(tableName)!
@@ -142,5 +146,10 @@ export function migrateIds(options: MigrateOptions): void {
     }
   }
 
+  sql.exec("COMMIT")
   console.log(`Migrated ${globalIdMap.size} IDs successfully.`)
+  } catch (err) {
+    sql.exec("ROLLBACK")
+    throw err
+  }
 }

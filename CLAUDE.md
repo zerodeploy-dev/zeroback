@@ -26,7 +26,7 @@ docs/         - API documentation
 - **ZerobackDO** (`packages/runtime/src/ZerobackDO.ts`) is the main Durable Object, created via `createZerobackDO(config)`. It handles all state, transactions, subscriptions, and WebSocket connections.
 - **Codegen** analyzes user's `zeroback/` directory and generates typed API references, function factories, DataModel types, and a manifest into `zeroback/_generated/`.
 - All filters compile to SQL WHERE clauses via `json_extract` for efficiency.
-- IDs are ULID-based in `"tableName:ULID"` format. `_creationTime` is derived from the ULID.
+- IDs use TypeID format `"prefix_base32uuidv7"` (e.g., `posts_01h455vb4pex5vsknk084sn02q`). `_creationTime` is derived from the UUIDv7 timestamp. Custom prefixes configurable via `.idPrefix()` on `defineTable`.
 
 ## Development
 

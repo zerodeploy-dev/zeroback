@@ -17,6 +17,10 @@
     "./runtime": {
       "types": "./dist/runtime/index.d.ts",
       "import": "./dist/runtime/index.js"
+    },
+    "./migration": {
+      "types": "./dist/migration/migrateIds.d.ts",
+      "import": "./dist/migration/migrateIds.js"
     }
   },
   "files": [
