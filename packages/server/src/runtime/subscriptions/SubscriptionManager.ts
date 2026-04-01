@@ -1,6 +1,7 @@
 import type { ReadSetEntry } from "@zeroback/server";
 import type { QueryDescriptor } from "../transaction/TransactionStore";
 import { evaluateFilter } from "../db/FilterEngine";
+import type { UserIdentity } from "@zeroback/values";
 
 export interface Subscription {
   id: string;
@@ -12,6 +13,8 @@ export interface Subscription {
   queryDescriptors: QueryDescriptor[];
   /** Pre-serialized JSON of the last result (for fast comparison + reuse in sends). */
   lastResultJSON: string;
+  /** Identity of the connection that registered this subscription, used for re-execution. */
+  identity?: UserIdentity | null;
 }
 
 export class SubscriptionManager {
@@ -50,7 +53,7 @@ export class SubscriptionManager {
 
   async invalidate(
     writeSet: { table: string; documentId: string; data: unknown | null; oldData?: unknown }[],
-    invokeFunction: (fnName: string, args: unknown) => Promise<{ result: unknown; readSet: ReadSetEntry[]; queryDescriptors: QueryDescriptor[] }>
+    invokeFunction: (fnName: string, args: unknown, identity?: UserIdentity | null) => Promise<{ result: unknown; readSet: ReadSetEntry[]; queryDescriptors: QueryDescriptor[] }>
   ): Promise<void> {
     // 1. Use table index to find candidate subscriptions (fast)
     const candidateIds = new Set<string>();
@@ -80,7 +83,7 @@ export class SubscriptionManager {
   }
 
   async invalidateAll(
-    invokeFunction: (fnName: string, args: unknown) => Promise<{ result: unknown; readSet: ReadSetEntry[]; queryDescriptors: QueryDescriptor[] }>
+    invokeFunction: (fnName: string, args: unknown, identity?: UserIdentity | null) => Promise<{ result: unknown; readSet: ReadSetEntry[]; queryDescriptors: QueryDescriptor[] }>
   ): Promise<void> {
     await this.rerunAndFlush(this.subs.values(), invokeFunction, true);
   }
@@ -92,12 +95,13 @@ export class SubscriptionManager {
    */
   private async rerunAndFlush(
     subscriptions: Iterable<Subscription>,
-    invokeFunction: (fnName: string, args: unknown) => Promise<{ result: unknown; readSet: ReadSetEntry[]; queryDescriptors: QueryDescriptor[] }>,
+    invokeFunction: (fnName: string, args: unknown, identity?: UserIdentity | null) => Promise<{ result: unknown; readSet: ReadSetEntry[]; queryDescriptors: QueryDescriptor[] }>,
     alwaysSend: boolean
   ): Promise<void> {
     const groups = new Map<string, Subscription[]>();
     for (const sub of subscriptions) {
-      const key = sub.fnName + "\0" + stableStringify(sub.args);
+      // Include identity in the group key so queries with different identities are re-run separately
+      const key = sub.fnName + "\0" + stableStringify(sub.args) + "\0" + JSON.stringify(sub.identity ?? null);
       let group = groups.get(key);
       if (!group) {
         group = [];
@@ -112,7 +116,7 @@ export class SubscriptionManager {
       async ([_key, subs]) => {
         const representative = subs[0];
         try {
-          const newResult = await invokeFunction(representative.fnName, representative.args);
+          const newResult = await invokeFunction(representative.fnName, representative.args, representative.identity);
           const newResultJSON = JSON.stringify(newResult.result);
 
           for (const sub of subs) {

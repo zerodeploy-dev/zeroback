@@ -107,11 +107,11 @@ export async function executeMutation(
 
         // 3. Invalidate affected subscriptions
         if (writeSet.length > 0) {
-          await deps.subscriptions.invalidate(enrichedWriteSet, async (fn, a) => {
+          await deps.subscriptions.invalidate(enrichedWriteSet, async (fn, a, subIdentity) => {
             const subTxId = crypto.randomUUID();
             deps.transactions.begin(subTxId, deps.getLatestTs(), "query");
             try {
-              return await deps.invokeFunction(fn, a, subTxId);
+              return await deps.invokeFunction(fn, a, subTxId, subIdentity);
             } finally {
               deps.transactions.remove(subTxId);
             }

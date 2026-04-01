@@ -80,7 +80,9 @@ export function createZerobackDO(config: RuntimeConfig): {
 
     if (config.authDef) {
       this.auth = new AuthManager(this.sql, config.authDef, env as unknown as Record<string, unknown>);
-      this.auth.runMigrations();
+      ctx.blockConcurrencyWhile(async () => {
+        await this.auth!.runMigrations()
+      })
     }
 
     this.reader = new DOSQLiteReader(this.sql, this.tableColumns);
@@ -137,6 +139,8 @@ export function createZerobackDO(config: RuntimeConfig): {
       const connectionId = tags[0];
       if (connectionId) {
         this.connections.add(ws, connectionId);
+        // Note: connectionIdentities are not restored after hibernation.
+        // Clients receive a "reset" message and will reconnect, re-establishing identity.
         ws.send('{"type":"reset"}');
       }
     }
@@ -219,7 +223,7 @@ export function createZerobackDO(config: RuntimeConfig): {
       this.auth.setBaseUrl(headerBaseUrl);
     }
 
-    if (this.auth) {
+    if (this.auth && path.startsWith("/auth/")) {
       const authResponse = await this.auth.handleRequest(req);
       if (authResponse) return authResponse;
     }
@@ -387,8 +391,10 @@ export function createZerobackDO(config: RuntimeConfig): {
     this.ctx.acceptWebSocket(server, [connectionId]);
     this.connections.add(server, connectionId);
 
-    const identity = this.auth ? await this.auth.getSessionFromHeaders(req.headers) : null;
-    this.connectionIdentities.set(connectionId, identity);
+    if (this.auth) {
+      const identity = await this.auth.getSessionFromHeaders(req.headers);
+      this.connectionIdentities.set(connectionId, identity);
+    }
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -620,6 +626,7 @@ export function createZerobackDO(config: RuntimeConfig): {
         readSet: result.readSet,
         queryDescriptors: result.queryDescriptors,
         lastResultJSON: resultJSON,
+        identity,
       });
 
       ws.send(`{"type":"result","id":${JSON.stringify(msg.id)},"result":${resultJSON}}`);
@@ -685,7 +692,7 @@ export function createZerobackDO(config: RuntimeConfig): {
         const txId = crypto.randomUUID();
         this.transactions.begin(txId, this.latestTs, "query");
         try {
-          const result = await this.invokeFunction(fnName, args ?? {}, txId);
+          const result = await this.invokeFunction(fnName, args ?? {}, txId, identity);
           return result.result as T;
         } finally {
           this.transactions.remove(txId);
@@ -694,7 +701,7 @@ export function createZerobackDO(config: RuntimeConfig): {
       runMutation: async <T>(fnName: string, args?: Record<string, unknown>): Promise<T> => {
         const fn = this.functions[fnName];
         if (!fn || fn.type !== "mutation") throw new Error(`Mutation not found: ${fnName}`);
-        return executeMutation(this.mutationDeps, fnName, args ?? {}) as T;
+        return executeMutation(this.mutationDeps, fnName, args ?? {}, identity) as T;
       },
       runAction: async <T>(fnName: string, args?: Record<string, unknown>): Promise<T> => {
         const fn = this.functions[fnName];
