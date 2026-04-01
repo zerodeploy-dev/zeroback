@@ -89,8 +89,10 @@ export type TableDefinition<F> = {
   _doc: F;
   indexes: TableIndex[];
   searchIndexes: SearchIndex[];
+  _idPrefix?: string;
   index(name: string, fields: string[]): TableDefinition<F>;
   searchIndex(name: string, opts: { searchField: string }): TableDefinition<F>;
+  idPrefix(prefix: string): TableDefinition<F>;
 };
 
 export type TableIndex = {
@@ -157,6 +159,7 @@ export type SchemaJSON = {
       fields: Record<string, ValidatorJSON>;
       indexes: { name: string; fields: string[] }[];
       searchIndexes?: { name: string; searchField: string }[];
+      idPrefix?: string;
     }
   >;
 };
