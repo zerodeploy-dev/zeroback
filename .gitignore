@@ -23,3 +23,4 @@ tsconfig.tsbuildinfo
 
 docs/.astro/
 plans
+.worktrees/
