@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useContext, createContext, useSyncExternalStore, useRef } from "react";
 import { ZerobackClient, QueryStore, subscribePaginationPages, computeStatus } from "@zeroback/client";
-import type { ConnectionState, LocalStore, FunctionReference, PaginationStatus } from "@zeroback/client";
+import type { ConnectionState, LocalStore, FunctionReference, PaginationStatus, Preloaded } from "@zeroback/client";
 
 const ZerobackContext = createContext<ZerobackClient | null>(null);
 
@@ -64,6 +64,48 @@ export function useQueryWithStatus<Ref extends FunctionReference<"query", any, a
   const isStale = !isLoading && !client.hasServerResult(queryKey);
 
   return { data, isStale, isLoading };
+}
+
+export function usePreloadedQuery<Ref extends FunctionReference<"query", any, any>>(
+  preloaded: Preloaded<Ref>
+): Ref["_returns"] {
+  const client = useContext(ZerobackContext)
+  const argsStr = JSON.stringify(preloaded._args ?? {})
+  const queryKey = QueryStore.makeKey(preloaded._fn, preloaded._args ?? {})
+
+  // On mount: seed the QueryStore with the preloaded result, then subscribe.
+  // Skipped on SSR (client is null) and runs only in the browser.
+  useEffect(() => {
+    if (!client) return
+    client.queryStore.setServerResult(queryKey, preloaded._result)
+    const unsubscribe = client.subscribe(preloaded._fn, preloaded._args ?? {})
+    return unsubscribe
+  }, [client, preloaded._fn, argsStr])
+
+  const subscribe = useCallback(
+    (cb: () => void) => {
+      if (!client) return () => {}
+      return client.watchQuery(queryKey, cb)
+    },
+    [client, queryKey],
+  )
+
+  // On the client: return store result (may be updated by WS), falling back to preloaded.
+  const getSnapshot = useCallback(
+    () => (client
+      ? (client.getQueryResult(queryKey) ?? preloaded._result) as Ref["_returns"]
+      : preloaded._result as Ref["_returns"]
+    ),
+    [client, queryKey],
+  )
+
+  // On the server: always return the preloaded result — never undefined.
+  const getServerSnapshot = useCallback(
+    () => preloaded._result as Ref["_returns"],
+    [],
+  )
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }
 
 export function useMutation<Ref extends FunctionReference<"mutation", any, any>>(
