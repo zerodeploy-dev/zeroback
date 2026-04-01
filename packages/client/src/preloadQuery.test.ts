@@ -85,8 +85,34 @@ describe("preloadQuery", () => {
       .rejects.toThrow("HTTP 500")
   })
 
-  it("throws a clear error when URL does not end with /ws", async () => {
-    await expect(preloadQuery("wss://example.com", fakeRef))
-      .rejects.toThrow('deploymentUrl must end with "/ws"')
+  it("accepts a bare http URL without /ws path", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ result: [] }), { status: 200 })
+    )
+
+    await preloadQuery("http://localhost:8788", fakeRef, {})
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://localhost:8788/query",
+      expect.anything()
+    )
+  })
+
+  it("accepts a bare wss URL without /ws path", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ result: [] }), { status: 200 })
+    )
+
+    await preloadQuery("wss://example.com", fakeRef, {})
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://example.com/query",
+      expect.anything()
+    )
+  })
+
+  it("throws a clear error for unsupported URL protocols", async () => {
+    await expect(preloadQuery("ftp://example.com/ws", fakeRef))
+      .rejects.toThrow('unsupported URL')
   })
 })

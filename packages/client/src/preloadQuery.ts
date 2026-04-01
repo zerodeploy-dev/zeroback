@@ -7,18 +7,23 @@ export type Preloaded<Ref extends FunctionReference<"query", any, any>> = {
 }
 
 /**
- * Convert a Zeroback WebSocket URL to the HTTP /query endpoint URL.
+ * Normalize any Zeroback deployment URL to the HTTP /query endpoint URL.
+ * Accepts ws://, wss://, http://, or https:// — with or without a trailing /ws path.
  *   ws://localhost:8788/ws  → http://localhost:8788/query
  *   wss://example.com/ws   → https://example.com/query
+ *   http://localhost:8788   → http://localhost:8788/query
+ *   https://example.com     → https://example.com/query
  */
-function toQueryUrl(wsUrl: string): string {
-  if (!wsUrl.endsWith("/ws")) {
-    throw new Error(`preloadQuery: deploymentUrl must end with "/ws" (got: ${wsUrl})`)
+function toQueryUrl(url: string): string {
+  url = url.replace(/\/$/, "")
+  if (url.endsWith("/ws")) url = url.slice(0, -3)
+  url = url.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://")
+  if (!/^https?:\/\//.test(url)) {
+    throw new Error(
+      `preloadQuery: unsupported URL "${url}". Pass your ZEROBACK_URL directly — e.g. "ws://localhost:8788/ws" or "http://localhost:8788".`
+    )
   }
-  return wsUrl
-    .replace(/^wss:\/\//, "https://")
-    .replace(/^ws:\/\//, "http://")
-    .replace(/\/ws$/, "/query")
+  return url + "/query"
 }
 
 /**
