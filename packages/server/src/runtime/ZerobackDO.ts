@@ -304,9 +304,16 @@ export function createZerobackDO(config: RuntimeConfig): {
   private async handleQueryHttp(req: Request): Promise<Response> {
     const json = { "Content-Type": "application/json" }
     try {
-      const body = (await req.json()) as { fn: string; args?: unknown }
+      const body = (await req.json()) as { fn?: unknown; args?: unknown }
       const fnName = body.fn
       const args = body.args ?? {}
+
+      if (!fnName || typeof fnName !== "string") {
+        return new Response(
+          JSON.stringify({ error: "Missing required field: fn", code: ErrorCode.BAD_REQUEST }),
+          { status: 400, headers: json }
+        )
+      }
 
       const fn = this.functions[fnName]
       if (!fn) {

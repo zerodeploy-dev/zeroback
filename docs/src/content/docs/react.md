@@ -401,7 +401,7 @@ const preloaded = await preloadQuery(
 
 | Parameter | Type | Description |
 |---|---|---|
-| `deploymentUrl` | `string` | Your Zeroback WebSocket URL (same as `ZerobackClient`) |
+| `deploymentUrl` | `string` | Your Zeroback WebSocket URL — must end with `/ws` (same as `ZerobackClient`) |
 | `ref` | `FunctionReference<"query">` | A query reference from `api.*` |
 | `args` | `Ref["_args"]` | Query arguments. Defaults to `{}`. |
 

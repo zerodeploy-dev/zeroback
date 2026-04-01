@@ -89,6 +89,17 @@ describe("POST /query", () => {
     const body = await res.json() as { code: string }
     expect(body.code).toBe("bad_request")
   })
+
+  it("returns 400 when fn field is missing", async () => {
+    const res = await fetch("http://localhost:8788/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ args: {} }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json() as { code: string }
+    expect(body.code).toBe("bad_request")
+  })
 })
 
 // ---------------------------------------------------------------------------

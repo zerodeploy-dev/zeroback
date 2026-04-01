@@ -86,7 +86,7 @@ export function usePreloadedQuery<Ref extends FunctionReference<"query", any, an
   // Skipped on SSR (client is null) and runs only in the browser.
   useEffect(() => {
     if (!client) return
-    client.queryStore.setServerResult(queryKey, preloaded._result)
+    client.setServerResult(queryKey, preloaded._result)
     const unsubscribe = client.subscribe(preloaded._fn, preloaded._args ?? {})
     return unsubscribe
   }, [client, preloaded._fn, argsStr, queryKey])

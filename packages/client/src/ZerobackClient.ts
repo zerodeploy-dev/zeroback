@@ -103,6 +103,10 @@ export class ZerobackClient {
     return this.queryStore.hasServerConfirmation(key);
   }
 
+  setServerResult(key: QueryKey, result: unknown): void {
+    this.queryStore.setServerResult(key, result)
+  }
+
   get connectionState(): ConnectionState {
     return this._connectionState;
   }
