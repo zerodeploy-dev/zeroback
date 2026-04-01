@@ -29,8 +29,10 @@ const command = process.argv[2];
 
 switch (command) {
   case "init": {
-    const dir = process.argv[3] || ".";
-    init(dir).catch((e) => {
+    const args = process.argv.slice(3);
+    const noAuth = args.includes("--no-auth");
+    const dir = args.find((a) => !a.startsWith("--")) ?? ".";
+    init(dir, { noAuth }).catch((e) => {
       console.error(e);
       process.exit(1);
     });
@@ -108,7 +110,7 @@ switch (command) {
 zeroback - Open-source backend on Cloudflare
 
 Usage:
-  zeroback init [dir]                          Scaffold a new project
+  zeroback init [dir] [--no-auth]              Scaffold a new project (auth enabled by default)
   zeroback dev [functionsDir]                  Start development server
   zeroback codegen [functionsDir]              Run codegen without starting dev server
   zeroback deploy [functionsDir] [--dry-run] [-- …]  Codegen + wrangler deploy

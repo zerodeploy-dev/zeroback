@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync, appendFileSync } fr
 import * as path from "path";
 import { prepareWorkerDir } from "./prepare.js";
 
-export async function init(projectDir: string = "."): Promise<void> {
+export async function init(projectDir: string = ".", options: { noAuth?: boolean } = {}): Promise<void> {
   console.log("▲ zeroback init\n");
 
   const resolved = path.resolve(projectDir);
@@ -64,13 +64,33 @@ export const toggle = mutation({
 `
   );
 
+  // zeroback/auth.ts — scaffolded by default, skip with --no-auth
+  if (!options.noAuth) {
+    writeFileSync(
+      path.join(vexDir, "auth.ts"),
+      `import { defineAuth } from "@zeroback/server"
+
+export const auth = defineAuth({
+  emailAndPassword: true,
+  // OAuth providers — add client ID/secret to your environment variables
+  // providers: [{ type: "google" }, { type: "github" }],
+  //
+  // Cross-origin deployments (e.g. your frontend is on a different domain):
+  // trustedOrigins: ["https://your-app.com"],
+})
+`
+    );
+  }
+
   // zeroback/_generated/server.ts — stub so imports work before first codegen run
+  const authCtxImport = options.noAuth ? `` : `\nimport type { AuthCtx } from "@zeroback/server";`;
+  const authParam = options.noAuth ? `` : `, AuthCtx`;
   writeFileSync(
     path.join(generatedDir, "server.ts"),
-    `import { createQueryFactory, createMutationFactory } from "@zeroback/server";
+    `import { createQueryFactory, createMutationFactory } from "@zeroback/server";${authCtxImport}
 
-export const query = createQueryFactory<any>();
-export const mutation = createMutationFactory<any>();
+export const query = createQueryFactory<any${authParam}>();
+export const mutation = createMutationFactory<any${authParam}>();
 `
   );
 
@@ -91,6 +111,7 @@ export const mutation = createMutationFactory<any>();
 
   console.log("  ✓ zeroback/schema.ts");
   console.log("  ✓ zeroback/tasks.ts");
+  if (!options.noAuth) console.log("  ✓ zeroback/auth.ts");
   console.log("  ✓ zeroback/_generated/server.ts");
   console.log(`
 Next steps:
