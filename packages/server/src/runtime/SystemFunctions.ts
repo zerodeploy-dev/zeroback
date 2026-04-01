@@ -1,7 +1,23 @@
 import type { SchemaJSON, FilterExpressionJSON, ExprJSON } from "@zeroback/server"
+import { DatabaseReader, DatabaseWriter } from "@zeroback/server"
 import type { TableColumnInfo } from "./db/SchemaMapper"
 import type { SqlApi } from "./types"
 import type { FunctionDef } from "./ZerobackDO"
+
+type QueryCtx = { db: DatabaseReader<Record<string, unknown>> }
+type MutationCtx = { db: DatabaseWriter<Record<string, unknown>> }
+
+function systemQuery<A>(handler: (ctx: QueryCtx, args: A) => Promise<unknown>): FunctionDef {
+  return { type: "query", isInternal: false, handler: handler as FunctionDef["handler"] }
+}
+
+function systemMutation<A>(handler: (ctx: MutationCtx, args: A) => Promise<unknown>): FunctionDef {
+  return { type: "mutation", isInternal: false, handler: handler as FunctionDef["handler"] }
+}
+
+function systemAction<A>(handler: (ctx: unknown, args: A) => Promise<unknown>): FunctionDef {
+  return { type: "action", isInternal: false, handler: handler as FunctionDef["handler"] }
+}
 
 export interface SystemFunctionDeps {
   sql: SqlApi
@@ -66,134 +82,108 @@ export function createSystemFunctions(deps: SystemFunctionDeps): Record<string, 
   const { sql, schemaInfo } = deps
 
   return {
-    "_system:getSchema": {
-      type: "query",
-      isInternal: false,
-      handler: async (_ctx, _args) => {
-        return schemaInfo
-      },
-    },
+    "_system:getSchema": systemQuery(async (_ctx, _args: unknown) => {
+      return schemaInfo
+    }),
 
-    "_system:getTableCount": {
-      type: "query",
-      isInternal: false,
-      handler: async (ctx, args) => {
-        const { table } = args
-        if (!schemaInfo.tables[table]) throw new Error(`Table not found: ${table}`)
+    "_system:getTableCount": systemQuery(async (ctx, args: { table: string }) => {
+      const { table } = args
+      if (!schemaInfo.tables[table]) throw new Error(`Table not found: ${table}`)
 
-        // Dummy read to register query descriptor for subscription invalidation
-        await ctx.db.queryRaw(table, null, null, "asc", 1)
+      // Dummy read to register query descriptor for subscription invalidation
+      await ctx.db.queryRaw(table, null, null, "asc", 1)
 
-        const result = sql.exec(`SELECT COUNT(*) as count FROM "${table}"`).toArray()
-        const row = result[0]
-        return row ? row["count"] ?? 0 : 0
-      },
-    },
+      const result = sql.exec(`SELECT COUNT(*) as count FROM "${table}"`).toArray()
+      const row = result[0]
+      return row ? row["count"] ?? 0 : 0
+    }),
 
-    "_system:listDocuments": {
-      type: "query",
-      isInternal: false,
-      handler: async (ctx, args) => {
-        const {
-          table,
-          cursor = null,
-          numItems = 50,
-          sort,
-          filters,
-        } = args
+    "_system:listDocuments": systemQuery(async (ctx, args: {
+      table: string
+      cursor?: string | null
+      numItems?: number
+      sort?: { field: string; direction: string }
+      filters?: { field: string; op: string; value: unknown }[]
+    }) => {
+      const {
+        table,
+        cursor = null,
+        numItems = 50,
+        sort,
+        filters,
+      } = args
 
-        if (!schemaInfo.tables[table]) throw new Error(`Table not found: ${table}`)
+      if (!schemaInfo.tables[table]) throw new Error(`Table not found: ${table}`)
 
-        const orderField: string | null = sort?.field ?? null
-        const orderDirection: "asc" | "desc" = sort?.direction === "asc" ? "asc" : "desc"
-        const filterExpr = buildFilterExpression(filters ?? [])
-        const keysetCursor = cursor ? decodeCursor(cursor) : null
+      const orderField: string | null = sort?.field ?? null
+      const orderDirection: "asc" | "desc" = sort?.direction === "asc" ? "asc" : "desc"
+      const filterExpr = buildFilterExpression(filters ?? [])
+      const keysetCursor = cursor ? decodeCursor(cursor) : null
 
-        const results: Record<string, unknown>[] = await ctx.db.queryRaw(
-          table,
-          filterExpr,
-          orderField,
-          orderDirection,
-          numItems + 1,
-          null,
-          keysetCursor,
-          null
-        )
+      const results: Record<string, unknown>[] = await ctx.db.queryRaw(
+        table,
+        filterExpr,
+        orderField,
+        orderDirection,
+        numItems + 1,
+        null,
+        keysetCursor,
+        null
+      )
 
-        const hasMore = results.length > numItems
-        const page = hasMore ? results.slice(0, numItems) : results
+      const hasMore = results.length > numItems
+      const page = hasMore ? results.slice(0, numItems) : results
 
-        let continueCursor: string | null = null
-        if (hasMore && page.length > 0) {
-          const last = page[page.length - 1]
-          const sf = orderField ?? "_id"
-          continueCursor = encodeCursor({
-            sortValue: last[sf],
-            lastId: String(last["_id"]),
-            sortField: sf,
-            direction: orderDirection,
-          })
-        }
+      let continueCursor: string | null = null
+      if (hasMore && page.length > 0) {
+        const last = page[page.length - 1]
+        const sf = orderField ?? "_id"
+        continueCursor = encodeCursor({
+          sortValue: last[sf],
+          lastId: String(last["_id"]),
+          sortField: sf,
+          direction: orderDirection,
+        })
+      }
 
-        return { page, continueCursor, isDone: !hasMore }
-      },
-    },
+      return { page, continueCursor, isDone: !hasMore }
+    }),
 
-    "_system:getDocument": {
-      type: "query",
-      isInternal: false,
-      handler: async (ctx, args) => {
-        return ctx.db.get(args.id)
-      },
-    },
+    "_system:getDocument": systemQuery(async (ctx, args: { id: string }) => {
+      return ctx.db.get(args.id)
+    }),
 
-    "_system:insertDocument": {
-      type: "mutation",
-      isInternal: false,
-      handler: async (ctx, args) => {
-        const { table, data } = args
-        if (!schemaInfo.tables[table]) throw new Error(`Table not found: ${table}`)
-        return ctx.db.insert(table, data)
-      },
-    },
+    "_system:insertDocument": systemMutation(async (ctx, args: { table: string; data: Record<string, unknown> }) => {
+      const { table, data } = args
+      if (!schemaInfo.tables[table]) throw new Error(`Table not found: ${table}`)
+      return ctx.db.insert(table, data)
+    }),
 
-    "_system:updateDocument": {
-      type: "mutation",
-      isInternal: false,
-      handler: async (ctx, args) => {
-        await ctx.db.patch(args.id, args.fields)
-      },
-    },
+    "_system:updateDocument": systemMutation(async (ctx, args: { id: string; fields: Record<string, unknown> }) => {
+      await ctx.db.patch(args.id, args.fields)
+    }),
 
-    "_system:deleteDocument": {
-      type: "mutation",
-      isInternal: false,
-      handler: async (ctx, args) => {
-        await ctx.db.delete(args.id)
-      },
-    },
+    "_system:deleteDocument": systemMutation(async (ctx, args: { id: string }) => {
+      await ctx.db.delete(args.id)
+    }),
 
-    "_system:runSQL": {
-      type: "action",
-      isInternal: false,
-      handler: async (_ctx, args) => {
-        const trimmed = String(args.query).trim()
+    "_system:runSQL": systemAction(async (_ctx, args: { query: string }) => {
+      const trimmed = String(args.query).trim()
 
-        // Only allow SELECT queries
-        if (!/^SELECT\s/i.test(trimmed)) {
-          throw new Error("Only SELECT queries are allowed")
-        }
-        // Block multiple statements
-        if (/;\s*\S/i.test(trimmed)) {
-          throw new Error("Multiple statements are not allowed")
-        }
+      // Only allow SELECT queries
+      if (!/^SELECT\s/i.test(trimmed)) {
+        throw new Error("Only SELECT queries are allowed")
+      }
+      // Block multiple statements
+      if (/;\s*\S/i.test(trimmed)) {
+        throw new Error("Multiple statements are not allowed")
+      }
 
-        const rows = sql.exec(trimmed).toArray()
-        return {
-          rows,
-          columns: rows.length > 0 ? Object.keys(rows[0]) : [],
-        }
-      },
-    },
+      const rows = sql.exec(trimmed).toArray()
+      return {
+        rows,
+        columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+      }
+    }),
   }
 }

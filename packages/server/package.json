@@ -16,6 +16,7 @@
   },
   "files": ["dist"],
   "dependencies": {
+    "@zeroback/dashboard": "workspace:^",
     "@zeroback/values": "workspace:^",
     "ulidx": "^2.4.1"
   },
@@ -26,7 +27,6 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260301.1",
-    "@zeroback/dashboard": "workspace:^",
     "typescript": "^5.6.0"
   },
   "publishConfig": {
