@@ -20,8 +20,6 @@ _generated/
 *.d.ts
 *.d.ts.map
 tsconfig.tsbuildinfo
-# Auto-generated dashboard embed
-packages/server/src/runtime/dashboard-html.ts
 
 docs/.astro/
 plans
