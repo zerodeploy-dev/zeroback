@@ -16,7 +16,6 @@
   },
   "files": ["dist"],
   "dependencies": {
-    "@zeroback/dashboard": "workspace:^",
     "@zeroback/values": "workspace:^",
     "ulidx": "^2.4.1"
   },

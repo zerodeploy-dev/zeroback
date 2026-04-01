@@ -126,7 +126,6 @@
       "name": "@zeroback/server",
       "version": "0.0.23",
       "dependencies": {
-        "@zeroback/dashboard": "workspace:^",
         "@zeroback/values": "workspace:^",
         "ulidx": "^2.4.1",
       },
