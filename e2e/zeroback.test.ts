@@ -43,6 +43,55 @@ async function expectNoUpdate(c: ZerobackTestClient, subId: string, waitMs = 100
 }
 
 // ---------------------------------------------------------------------------
+// HTTP query endpoint — POST /query
+// ---------------------------------------------------------------------------
+describe("POST /query", () => {
+  it("returns result for a valid query", async () => {
+    const res = await fetch("http://localhost:8788/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fn: "tasks:recent", args: { limit: 5 } }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json() as { result: unknown }
+    expect(Array.isArray(body.result)).toBe(true)
+  })
+
+  it("returns 403 for an internal function", async () => {
+    const res = await fetch("http://localhost:8788/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fn: "tasks:countInternal", args: { projectId: "x" } }),
+    })
+    expect(res.status).toBe(403)
+    const body = await res.json() as { code: string }
+    expect(body.code).toBe("forbidden")
+  })
+
+  it("returns 404 for an unknown function", async () => {
+    const res = await fetch("http://localhost:8788/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fn: "tasks:doesNotExist", args: {} }),
+    })
+    expect(res.status).toBe(404)
+    const body = await res.json() as { code: string }
+    expect(body.code).toBe("not_found")
+  })
+
+  it("returns 400 when fn is a mutation, not a query", async () => {
+    const res = await fetch("http://localhost:8788/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fn: "tasks:create", args: {} }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json() as { code: string }
+    expect(body.code).toBe("bad_request")
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
 describe("mutations", () => {

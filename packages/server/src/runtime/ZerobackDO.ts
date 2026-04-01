@@ -214,6 +214,7 @@ export function createZerobackDO(config: RuntimeConfig): {
 
     // Admin: invoke any function (public or internal) from CLI
     if (path === "/__admin/run" && req.method === "POST") return this.handleAdminRun(req);
+    if (path === "/query" && req.method === "POST") return this.handleQueryHttp(req);
 
     // HTTP actions — user-defined routes
     if (config.httpRouter) {
@@ -296,6 +297,51 @@ export function createZerobackDO(config: RuntimeConfig): {
         JSON.stringify({ success: false, error: errorMessage(e), code: ErrorCode.EXECUTION_ERROR }),
         { status: 500, headers: json }
       );
+    }
+  }
+
+  private async handleQueryHttp(req: Request): Promise<Response> {
+    const json = { "Content-Type": "application/json" }
+    try {
+      const body = (await req.json()) as { fn: string; args?: unknown }
+      const fnName = body.fn
+      const args = body.args ?? {}
+
+      const fn = this.functions[fnName]
+      if (!fn) {
+        return new Response(
+          JSON.stringify({ error: `Function not found: ${fnName}`, code: ErrorCode.NOT_FOUND }),
+          { status: 404, headers: json }
+        )
+      }
+
+      if (fn.isInternal) {
+        return new Response(
+          JSON.stringify({ error: `Function "${fnName}" is internal`, code: ErrorCode.FORBIDDEN }),
+          { status: 403, headers: json }
+        )
+      }
+
+      if (fn.type !== "query") {
+        return new Response(
+          JSON.stringify({ error: `"${fnName}" is a ${fn.type}, not a query`, code: ErrorCode.BAD_REQUEST }),
+          { status: 400, headers: json }
+        )
+      }
+
+      const txId = crypto.randomUUID()
+      this.transactions.begin(txId, this.latestTs, "query")
+      try {
+        const { result } = await this.invokeFunction(fnName, args, txId)
+        return new Response(JSON.stringify({ result }), { status: 200, headers: json })
+      } finally {
+        this.transactions.remove(txId)
+      }
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: errorMessage(e), code: ErrorCode.EXECUTION_ERROR }),
+        { status: 500, headers: json }
+      )
     }
   }
 
