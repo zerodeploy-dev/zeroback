@@ -10,7 +10,7 @@
     "docs"
   ],
   "scripts": {
-    "build": "bun run --filter '@zeroback/values' --filter '@zeroback/client' --filter '@zeroback/react' --filter '@zeroback/solid' --filter '@zeroback/cli' --filter '@zeroback/docs' build && bun run --filter '@zeroback/dashboard' build && bun run --filter '@zeroback/server' build",
+    "build": "bun run --filter '*' build",
     "dev": "bun run --filter '*' dev",
     "typecheck": "bun run --filter '*' typecheck",
     "test": "vitest run",

@@ -49,7 +49,7 @@
     },
     "packages/cli": {
       "name": "@zeroback/cli",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "bin": {
         "zeroback": "./dist/index.js",
       },
@@ -69,7 +69,7 @@
     },
     "packages/client": {
       "name": "@zeroback/client",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@zeroback/server": "workspace:^",
         "@zeroback/values": "workspace:^",
@@ -80,7 +80,7 @@
     },
     "packages/dashboard": {
       "name": "@zeroback/dashboard",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@tanstack/react-router": "^1.167.0",
         "@tanstack/react-table": "^8.21.0",
@@ -108,7 +108,7 @@
     },
     "packages/react": {
       "name": "@zeroback/react",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@zeroback/client": "workspace:^",
         "@zeroback/server": "workspace:^",
@@ -124,19 +124,20 @@
     },
     "packages/server": {
       "name": "@zeroback/server",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@zeroback/values": "workspace:^",
         "ulidx": "^2.4.1",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "^4.20260301.1",
+        "@zeroback/dashboard": "workspace:^",
         "typescript": "^5.6.0",
       },
     },
     "packages/solid": {
       "name": "@zeroback/solid",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "dependencies": {
         "@zeroback/client": "workspace:*",
         "@zeroback/server": "workspace:*",
@@ -155,7 +156,7 @@
     },
     "packages/values": {
       "name": "@zeroback/values",
-      "version": "0.0.22",
+      "version": "0.0.23",
       "devDependencies": {
         "typescript": "^5.6.0",
       },
