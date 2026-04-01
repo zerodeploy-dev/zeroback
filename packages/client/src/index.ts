@@ -1,5 +1,5 @@
 export { ZerobackClient } from "./ZerobackClient.js";
-export type { ConnectionState, ZerobackClientOptions } from "./ZerobackClient.js";
+export type { ConnectionState, ZerobackClientOptions, AuthClient, AuthUser, AuthSession } from "./ZerobackClient.js";
 export { SubscriptionRegistry } from "./SubscriptionRegistry.js";
 export { Backoff, type BackoffOptions } from "./Backoff.js";
 export { QueryStore } from "./QueryStore.js";

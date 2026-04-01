@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useContext, createContext, useSyncExternalStore, useRef } from "react";
 import { ZerobackClient, QueryStore, subscribePaginationPages, computeStatus } from "@zeroback/client";
-import type { ConnectionState, LocalStore, FunctionReference, PaginationStatus, Preloaded } from "@zeroback/client";
+import type { ConnectionState, LocalStore, FunctionReference, PaginationStatus, Preloaded, AuthUser } from "@zeroback/client";
 
 const ZerobackContext = createContext<ZerobackClient | null>(null);
 
@@ -214,4 +214,48 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
   }, []);
 
   return { results, status, loadMore };
+}
+
+export function useAuth(): {
+  isLoading: boolean
+  isAuthenticated: boolean
+  user: AuthUser | null
+  signOut: () => Promise<void>
+} {
+  const client = useZerobackClient()
+
+  if (!client.auth) {
+    throw new Error("useAuth() requires auth: true in ZerobackClient options")
+  }
+
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    client.auth!.getSession().then((session) => {
+      if (!cancelled) {
+        setUser(session?.user ?? null)
+        setIsLoading(false)
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setUser(null)
+        setIsLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [client])
+
+  const signOut = useCallback(async () => {
+    await client.auth!.signOut()
+    setUser(null)
+  }, [client])
+
+  return {
+    isLoading,
+    isAuthenticated: user !== null,
+    user,
+    signOut,
+  }
 }

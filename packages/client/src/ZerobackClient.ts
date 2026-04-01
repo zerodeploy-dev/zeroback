@@ -9,6 +9,26 @@ import { MutationQueue } from "./persistence/MutationQueue.js";
 
 export type ConnectionState = "connecting" | "connected" | "disconnected";
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  image?: string | null;
+}
+
+export interface AuthSession {
+  user: AuthUser;
+}
+
+export interface AuthClient {
+  signUp(params: { email: string; password: string; name?: string }): Promise<void>;
+  signIn(params: { email: string; password: string }): Promise<void>;
+  signInWithGoogle(): void;
+  signInWithGitHub(): void;
+  getSession(): Promise<AuthSession | null>;
+  signOut(): Promise<void>;
+}
+
 export interface ZerobackClientOptions {
   persistence?: boolean | PersistenceAdapter;
   maxCacheAge?: number;
@@ -18,6 +38,8 @@ export interface ZerobackClientOptions {
   heartbeatIntervalMs?: number;
   /** Timeout for mutation/action requests in milliseconds. Default: 60000 (60s). */
   requestTimeoutMs?: number;
+  /** Enable the auth namespace for better-auth integration. */
+  auth?: boolean;
 }
 
 export class ZerobackClient {
@@ -51,6 +73,9 @@ export class ZerobackClient {
   private persistedMutationQueue: MutationQueue | null = null;
   private options: ZerobackClientOptions;
 
+  /** Auth namespace — only present when `auth: true` is passed in options. */
+  readonly auth: AuthClient | undefined;
+
   constructor(url: string, options?: ZerobackClientOptions) {
     this.url = url;
     this.options = options ?? {};
@@ -73,6 +98,84 @@ export class ZerobackClient {
     } else {
       this.connect();
     }
+
+    if (options?.auth) {
+      this.auth = this.buildAuthClient();
+    }
+  }
+
+  private getBaseUrl(): string {
+    return this.url.replace(/^wss?:\/\//, (match) =>
+      match === "wss://" ? "https://" : "http://"
+    );
+  }
+
+  private buildAuthClient(): AuthClient {
+    const reconnect = () => {
+      this.closed = false;
+      this.close();
+      this.closed = false;
+      this.connect();
+    };
+
+    return {
+      signUp: async (params: { email: string; password: string; name?: string }): Promise<void> => {
+        const res = await fetch(`${this.getBaseUrl()}/auth/sign-up/email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+          credentials: "include",
+        });
+        if (!res.ok) {
+          throw new Error(`signUp failed: ${res.status}`);
+        }
+        reconnect();
+      },
+
+      signIn: async (params: { email: string; password: string }): Promise<void> => {
+        const res = await fetch(`${this.getBaseUrl()}/auth/sign-in/email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+          credentials: "include",
+        });
+        if (!res.ok) {
+          throw new Error(`signIn failed: ${res.status}`);
+        }
+        reconnect();
+      },
+
+      signInWithGoogle: (): void => {
+        window.location.href = `${this.getBaseUrl()}/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(window.location.href)}`;
+      },
+
+      signInWithGitHub: (): void => {
+        window.location.href = `${this.getBaseUrl()}/auth/sign-in/social?provider=github&callbackURL=${encodeURIComponent(window.location.href)}`;
+      },
+
+      getSession: async (): Promise<AuthSession | null> => {
+        const res = await fetch(`${this.getBaseUrl()}/auth/get-session`, {
+          credentials: "include",
+        });
+        if (res.status === 401 || res.status === 204) return null;
+        if (!res.ok) return null;
+        const text = await res.text();
+        if (!text) return null;
+        try {
+          return JSON.parse(text) as AuthSession;
+        } catch {
+          return null;
+        }
+      },
+
+      signOut: async (): Promise<void> => {
+        await fetch(`${this.getBaseUrl()}/auth/sign-out`, {
+          method: "POST",
+          credentials: "include",
+        });
+        reconnect();
+      },
+    };
   }
 
   /**
