@@ -63,6 +63,7 @@ export default defineConfig({
             { label: "Authentication", slug: "authentication" },
             { label: "Scheduling", slug: "scheduling" },
             { label: "File Storage", slug: "storage" },
+            { label: "Seeding Data", slug: "seeding" },
           ],
         },
         {
