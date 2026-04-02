@@ -161,9 +161,7 @@ export class FunctionExecutor {
       : new StorageWriter(storageOps)
 
     const baseCtx = { db, scheduler: cron.createScheduler(), storage: storageFacade }
-    const ctx = identity !== undefined
-      ? { ...baseCtx, auth: { getUserIdentity: () => Promise.resolve(identity) } }
-      : baseCtx
+    const ctx = { ...baseCtx, auth: { getUserIdentity: () => Promise.resolve(identity ?? null) } }
     const result = await fn.handler(ctx, args)
     this.validateReturnValue(fnName, fn, result)
 
