@@ -35,7 +35,10 @@ function buildCorsHeaders(cors: CorsOptions, requestOrigin: string | null): Head
   const allowed = resolveOrigin(cors, requestOrigin)
   if (!allowed) return headers
   headers.set("Access-Control-Allow-Origin", allowed)
-  if (allowed !== "*") headers.set("Vary", "Origin")
+  if (allowed !== "*") {
+    headers.set("Vary", "Origin")
+    headers.set("Access-Control-Allow-Credentials", "true")
+  }
   headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
   headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
   headers.set("Access-Control-Max-Age", "86400")
@@ -145,6 +148,7 @@ async function handleWorkerFetch(request: Request, env: Env): Promise<Response> 
     headers,
     body: request.body,
     duplex: request.body ? ("half" as const) : undefined,
+    redirect: "manual" as const,
   };
   const forwardReq = new Request(forwardUrl.toString(), init);
 
