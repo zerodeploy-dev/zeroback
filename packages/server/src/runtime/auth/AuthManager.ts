@@ -43,6 +43,8 @@ export class AuthManager {
       })(),
       database: createDOSQLiteAdapter(sql),
 
+      basePath: "/auth",
+
       emailAndPassword: { enabled: authDef.emailAndPassword ?? true },
 
       socialProviders: buildSocialProviders(authDef.providers ?? [], env),
