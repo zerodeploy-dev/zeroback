@@ -1,9 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON, CronJobDef, HttpActionHandler, ActionCtx } from "@zeroback/server";
-import type { ValidatorJSON, UserIdentity } from "@zeroback/values";
+import type { UserIdentity } from "@zeroback/values";
 import { DatabaseReader, DatabaseWriter, StorageReader, StorageWriter, StorageActions } from "@zeroback/server";
 import { validate } from "@zeroback/values";
 import type { ClientMessage, ServerMessage } from "@zeroback/values";
+import type { FunctionDef, HttpRouterLike } from "./types";
 import { AuthManager } from "./auth/AuthManager";
 import { DOSQLiteReader } from "./db/DOSQLiteReader";
 import { DOSQLiteWriter } from "./db/DOSQLiteWriter";
@@ -19,17 +20,7 @@ import { executeMutation, createMutationLock, type MutationDeps } from "./Mutati
 import { ErrorCode, errorMessage, sendError } from "./errors";
 import { createSystemFunctions } from "./SystemFunctions";
 
-export type FunctionDef = {
-  type: "query" | "mutation" | "action";
-  isInternal: boolean;
-  handler: (ctx: unknown, args: unknown) => Promise<unknown>;
-  argsValidator?: Record<string, { json: ValidatorJSON }>;
-  returnsValidator?: { json: ValidatorJSON };
-};
-
-export interface HttpRouterLike {
-  lookup(method: string, path: string): HttpActionHandler | null;
-}
+export { type FunctionDef, type HttpRouterLike } from "./types";
 
 export interface RuntimeConfig {
   functions: Record<string, FunctionDef>;
@@ -82,8 +73,8 @@ export function createZerobackDO(config: RuntimeConfig): {
       this.auth = new AuthManager(this.sql, config.authDef, env as unknown as Record<string, unknown>);
       ctx.blockConcurrencyWhile(async () => {
         await this.auth!.runMigrations()
+        this.auth!.registerAuthTables(this.tableColumns)
       })
-      this.auth.registerAuthTables(this.tableColumns)
     }
 
     this.reader = new DOSQLiteReader(this.sql, this.tableColumns);

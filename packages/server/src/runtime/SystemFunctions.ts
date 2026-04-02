@@ -2,7 +2,7 @@ import type { SchemaJSON, FilterExpressionJSON, ExprJSON, Id } from "@zeroback/s
 import { DatabaseReader, DatabaseWriter } from "@zeroback/server"
 import type { TableColumnInfo } from "./db/SchemaMapper"
 import type { SqlApi } from "./types"
-import type { FunctionDef } from "./ZerobackDO"
+import type { FunctionDef } from "./types"
 
 type QueryCtx = { db: DatabaseReader<Record<string, unknown>> }
 type MutationCtx = { db: DatabaseWriter<Record<string, unknown>> }
