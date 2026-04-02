@@ -1,7 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import type { SchemaJSON, CronJobDef, HttpActionHandler } from "@zeroback/server";
 import type { UserIdentity } from "@zeroback/values";
-import type { ClientMessage, ServerMessage } from "@zeroback/values";
 import type { FunctionDef, HttpRouterLike } from "./types";
 import { AuthManager } from "./auth/AuthManager";
 import { DOSQLiteReader } from "./db/DOSQLiteReader";
@@ -14,9 +13,10 @@ import { ConnectionManager } from "./websocket/ConnectionManager";
 import { StorageManager } from "./StorageManager";
 import { CronManager } from "./CronManager";
 import { executeMutation, createMutationLock, type MutationDeps } from "./MutationExecutor";
-import { ErrorCode, errorMessage, sendError } from "./errors";
+import { ErrorCode, errorMessage } from "./errors";
 import { createSystemFunctions } from "./SystemFunctions";
 import { FunctionExecutor } from "./FunctionExecutor";
+import { WebSocketHandler } from "./WebSocketHandler";
 
 export { type FunctionDef, type HttpRouterLike } from "./types";
 
@@ -47,7 +47,7 @@ export function createZerobackDO(config: RuntimeConfig): {
   private mutationDeps: MutationDeps;
   private functionExecutor: FunctionExecutor;
   private auth: AuthManager | null = null;
-  private connectionIdentities: Map<string, UserIdentity | null> = new Map();
+  private wsHandler: WebSocketHandler;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -125,6 +125,16 @@ export function createZerobackDO(config: RuntimeConfig): {
       saveLatestTs: () => this.saveLatestTs(),
       invokeFunction: (fnName, args, txId, identity) => this.functionExecutor.invokeFunction(fnName, args, txId, identity),
     };
+
+    this.wsHandler = new WebSocketHandler({
+      functions: this.functions,
+      functionExecutor: this.functionExecutor,
+      transactions: this.transactions,
+      subscriptions: this.subscriptions,
+      connections: this.connections,
+      getLatestTs: () => this.latestTs,
+      getMutationDeps: () => this.mutationDeps,
+    });
 
     // Restore WebSocket connections after hibernation
     this.restoreConnectionsFromHibernation();
@@ -397,128 +407,18 @@ export function createZerobackDO(config: RuntimeConfig): {
 
     if (this.auth) {
       const identity = await this.auth.getSessionFromHeaders(req.headers);
-      this.connectionIdentities.set(connectionId, identity);
+      this.wsHandler.setIdentity(connectionId, identity);
     }
 
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    if (typeof message !== "string") return;
-
-    const connId = this.connections.get(ws);
-    if (!connId) return;
-
-    const msg = JSON.parse(message) as ClientMessage;
-
-    if (msg.type === "ping") {
-      ws.send('{"type":"pong"}');
-      return;
-    }
-
-    if (!this.connections.checkRateLimit(connId)) {
-      sendError(ws, undefined, ErrorCode.RATE_LIMITED, "Too many requests — slow down");
-      return;
-    }
-
-    switch (msg.type) {
-      case "query": await this.handleQuery(connId, msg); break;
-      case "mutation": await this.handleMutation(connId, msg); break;
-      case "action": await this.handleAction(connId, msg); break;
-      case "unsubscribe": this.subscriptions.remove(msg.id); break;
-    }
+    await this.wsHandler.handleWsMessage(ws, message);
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
-    const connId = this.connections.get(ws);
-    this.connections.remove(ws);
-    this.subscriptions.removeAll(ws);
-    if (connId) {
-      this.connectionIdentities.delete(connId);
-    }
-  }
-
-  // -- WebSocket handlers --
-
-  private async handleQuery(connectionId: string, msg: { id: string; fn: string; args: unknown }): Promise<void> {
-    const ws = this.connections.getById(connectionId);
-    if (!ws) return;
-
-    const fn = this.functions[msg.fn];
-    if (fn?.isInternal) {
-      sendError(ws, msg.id, ErrorCode.FORBIDDEN, `Function "${msg.fn}" is internal and cannot be called from a client`);
-      return;
-    }
-
-    const identity = this.connectionIdentities.get(connectionId);
-    const txId = crypto.randomUUID();
-    this.transactions.begin(txId, this.latestTs, "query");
-
-    try {
-      const result = await this.functionExecutor.invokeFunction(msg.fn, msg.args, txId, identity);
-      const resultJSON = JSON.stringify(result.result);
-
-      this.subscriptions.subscribe({
-        id: msg.id,
-        connectionId,
-        ws,
-        fnName: msg.fn,
-        args: msg.args,
-        readSet: result.readSet,
-        queryDescriptors: result.queryDescriptors,
-        lastResultJSON: resultJSON,
-        identity,
-      });
-
-      ws.send(`{"type":"result","id":${JSON.stringify(msg.id)},"result":${resultJSON}}`);
-    } catch (e) {
-      sendError(ws, msg.id, ErrorCode.EXECUTION_ERROR, errorMessage(e));
-    } finally {
-      this.transactions.remove(txId);
-    }
-  }
-
-  private async handleMutation(connectionId: string, msg: { id: string; fn: string; args: unknown }): Promise<void> {
-    const ws = this.connections.getById(connectionId);
-    if (!ws) return;
-
-    const fn = this.functions[msg.fn];
-    if (fn?.isInternal) {
-      sendError(ws, msg.id, ErrorCode.FORBIDDEN, `Function "${msg.fn}" is internal and cannot be called from a client`);
-      return;
-    }
-
-    const identity = this.connectionIdentities.get(connectionId);
-    try {
-      const result = await executeMutation(this.mutationDeps, msg.fn, msg.args, identity);
-      ws.send(JSON.stringify({ type: "mutationResult", id: msg.id, result } as ServerMessage));
-    } catch (e) {
-      const code = errorMessage(e).includes("Transaction conflict") ? ErrorCode.CONFLICT : ErrorCode.EXECUTION_ERROR;
-      sendError(ws, msg.id, code, errorMessage(e));
-    }
-  }
-
-  private async handleAction(connectionId: string, msg: { id: string; fn: string; args: unknown }): Promise<void> {
-    const ws = this.connections.getById(connectionId);
-    if (!ws) return;
-
-    try {
-      const fn = this.functions[msg.fn];
-      if (!fn) throw new Error(`Function not found: ${msg.fn}`);
-      if (fn.isInternal) {
-        sendError(ws, msg.id, ErrorCode.FORBIDDEN, `Function "${msg.fn}" is internal and cannot be called from a client`);
-        return;
-      }
-      if (fn.type !== "action") throw new Error(`${msg.fn} is not an action`);
-
-      const identity = this.connectionIdentities.get(connectionId);
-      const actionCtx = this.functionExecutor.createActionCtx(identity);
-      const result = await fn.handler(actionCtx, msg.args);
-
-      ws.send(JSON.stringify({ type: "actionResult", id: msg.id, result } as ServerMessage));
-    } catch (e) {
-      sendError(ws, msg.id, ErrorCode.EXECUTION_ERROR, errorMessage(e));
-    }
+    this.wsHandler.handleClose(ws);
   }
 
   // -- Scheduler execution --
