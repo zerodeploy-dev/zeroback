@@ -144,15 +144,17 @@ export function createZerobackDO(config: RuntimeConfig): {
       getMutationDeps: () => this.mutationDeps,
     });
 
-    // Restore WebSocket connections after hibernation
-    this.restoreConnectionsFromHibernation();
+    // Restore WebSocket connections after hibernation.
+    // blockConcurrencyWhile ensures the async identity lookup from storage completes
+    // before any incoming WebSocket messages (mutations/queries) are processed.
+    this.ctx.blockConcurrencyWhile(() => this.restoreConnectionsFromHibernation());
 
     // Register cron jobs
     this.cron.initializeCronJobs(config.cronJobsDef);
   }
 
   /** Re-register WebSocket connections that survived DO hibernation. */
-  private restoreConnectionsFromHibernation(): void {
+  private async restoreConnectionsFromHibernation(): Promise<void> {
     const existingWs = this.ctx.getWebSockets();
     if (existingWs.length === 0) return;
 
@@ -161,8 +163,9 @@ export function createZerobackDO(config: RuntimeConfig): {
       const connectionId = tags[0];
       if (connectionId) {
         this.connections.add(ws, connectionId);
-        // Note: connectionIdentities are not restored after hibernation.
-        // Clients receive a "reset" message and will reconnect, re-establishing identity.
+        // Restore identity from durable storage so mutations after wakeup still have auth context.
+        const identity = await this.ctx.storage.get<import("@zeroback/values").UserIdentity>(`identity:${connectionId}`);
+        this.wsHandler.setIdentity(connectionId, identity ?? null);
         ws.send('{"type":"reset"}');
       }
     }
@@ -307,6 +310,10 @@ export function createZerobackDO(config: RuntimeConfig): {
     if (this.auth) {
       const identity = await this.auth.getSessionFromHeaders(req.headers);
       this.wsHandler.setIdentity(connectionId, identity);
+      // Persist identity to durable storage so it can be restored after hibernation/DO restart.
+      if (identity) {
+        await this.ctx.storage.put(`identity:${connectionId}`, identity);
+      }
     }
 
     return new Response(null, { status: 101, webSocket: client });
@@ -317,7 +324,11 @@ export function createZerobackDO(config: RuntimeConfig): {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
+    const connId = this.connections.get(ws);
     this.wsHandler.handleClose(ws);
+    if (connId) {
+      await this.ctx.storage.delete(`identity:${connId}`);
+    }
   }
 
   // -- Scheduler execution --
