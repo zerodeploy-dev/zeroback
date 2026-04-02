@@ -2,6 +2,7 @@ import { createAdapterFactory } from "better-auth/adapters"
 import { getSchema } from "better-auth/db"
 import type { BetterAuthOptions, DBFieldAttribute } from "better-auth"
 import type { CleanedWhere } from "better-auth/adapters"
+import { typeid } from "typeid-js"
 import type { SqlApi } from "../types"
 
 // ---------------------------------------------------------------------------
@@ -116,6 +117,8 @@ export function createDOSQLiteAdapter(sql: SqlApi) {
         data: T
         select?: string[]
       }): Promise<T> {
+        // Generate TypeID-format IDs for all auth models
+        data = { ...data, id: typeid(`${model}s`).toString() }
         const table = `_auth_${model}`
         const keys = Object.keys(data)
         const cols = keys.map((k) => `"${k}"`).join(", ")

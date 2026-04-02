@@ -83,6 +83,7 @@ export function createZerobackDO(config: RuntimeConfig): {
       ctx.blockConcurrencyWhile(async () => {
         await this.auth!.runMigrations()
       })
+      this.auth.registerAuthTables(this.tableColumns)
     }
 
     this.reader = new DOSQLiteReader(this.sql, this.tableColumns);

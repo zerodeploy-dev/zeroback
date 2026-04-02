@@ -5,6 +5,7 @@ export interface UserIdentity {
   email?: string
   emailVerified?: boolean
   name?: string
+  username?: string         // provider login handle (e.g. GitHub login)
   pictureUrl?: string
 }
 

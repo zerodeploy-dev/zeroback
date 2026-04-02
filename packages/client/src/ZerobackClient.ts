@@ -13,6 +13,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name?: string | null;
+  username?: string | null;
   image?: string | null;
 }
 

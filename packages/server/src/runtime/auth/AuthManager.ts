@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth"
 import type { BetterAuthOptions } from "better-auth"
+import { getSchema } from "better-auth/db"
 import type { AuthDef, UserIdentity } from "@zeroback/values"
 import type { SqlApi } from "../types"
+import type { TableColumnInfo, ColumnInfo } from "../db/SchemaMapper"
 import { createDOSQLiteAdapter, runAuthMigrations } from "./DOSQLiteAdapter"
 
 function buildSocialProviders(
@@ -19,6 +21,9 @@ function buildSocialProviders(
       result.github = {
         clientId: env.GITHUB_CLIENT_ID as string,
         clientSecret: env.GITHUB_CLIENT_SECRET as string,
+        mapProfileToUser: (profile: Record<string, unknown>) => ({
+          username: profile.login as string | undefined,
+        }),
       }
     } else {
       console.warn(`[zeroback] Unknown auth provider type "${(p as { type: string }).type}" — skipping`)
@@ -53,7 +58,12 @@ export class AuthManager {
 
       ...(authDef.session ? { session: { expiresIn: authDef.session.expiresIn } } : {}),
 
-      user: { modelName: "user" },
+      user: {
+        modelName: "user",
+        additionalFields: {
+          username: { type: "string", required: false, input: false },
+        },
+      },
       account: { modelName: "account" },
       verification: { modelName: "verification" },
     }
@@ -85,10 +95,60 @@ export class AuthManager {
     return this.auth.handler(req)
   }
 
+  /**
+   * Register auth tables as queryable views so ctx.db.query("users") works.
+   * Creates a SQL VIEW over _auth_user and registers column metadata in tableColumns.
+   */
+  registerAuthTables(tableColumns: Map<string, TableColumnInfo>): void {
+    const authSchema = getSchema(this.authOptions)
+    const userModel = authSchema.user
+    if (!userModel) return
+
+    const pragmaCols = this.sql.exec(`PRAGMA table_info("_auth_user")`).toArray() as {
+      name: string; type: string; notnull: number
+    }[]
+    if (pragmaCols.length === 0) return
+
+    const columns = new Map<string, ColumnInfo>()
+    const orderedFieldNames: string[] = []
+    const viewSelectCols: string[] = ['id AS _id', '0 AS _ts']
+
+    // System columns expected by the query pipeline
+    columns.set('_id', { name: '_id', sqlType: 'TEXT', nullable: false, isJsonColumn: false, isBoolean: false })
+    columns.set('_ts', { name: '_ts', sqlType: 'INTEGER', nullable: false, isJsonColumn: false, isBoolean: false })
+
+    for (const col of pragmaCols) {
+      if (col.name === 'id') continue // already mapped to _id
+
+      const fieldDef = userModel.fields[col.name]
+      const fieldType = fieldDef?.type
+      const normalizedType = Array.isArray(fieldType) ? fieldType[0] : fieldType
+      const isBoolean = normalizedType === 'boolean'
+
+      viewSelectCols.push(`"${col.name}"`)
+      orderedFieldNames.push(col.name)
+      columns.set(col.name, {
+        name: col.name,
+        sqlType: col.type || 'TEXT',
+        nullable: col.notnull === 0,
+        isJsonColumn: false,
+        isBoolean,
+      })
+    }
+
+    this.sql.exec(`DROP VIEW IF EXISTS "users"`)
+    this.sql.exec(
+      `CREATE VIEW "users" AS SELECT ${viewSelectCols.join(', ')} FROM "_auth_user"`
+    )
+
+    tableColumns.set('users', { columns, orderedFieldNames })
+  }
+
   async getSessionFromHeaders(headers: Headers): Promise<UserIdentity | null> {
     const session = await this.auth.api.getSession({ headers })
     if (!session?.user) return null
 
+    const user = session.user as { image?: string; username?: string }
     return {
       subject: session.user.id,
       issuer: "zeroback",
@@ -96,8 +156,8 @@ export class AuthManager {
       email: session.user.email ?? undefined,
       emailVerified: session.user.emailVerified ?? undefined,
       name: session.user.name ?? undefined,
-      // better-auth exposes profile picture as `image` — not in its public User type
-      pictureUrl: (session.user as { image?: string }).image,
+      username: user.username ?? undefined,
+      pictureUrl: user.image,
     }
   }
 }
