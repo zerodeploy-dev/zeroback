@@ -23,8 +23,8 @@ export interface AuthSession {
 export interface AuthClient {
   signUp(params: { email: string; password: string; name?: string }): Promise<void>;
   signIn(params: { email: string; password: string }): Promise<void>;
-  signInWithGoogle(): void;
-  signInWithGitHub(): void;
+  signInWithGoogle(): Promise<void>;
+  signInWithGitHub(): Promise<void>;
   getSession(): Promise<AuthSession | null>;
   signOut(): Promise<void>;
 }
@@ -103,9 +103,9 @@ export class ZerobackClient {
   }
 
   private getBaseUrl(): string {
-    return this.url.replace(/^wss?:\/\//, (match) =>
-      match === "wss://" ? "https://" : "http://"
-    );
+    return this.url
+      .replace(/^wss?:\/\//, (match) => (match === "wss://" ? "https://" : "http://"))
+      .replace(/\/ws$/, "");
   }
 
   private buildAuthClient(): AuthClient {
@@ -143,12 +143,30 @@ export class ZerobackClient {
         reconnect();
       },
 
-      signInWithGoogle: (): void => {
-        window.location.href = `${this.getBaseUrl()}/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(window.location.href)}`;
+      signInWithGoogle: async (): Promise<void> => {
+        const res = await fetch(`${this.getBaseUrl()}/auth/sign-in/social`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "google", callbackURL: window.location.href }),
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json() as { url?: string };
+          if (data.url) window.location.href = data.url;
+        }
       },
 
-      signInWithGitHub: (): void => {
-        window.location.href = `${this.getBaseUrl()}/auth/sign-in/social?provider=github&callbackURL=${encodeURIComponent(window.location.href)}`;
+      signInWithGitHub: async (): Promise<void> => {
+        const res = await fetch(`${this.getBaseUrl()}/auth/sign-in/social`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "github", callbackURL: window.location.href }),
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json() as { url?: string };
+          if (data.url) window.location.href = data.url;
+        }
       },
 
       getSession: async (): Promise<AuthSession | null> => {
@@ -170,6 +188,8 @@ export class ZerobackClient {
         await fetch(`${this.getBaseUrl()}/auth/sign-out`, {
           method: "POST",
           credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
         });
         reconnect();
       },
