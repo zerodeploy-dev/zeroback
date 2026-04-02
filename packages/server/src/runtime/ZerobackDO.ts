@@ -1,8 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
-import type { FilterExpressionJSON, IndexQueryJSON, DbOps, SchemaJSON, KeysetCursorInfo, SearchQueryJSON, CronJobDef, HttpActionHandler, ActionCtx } from "@zeroback/server";
+import type { SchemaJSON, CronJobDef, HttpActionHandler } from "@zeroback/server";
 import type { UserIdentity } from "@zeroback/values";
-import { DatabaseReader, DatabaseWriter, StorageReader, StorageWriter, StorageActions } from "@zeroback/server";
-import { validate } from "@zeroback/values";
 import type { ClientMessage, ServerMessage } from "@zeroback/values";
 import type { FunctionDef, HttpRouterLike } from "./types";
 import { AuthManager } from "./auth/AuthManager";
@@ -13,12 +11,12 @@ import type { TableColumnInfo } from "./db/SchemaMapper";
 import { TransactionStore } from "./transaction/TransactionStore";
 import { SubscriptionManager } from "./subscriptions/SubscriptionManager";
 import { ConnectionManager } from "./websocket/ConnectionManager";
-import { queryTable } from "./QueryPlanner";
 import { StorageManager } from "./StorageManager";
 import { CronManager } from "./CronManager";
 import { executeMutation, createMutationLock, type MutationDeps } from "./MutationExecutor";
 import { ErrorCode, errorMessage, sendError } from "./errors";
 import { createSystemFunctions } from "./SystemFunctions";
+import { FunctionExecutor } from "./FunctionExecutor";
 
 export { type FunctionDef, type HttpRouterLike } from "./types";
 
@@ -47,6 +45,7 @@ export function createZerobackDO(config: RuntimeConfig): {
   private storage: StorageManager;
   private cron: CronManager;
   private mutationDeps: MutationDeps;
+  private functionExecutor: FunctionExecutor;
   private auth: AuthManager | null = null;
   private connectionIdentities: Map<string, UserIdentity | null> = new Map();
 
@@ -100,7 +99,20 @@ export function createZerobackDO(config: RuntimeConfig): {
     this.restoreBaseUrl();
     this.cron = new CronManager(this.sql, ctx);
 
-    // Build mutation deps (shared between handleMutation and createActionCtx)
+    // Build FunctionExecutor and mutation deps
+    this.functionExecutor = new FunctionExecutor({
+      functions: this.functions,
+      schemaInfo: this.schemaInfo,
+      tableColumns: this.tableColumns,
+      transactions: this.transactions,
+      sql: this.sql,
+      reader: this.reader,
+      storage: this.storage,
+      cron: this.cron,
+      getLatestTs: () => this.latestTs,
+      getMutationDeps: () => this.mutationDeps,
+    });
+
     this.mutationDeps = {
       transactions: this.transactions,
       subscriptions: this.subscriptions,
@@ -111,7 +123,7 @@ export function createZerobackDO(config: RuntimeConfig): {
       getLatestTs: () => this.latestTs,
       setLatestTs: (ts) => { this.latestTs = ts; },
       saveLatestTs: () => this.saveLatestTs(),
-      invokeFunction: (fnName, args, txId, identity) => this.invokeFunction(fnName, args, txId, identity),
+      invokeFunction: (fnName, args, txId, identity) => this.functionExecutor.invokeFunction(fnName, args, txId, identity),
     };
 
     // Restore WebSocket connections after hibernation
@@ -248,7 +260,7 @@ export function createZerobackDO(config: RuntimeConfig): {
     req: Request
   ): Promise<Response> {
     try {
-      const ctx = this.createActionCtx();
+      const ctx = this.functionExecutor.createActionCtx();
       return await handler(ctx, req);
     } catch (e) {
       console.error("HTTP action error:", e);
@@ -299,7 +311,7 @@ export function createZerobackDO(config: RuntimeConfig): {
         const txId = crypto.randomUUID();
         this.transactions.begin(txId, this.latestTs, "query");
         try {
-          const invoked = await this.invokeFunction(fnName, args, txId);
+          const invoked = await this.functionExecutor.invokeFunction(fnName, args, txId);
           result = invoked.result;
         } finally {
           this.transactions.remove(txId);
@@ -357,7 +369,7 @@ export function createZerobackDO(config: RuntimeConfig): {
       const txId = crypto.randomUUID()
       this.transactions.begin(txId, this.latestTs, "query")
       try {
-        const { result } = await this.invokeFunction(fnName, args, txId)
+        const { result } = await this.functionExecutor.invokeFunction(fnName, args, txId)
         return new Response(JSON.stringify({ result }), { status: 200, headers: json })
       } finally {
         this.transactions.remove(txId)
@@ -426,169 +438,6 @@ export function createZerobackDO(config: RuntimeConfig): {
     }
   }
 
-  // -- Schema validation --
-
-  private validateDocument(table: string, data: Record<string, unknown>): void {
-    const tableInfo = this.schemaInfo.tables[table];
-    if (!tableInfo) return;
-    const { _id, _ts, _creationTime, ...userFields } = data;
-    validate(userFields, { type: "object", value: tableInfo.fields });
-  }
-
-  // -- DbOps --
-
-  private createDbOps(txId: string): DbOps {
-    return {
-      query: async (table, filter, orderField, orderDirection, limit, indexQuery, keysetCursor, searchQuery) => {
-        const tx = this.transactions.get(txId);
-        if (!tx) throw new Error("Invalid transaction");
-
-        let descriptorFilter = filter;
-        if (searchQuery) {
-          descriptorFilter = null;
-        } else if (indexQuery) {
-          const indexFilter = indexRangesToFilter(indexQuery.ranges);
-          descriptorFilter = filter && indexFilter
-            ? { op: "and" as const, exprs: [indexFilter, filter] }
-            : (indexFilter || filter);
-        }
-        this.transactions.addQueryDescriptor(txId, { table, filter: descriptorFilter });
-
-        const docs = queryTable(
-          this.sql, this.schemaInfo, this.tableColumns,
-          table, tx.beginTs, filter, indexQuery ?? null, orderField, orderDirection, limit, keysetCursor, searchQuery ?? null
-        );
-
-        for (const doc of docs) {
-          this.transactions.addRead(txId, { table, documentId: doc.documentId, ts: doc.ts });
-        }
-        return docs.map((d) => d.data as Record<string, unknown>);
-      },
-
-      get: async (table, id) => {
-        const tx = this.transactions.get(txId);
-        if (!tx) throw new Error("Invalid transaction");
-        const doc = await this.reader.getDocument(table, id, tx.beginTs);
-        if (doc) {
-          this.transactions.addRead(txId, { table, documentId: id, ts: doc.ts });
-        }
-        return (doc?.data as Record<string, unknown>) ?? null;
-      },
-
-      getMany: async (table, ids) => {
-        const tx = this.transactions.get(txId);
-        if (!tx) throw new Error("Invalid transaction");
-        const docs = this.reader.getDocuments(table, ids, tx.beginTs);
-        const result = new Map<string, Record<string, unknown> | null>();
-        for (const id of ids) {
-          const doc = docs.get(id);
-          if (doc) {
-            this.transactions.addRead(txId, { table, documentId: id, ts: doc.ts });
-            result.set(id, doc.data as Record<string, unknown>);
-          } else {
-            result.set(id, null);
-          }
-        }
-        return result;
-      },
-
-      insert: async (table, id, data) => {
-        this.validateDocument(table, data as Record<string, unknown>);
-        this.transactions.addWrite(txId, { table, documentId: id, data });
-      },
-
-      patch: async (table, id, fields) => {
-        const tx = this.transactions.get(txId);
-        if (!tx) throw new Error("Invalid transaction");
-        const existing = await this.reader.getDocument(table, id, tx.beginTs);
-        if (!existing) throw new Error(`Document ${id} not found`);
-        const merged = { ...(existing.data as Record<string, unknown>), ...fields };
-        this.validateDocument(table, merged);
-        this.transactions.addWrite(txId, { table, documentId: id, data: merged });
-      },
-
-      replace: async (table, id, data) => {
-        const tx = this.transactions.get(txId);
-        if (!tx) throw new Error("Invalid transaction");
-        const existing = await this.reader.getDocument(table, id, tx.beginTs);
-        if (!existing) throw new Error(`Document ${id} not found`);
-        const fullDoc = { ...(data as Record<string, unknown>), _id: id };
-        this.validateDocument(table, fullDoc);
-        this.transactions.addWrite(txId, { table, documentId: id, data: fullDoc });
-      },
-
-      delete: async (table, id) => {
-        this.transactions.addWrite(txId, { table, documentId: id, data: null });
-      },
-    };
-  }
-
-  // -- Function execution --
-
-  private async invokeFunction(
-    fnName: string,
-    args: unknown,
-    txId: string,
-    identity?: UserIdentity | null
-  ): Promise<{ result: unknown; readSet: { table: string; documentId: string; ts: number }[]; queryDescriptors: { table: string; filter: FilterExpressionJSON | null }[] }> {
-    const fn = this.functions[fnName];
-    if (!fn) {
-      throw new Error(`Function not found: ${fnName}. Available: ${Object.keys(this.functions).join(", ")}`);
-    }
-
-    // Validate args
-    if (fn.argsValidator && Object.keys(fn.argsValidator).length > 0) {
-      const argsSchema = {
-        type: "object" as const,
-        value: Object.fromEntries(
-          Object.entries(fn.argsValidator).map(([k, v]) => [k, v.json])
-        ),
-      };
-      validate(args, argsSchema);
-    }
-
-    const storageOps = this.storage.createStorageOps();
-
-    if (fn.type === "action") {
-      const ctx = this.createActionCtx(identity);
-      const result = await fn.handler(ctx, args);
-      this.validateReturnValue(fnName, fn, result);
-      return { result, readSet: [], queryDescriptors: [] };
-    }
-
-    const ops = this.createDbOps(txId);
-    const db = fn.type === "query"
-      ? new DatabaseReader(ops)
-      : new DatabaseWriter(ops);
-
-    const storageFacade = fn.type === "query"
-      ? new StorageReader(storageOps)
-      : new StorageWriter(storageOps);
-
-    const baseCtx = { db, scheduler: this.cron.createScheduler(), storage: storageFacade };
-    const ctx = identity !== undefined
-      ? { ...baseCtx, auth: { getUserIdentity: () => Promise.resolve(identity) } }
-      : baseCtx;
-    const result = await fn.handler(ctx, args);
-    this.validateReturnValue(fnName, fn, result);
-
-    const tx = this.transactions.get(txId);
-    return {
-      result,
-      readSet: tx ? [...tx.readSet] : [],
-      queryDescriptors: tx ? [...tx.queryDescriptors] : [],
-    };
-  }
-
-  private validateReturnValue(fnName: string, fn: FunctionDef, result: unknown): void {
-    if (!fn.returnsValidator) return;
-    try {
-      validate(result, fn.returnsValidator.json);
-    } catch (e) {
-      throw new Error(`Return value validation failed for "${fnName}": ${errorMessage(e)}`);
-    }
-  }
-
   // -- WebSocket handlers --
 
   private async handleQuery(connectionId: string, msg: { id: string; fn: string; args: unknown }): Promise<void> {
@@ -606,7 +455,7 @@ export function createZerobackDO(config: RuntimeConfig): {
     this.transactions.begin(txId, this.latestTs, "query");
 
     try {
-      const result = await this.invokeFunction(msg.fn, msg.args, txId, identity);
+      const result = await this.functionExecutor.invokeFunction(msg.fn, msg.args, txId, identity);
       const resultJSON = JSON.stringify(result.result);
 
       this.subscriptions.subscribe({
@@ -663,52 +512,13 @@ export function createZerobackDO(config: RuntimeConfig): {
       if (fn.type !== "action") throw new Error(`${msg.fn} is not an action`);
 
       const identity = this.connectionIdentities.get(connectionId);
-      const actionCtx = this.createActionCtx(identity);
+      const actionCtx = this.functionExecutor.createActionCtx(identity);
       const result = await fn.handler(actionCtx, msg.args);
 
       ws.send(JSON.stringify({ type: "actionResult", id: msg.id, result } as ServerMessage));
     } catch (e) {
       sendError(ws, msg.id, ErrorCode.EXECUTION_ERROR, errorMessage(e));
     }
-  }
-
-  // -- Action context --
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ActionCtx generic methods require any for runtime dispatch
-  private createActionCtx(identity?: UserIdentity | null): ActionCtx<any> {
-    const storageOps = this.storage.createStorageOps();
-    const baseCtx = {
-      runQuery: async <T>(fnName: string, args?: Record<string, unknown>): Promise<T> => {
-        const fn = this.functions[fnName];
-        if (!fn || fn.type !== "query") throw new Error(`Query not found: ${fnName}`);
-        const txId = crypto.randomUUID();
-        this.transactions.begin(txId, this.latestTs, "query");
-        try {
-          const result = await this.invokeFunction(fnName, args ?? {}, txId, identity);
-          return result.result as T;
-        } finally {
-          this.transactions.remove(txId);
-        }
-      },
-      runMutation: async <T>(fnName: string, args?: Record<string, unknown>): Promise<T> => {
-        const fn = this.functions[fnName];
-        if (!fn || fn.type !== "mutation") throw new Error(`Mutation not found: ${fnName}`);
-        return executeMutation(this.mutationDeps, fnName, args ?? {}, identity) as T;
-      },
-      runAction: async <T>(fnName: string, args?: Record<string, unknown>): Promise<T> => {
-        const fn = this.functions[fnName];
-        if (!fn || fn.type !== "action") throw new Error(`Action not found: ${fnName}`);
-        const actionCtx = this.createActionCtx();
-        return await fn.handler(actionCtx, args ?? {}) as T;
-      },
-      scheduler: this.cron.createScheduler(),
-      storage: new StorageActions(storageOps),
-    };
-    if (identity !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- auth is added at runtime when identity is present
-      return { ...baseCtx, auth: { getUserIdentity: () => Promise.resolve(identity) } } as any;
-    }
-    return baseCtx;
   }
 
   // -- Scheduler execution --
@@ -718,7 +528,7 @@ export function createZerobackDO(config: RuntimeConfig): {
     if (!fn) throw new Error(`Function not found: ${fnName}`);
 
     if (fn.type === "action") {
-      const ctx = this.createActionCtx();
+      const ctx = this.functionExecutor.createActionCtx();
       await fn.handler(ctx, args);
     } else if (fn.type === "mutation") {
       await executeMutation(this.mutationDeps, fnName, args);
@@ -726,7 +536,7 @@ export function createZerobackDO(config: RuntimeConfig): {
       const txId = crypto.randomUUID();
       this.transactions.begin(txId, this.latestTs, "query");
       try {
-        await this.invokeFunction(fnName, args, txId);
+        await this.functionExecutor.invokeFunction(fnName, args, txId);
       } finally {
         this.transactions.remove(txId);
       }
@@ -739,21 +549,6 @@ export function createZerobackDO(config: RuntimeConfig): {
 
 } // end class ZerobackDO
 } // end createZerobackDO
-
-function indexRangesToFilter(
-  ranges: IndexQueryJSON["ranges"]
-): FilterExpressionJSON | null {
-  if (ranges.length === 0) return null;
-
-  const exprs: FilterExpressionJSON[] = ranges.map((r) => ({
-    op: r.op,
-    a: { op: "field" as const, path: r.field },
-    b: { op: "literal" as const, value: r.value },
-  }));
-
-  if (exprs.length === 1) return exprs[0];
-  return { op: "and", exprs };
-}
 
 export interface Env {
   ZEROBACK_DO: DurableObjectNamespace;
