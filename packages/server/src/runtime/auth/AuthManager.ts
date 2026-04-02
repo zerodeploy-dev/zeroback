@@ -61,7 +61,7 @@ export class AuthManager {
       user: {
         modelName: "user",
         additionalFields: {
-          username: { type: "string", required: false, input: false },
+          username: { type: "string", required: false, returned: true },
         },
       },
       account: { modelName: "account" },
