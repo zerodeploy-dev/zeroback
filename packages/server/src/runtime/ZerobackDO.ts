@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { SchemaJSON, CronJobDef, HttpActionHandler } from "@zeroback/server";
+import type { SchemaJSON, CronJobDef } from "@zeroback/server";
 import type { UserIdentity } from "@zeroback/values";
 import type { FunctionDef, HttpRouterLike } from "./types";
 import { AuthManager } from "./auth/AuthManager";
@@ -13,10 +13,11 @@ import { ConnectionManager } from "./websocket/ConnectionManager";
 import { StorageManager } from "./StorageManager";
 import { CronManager } from "./CronManager";
 import { executeMutation, createMutationLock, type MutationDeps } from "./MutationExecutor";
-import { ErrorCode, errorMessage } from "./errors";
+import { errorMessage } from "./errors";
 import { createSystemFunctions } from "./SystemFunctions";
 import { FunctionExecutor } from "./FunctionExecutor";
 import { WebSocketHandler } from "./WebSocketHandler";
+import { RequestHandler } from "./RequestHandler";
 
 export { type FunctionDef, type HttpRouterLike } from "./types";
 
@@ -48,6 +49,7 @@ export function createZerobackDO(config: RuntimeConfig): {
   private functionExecutor: FunctionExecutor;
   private auth: AuthManager | null = null;
   private wsHandler: WebSocketHandler;
+  private requestHandler: RequestHandler;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -125,6 +127,14 @@ export function createZerobackDO(config: RuntimeConfig): {
       saveLatestTs: () => this.saveLatestTs(),
       invokeFunction: (fnName, args, txId, identity) => this.functionExecutor.invokeFunction(fnName, args, txId, identity),
     };
+
+    this.requestHandler = new RequestHandler({
+      functions: this.functions,
+      functionExecutor: this.functionExecutor,
+      transactions: this.transactions,
+      getLatestTs: () => this.latestTs,
+      getMutationDeps: () => this.mutationDeps,
+    });
 
     this.wsHandler = new WebSocketHandler({
       functions: this.functions,
@@ -252,33 +262,17 @@ export function createZerobackDO(config: RuntimeConfig): {
     if (path === "/__internal/storage-delete" && req.method === "POST") return this.storage.handleStorageDelete(req);
 
     // Admin: invoke any function (public or internal) from CLI
-    if (path === "/__admin/run" && req.method === "POST") return this.handleAdminRun(req);
+    if (path === "/__admin/run" && req.method === "POST") return this.requestHandler.handleAdminRun(req);
     // /query is a reserved Zeroback path and is dispatched before user httpRouter
-    if (path === "/query" && req.method === "POST") return this.handleQueryHttp(req);
+    if (path === "/query" && req.method === "POST") return this.requestHandler.handleQueryHttp(req);
 
     // HTTP actions — user-defined routes
     if (config.httpRouter) {
       const handler = config.httpRouter.lookup(req.method, path);
-      if (handler) return this.handleHttpAction(handler, req);
+      if (handler) return this.requestHandler.handleHttpAction(handler, req);
     }
 
     return new Response("Not found", { status: 404 });
-  }
-
-  private async handleHttpAction(
-    handler: HttpActionHandler,
-    req: Request
-  ): Promise<Response> {
-    try {
-      const ctx = this.functionExecutor.createActionCtx();
-      return await handler(ctx, req);
-    } catch (e) {
-      console.error("HTTP action error:", e);
-      return new Response(
-        JSON.stringify({ error: errorMessage(e) }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
   }
 
   private handleDevReset(): Response {
@@ -297,99 +291,6 @@ export function createZerobackDO(config: RuntimeConfig): {
     }
 
     return new Response("OK");
-  }
-
-  private async handleAdminRun(req: Request): Promise<Response> {
-    const json = { "Content-Type": "application/json" };
-    try {
-      const body = (await req.json()) as { fn: string; args?: unknown };
-      const fnName = body.fn;
-      const args = body.args ?? {};
-
-      const fn = this.functions[fnName];
-      if (!fn) {
-        return new Response(
-          JSON.stringify({ success: false, error: `Function not found: ${fnName}`, code: ErrorCode.NOT_FOUND }),
-          { status: 404, headers: json }
-        );
-      }
-
-      let result: unknown;
-      if (fn.type === "mutation") {
-        result = await executeMutation(this.mutationDeps, fnName, args);
-      } else {
-        const txId = crypto.randomUUID();
-        this.transactions.begin(txId, this.latestTs, "query");
-        try {
-          const invoked = await this.functionExecutor.invokeFunction(fnName, args, txId);
-          result = invoked.result;
-        } finally {
-          this.transactions.remove(txId);
-        }
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, result }),
-        { status: 200, headers: json }
-      );
-    } catch (e) {
-      return new Response(
-        JSON.stringify({ success: false, error: errorMessage(e), code: ErrorCode.EXECUTION_ERROR }),
-        { status: 500, headers: json }
-      );
-    }
-  }
-
-  private async handleQueryHttp(req: Request): Promise<Response> {
-    const json = { "Content-Type": "application/json" }
-    try {
-      const body = (await req.json()) as { fn?: unknown; args?: unknown }
-      const fnName = body.fn
-      const args = body.args ?? {}
-
-      if (!fnName || typeof fnName !== "string") {
-        return new Response(
-          JSON.stringify({ error: "Missing required field: fn", code: ErrorCode.BAD_REQUEST }),
-          { status: 400, headers: json }
-        )
-      }
-
-      const fn = this.functions[fnName]
-      if (!fn) {
-        return new Response(
-          JSON.stringify({ error: `Function not found: ${fnName}`, code: ErrorCode.NOT_FOUND }),
-          { status: 404, headers: json }
-        )
-      }
-
-      if (fn.isInternal) {
-        return new Response(
-          JSON.stringify({ error: `Function "${fnName}" is internal`, code: ErrorCode.FORBIDDEN }),
-          { status: 403, headers: json }
-        )
-      }
-
-      if (fn.type !== "query") {
-        return new Response(
-          JSON.stringify({ error: `"${fnName}" is not a query`, code: ErrorCode.BAD_REQUEST }),
-          { status: 400, headers: json }
-        )
-      }
-
-      const txId = crypto.randomUUID()
-      this.transactions.begin(txId, this.latestTs, "query")
-      try {
-        const { result } = await this.functionExecutor.invokeFunction(fnName, args, txId)
-        return new Response(JSON.stringify({ result }), { status: 200, headers: json })
-      } finally {
-        this.transactions.remove(txId)
-      }
-    } catch (e) {
-      return new Response(
-        JSON.stringify({ error: errorMessage(e), code: ErrorCode.EXECUTION_ERROR }),
-        { status: 500, headers: json }
-      )
-    }
   }
 
   // -- WebSocket --
