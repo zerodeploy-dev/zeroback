@@ -21,7 +21,12 @@ export function queryTable(
   searchQuery?: SearchQueryJSON | null
 ): QueryResult[] {
   const info = tableColumns.get(table);
-  if (!info) return [];
+  if (!info) {
+    const available = [...tableColumns.keys()].join(", ")
+    throw new Error(
+      `Table "${table}" is not defined in your schema. Available tables: ${available}`
+    )
+  }
 
   // Build set of JSON columns for filter compilation
   const jsonColumns = new Set<string>();

@@ -492,6 +492,7 @@ export class ZerobackClient {
         break;
 
       case "error":
+        console.error(`[zeroback] Server error: ${msg.message}`)
         if (msg.id) {
           this.rejectPending(msg.id, new Error(msg.message));
         }

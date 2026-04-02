@@ -18,7 +18,12 @@ export class DOSQLiteReader {
     asOfTs: number
   ): Promise<{ data: unknown; ts: number } | null> {
     const info = this.tableColumns.get(table);
-    if (!info) return null;
+    if (!info) {
+      const available = [...this.tableColumns.keys()].join(", ")
+      throw new Error(
+        `Table "${table}" is not defined in your schema. Available tables: ${available}`
+      )
+    }
 
     const results = this.sql.exec(
       `SELECT * FROM "${table}" WHERE _id = ? AND _ts <= ?`,
@@ -44,7 +49,12 @@ export class DOSQLiteReader {
     if (documentIds.length === 0) return out;
 
     const info = this.tableColumns.get(table);
-    if (!info) return out;
+    if (!info) {
+      const available = [...this.tableColumns.keys()].join(", ")
+      throw new Error(
+        `Table "${table}" is not defined in your schema. Available tables: ${available}`
+      )
+    }
 
     for (const chunk of sqlChunks(documentIds, 1)) {
       const results = this.sql.exec(

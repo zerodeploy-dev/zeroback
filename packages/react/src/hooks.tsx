@@ -27,35 +27,45 @@ export function useZerobackClient(): ZerobackClient {
 
 export function useQuery<Ref extends FunctionReference<"query", any, any>>(
   ref: Ref,
-  args?: Ref["_args"]
+  args?: Ref["_args"],
+  opts?: { enabled?: boolean }
 ): Ref["_returns"] | undefined {
+  const enabled = opts?.enabled !== false
   const client = useZerobackClient();
   const argsStr = JSON.stringify(args ?? {});
   const queryKey = QueryStore.makeKey(ref._name, args ?? {});
 
   // Manage WS subscription lifecycle
   useEffect(() => {
+    if (!enabled) return
     const unsubscribe = client.subscribe(ref._name, args ?? {});
     return unsubscribe;
-  }, [client, ref._name, argsStr]);
+  }, [client, ref._name, argsStr, enabled]);
 
   // Read from centralized store with granular re-renders.
   // Only this component re-renders when this specific query key changes.
   const subscribe = useCallback(
-    (cb: () => void) => client.watchQuery(queryKey, cb),
-    [client, queryKey],
+    (cb: () => void) => {
+      if (!enabled) return () => {}
+      return client.watchQuery(queryKey, cb)
+    },
+    [client, queryKey, enabled],
   );
   const getSnapshot = useCallback(
-    () => client.getQueryResult(queryKey) as Ref["_returns"] | undefined,
-    [client, queryKey],
+    () => {
+      if (!enabled) return undefined
+      return client.getQueryResult(queryKey) as Ref["_returns"] | undefined
+    },
+    [client, queryKey, enabled],
   );
   const getServerSnapshot = useCallback(
     (): Ref["_returns"] | undefined => {
+      if (!enabled) return undefined
       throw new Error(
         "useQuery cannot be used during SSR. Use preloadQuery in your loader and usePreloadedQuery in your component instead."
       )
     },
-    []
+    [enabled]
   );
 
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -63,10 +73,11 @@ export function useQuery<Ref extends FunctionReference<"query", any, any>>(
 
 export function useQueryWithStatus<Ref extends FunctionReference<"query", any, any>>(
   ref: Ref,
-  args?: Ref["_args"]
+  args?: Ref["_args"],
+  opts?: { enabled?: boolean }
 ): { data: Ref["_returns"] | undefined; isStale: boolean; isLoading: boolean } {
   const client = useContext(ZerobackContext);
-  const data = useQuery(ref, args);
+  const data = useQuery(ref, args, opts);
   const queryKey = QueryStore.makeKey(ref._name, args ?? {});
   const isLoading = data === undefined;
   const isStale = !isLoading && !(client?.hasServerResult(queryKey) ?? false);
@@ -191,9 +202,10 @@ export type UsePaginatedQueryResult<T> = {
 export function usePaginatedQuery<Ref extends FunctionReference<"query", any, any>>(
   ref: Ref,
   args: Omit<Ref["_args"], "cursor" | "numItems">,
-  opts: { initialNumItems: number }
+  opts: { initialNumItems: number; enabled?: boolean }
 ): UsePaginatedQueryResult<Ref["_returns"] extends Array<infer Item> ? Item : Ref["_returns"]> {
   type Item = Ref["_returns"] extends Array<infer I> ? I : Ref["_returns"];
+  const enabled = opts?.enabled !== false
   const client = useContext(ZerobackContext);
   const [pages, setPages] = useState<Item[][]>([]);
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
@@ -216,7 +228,7 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
   // Subscribe to each page
   const pageCount = numItemsPerPage.length;
   useEffect(() => {
-    if (!client) return;
+    if (!client || !enabled) return;
     const unsubscribes = subscribePaginationPages(
       client, ref._name, argsKey, pageCount, cursors, numItemsPerPage,
       { setPages, setCursors, setIsDone, setNumItemsPerPage },
@@ -225,10 +237,10 @@ export function usePaginatedQuery<Ref extends FunctionReference<"query", any, an
     return () => {
       for (const unsub of unsubscribes) unsub();
     };
-  }, [client, ref._name, argsKey, pageCount, JSON.stringify(cursors.slice(0, pageCount)), JSON.stringify(numItemsPerPage)]);
+  }, [client, ref._name, argsKey, pageCount, JSON.stringify(cursors.slice(0, pageCount)), JSON.stringify(numItemsPerPage), enabled]);
 
-  const results = pages.flat();
-  const status = computeStatus(pages, isDone);
+  const results = enabled ? pages.flat() : [];
+  const status = enabled ? computeStatus(pages, isDone) : "LoadingFirstPage" as PaginationStatus;
 
   const loadMore = useCallback((numItems: number) => {
     setNumItemsPerPage((prev) => [...prev, numItems]);

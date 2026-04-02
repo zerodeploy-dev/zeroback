@@ -76,6 +76,10 @@ export class AuthManager {
     runAuthMigrations(this.sql, this.authOptions)
   }
 
+  runMigrationsSync(): void {
+    runAuthMigrations(this.sql, this.authOptions)
+  }
+
   setBaseUrl(url: string): void {
     this.baseUrl = url
   }

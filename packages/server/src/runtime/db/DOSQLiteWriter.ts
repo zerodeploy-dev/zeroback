@@ -45,7 +45,12 @@ export class DOSQLiteWriter {
     // 2. Batch upserts per table
     for (const [table, entries] of upsertsByTable) {
       const info = this.tableColumns.get(table);
-      if (!info) continue;
+      if (!info) {
+        const available = [...this.tableColumns.keys()].join(", ")
+        throw new Error(
+          `Table "${table}" is not defined in your schema. Available tables: ${available}`
+        )
+      }
 
       // Column names: _id, _ts, ...userFields
       const colNames = ["_id", "_ts", ...info.orderedFieldNames.map((f) => `"${f}"`)];
