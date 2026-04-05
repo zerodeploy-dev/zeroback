@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth"
 import type { BetterAuthOptions } from "better-auth"
 import { getSchema } from "better-auth/db"
 import type { AuthDef, UserIdentity } from "@zeroback/values"
+import type { Validator } from "@zeroback/values"
 import type { SqlApi } from "../types"
 import type { TableColumnInfo, ColumnInfo } from "../db/SchemaMapper"
 import { createDOSQLiteAdapter, runAuthMigrations } from "./DOSQLiteAdapter"
@@ -32,14 +33,54 @@ function buildSocialProviders(
   return result
 }
 
+type BetterAuthFieldType = "string" | "number" | "boolean"
+
+function validatorToBetterAuthType(v: Validator<any>): { type: BetterAuthFieldType; required: boolean } {
+  const json = v.json
+  if (json.type === "optional") {
+    const inner = validatorToBetterAuthType({ json: json.value, kind: json.value.type, _type: null } as Validator<any>)
+    return { type: inner.type, required: false }
+  }
+  switch (json.type) {
+    case "string": return { type: "string", required: true }
+    case "number":
+    case "float64":
+    case "int64": return { type: "number", required: true }
+    case "boolean": return { type: "boolean", required: true }
+    // unions of literals (e.g. v.union(v.literal("user"), v.literal("admin"))) → stored as string
+    case "union":
+    case "literal": return { type: "string", required: true }
+    default: return { type: "string", required: true }
+  }
+}
+
+function buildAdditionalFields(
+  userFields?: Record<string, Validator<any>>
+): Record<string, { type: BetterAuthFieldType; required: boolean; returned: true }> {
+  const fields: Record<string, { type: BetterAuthFieldType; required: boolean; returned: true }> = {
+    username: { type: "string", required: false, returned: true },
+  }
+  if (userFields) {
+    for (const [name, validator] of Object.entries(userFields)) {
+      const { type, required } = validatorToBetterAuthType(validator)
+      fields[name] = { type, required, returned: true }
+    }
+  }
+  return fields
+}
+
 export class AuthManager {
   private sql: SqlApi
   private auth: ReturnType<typeof betterAuth>
   private authOptions: BetterAuthOptions
+  private customUserFields: string[]
   private baseUrl: string | null = null
 
   constructor(sql: SqlApi, authDef: AuthDef, env: Record<string, unknown>) {
     this.sql = sql
+    this.customUserFields = Object.keys(authDef.user?.additionalFields ?? {})
+
+    const additionalFields = buildAdditionalFields(authDef.user?.additionalFields)
 
     const options: BetterAuthOptions = {
       secret: (env.BETTER_AUTH_SECRET as string | undefined) ?? (() => {
@@ -60,9 +101,7 @@ export class AuthManager {
 
       user: {
         modelName: "user",
-        additionalFields: {
-          username: { type: "string", required: false, returned: true },
-        },
+        additionalFields,
       },
       account: { modelName: "account" },
       verification: { modelName: "verification" },
@@ -152,16 +191,25 @@ export class AuthManager {
     const session = await this.auth.api.getSession({ headers })
     if (!session?.user) return null
 
-    const user = session.user as { image?: string; username?: string }
-    return {
+    const user = session.user as Record<string, unknown>
+    const identity: UserIdentity & Record<string, unknown> = {
       subject: session.user.id,
       issuer: "zeroback",
       tokenIdentifier: `zeroback|${session.user.id}`,
       email: session.user.email ?? undefined,
       emailVerified: session.user.emailVerified ?? undefined,
       name: session.user.name ?? undefined,
-      username: user.username ?? undefined,
-      pictureUrl: user.image,
+      username: (user.username as string) ?? undefined,
+      pictureUrl: user.image as string | undefined,
     }
+
+    // Forward custom user fields
+    for (const field of this.customUserFields) {
+      if (field in user && user[field] !== undefined) {
+        identity[field] = user[field]
+      }
+    }
+
+    return identity
   }
 }

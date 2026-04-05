@@ -16,4 +16,7 @@ export interface AuthDef {
   session?: {
     expiresIn?: number  // seconds
   }
+  user?: {
+    additionalFields?: Record<string, import("./types.js").Validator<any>>
+  }
 }
