@@ -299,6 +299,26 @@ describe("compileFilterToSQL", () => {
     expect(result).toBeNull()
   })
 
+  it("compiles eq null to IS NULL", () => {
+    const result = compileFilterToSQL({
+      op: "eq",
+      a: { op: "field", path: "assignee" },
+      b: { op: "literal", value: null },
+    })
+    expect(result!.sql).toBe('("assignee" IS NULL)')
+    expect(result!.params).toEqual([])
+  })
+
+  it("compiles neq null to IS NOT NULL", () => {
+    const result = compileFilterToSQL({
+      op: "neq",
+      a: { op: "field", path: "assignee" },
+      b: { op: "literal", value: null },
+    })
+    expect(result!.sql).toBe('("assignee" IS NOT NULL)')
+    expect(result!.params).toEqual([])
+  })
+
   it("returns null for unsafe column names", () => {
     const result = compileFilterToSQL({
       op: "eq",

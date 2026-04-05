@@ -145,6 +145,10 @@ function compileFilterNode(
       };
       const left = compileSQLExpr(node.a, jsonColumns);
       const right = compileSQLExpr(node.b, jsonColumns);
+      // NULL comparisons require IS NULL / IS NOT NULL
+      if ((node.op === "eq" || node.op === "neq") && right.params.length === 1 && right.params[0] === null) {
+        return { sql: `(${left.sql} IS ${node.op === "eq" ? "" : "NOT "}NULL)`, params: left.params };
+      }
       return {
         sql: `(${left.sql} ${sqlOps[node.op]} ${right.sql})`,
         params: [...left.params, ...right.params],
