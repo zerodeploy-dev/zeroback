@@ -12,6 +12,12 @@ export interface QueryExecutor {
     keysetCursor?: KeysetCursorInfo | null,
     searchQuery?: SearchQueryJSON | null
   ): Promise<Record<string, unknown>[]>;
+  countRaw(
+    table: string,
+    filter: FilterExpressionJSON | null,
+    indexQuery?: IndexQueryJSON | null,
+    searchQuery?: SearchQueryJSON | null
+  ): Promise<number>;
 }
 
 export interface PaginationResult<Doc> {
@@ -101,6 +107,15 @@ export class QueryBuilder<Doc> {
     this.orderField = field;
     this.orderDirection = direction;
     return this;
+  }
+
+  async count(): Promise<number> {
+    return this.reader.countRaw(
+      this.table,
+      this.filterExpr,
+      this.indexQueryValue ?? undefined,
+      this.searchQueryValue ?? undefined
+    )
   }
 
   take(n: number): Promise<Doc[]> {

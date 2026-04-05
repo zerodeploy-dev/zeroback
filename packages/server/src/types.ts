@@ -9,6 +9,7 @@ export type KeysetCursorInfo = {
 
 export interface DbOps {
   query(table: string, filter: FilterExpressionJSON | null, orderField: string | null, orderDirection: "asc" | "desc", limit: number | null, indexQuery?: IndexQueryJSON | null, keysetCursor?: KeysetCursorInfo | null, searchQuery?: SearchQueryJSON | null): Promise<Record<string, unknown>[]>;
+  count(table: string, filter: FilterExpressionJSON | null, indexQuery?: IndexQueryJSON | null, searchQuery?: SearchQueryJSON | null): Promise<number>;
   get(table: string, id: string): Promise<Record<string, unknown> | null>;
   getMany(table: string, ids: string[]): Promise<Map<string, Record<string, unknown> | null>>;
   insert(table: string, id: string, data: Record<string, unknown>): Promise<void>;

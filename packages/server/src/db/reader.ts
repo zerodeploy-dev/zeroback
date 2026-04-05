@@ -62,5 +62,14 @@ export class DatabaseReader<DataModel> {
   ): Promise<Record<string, unknown>[]> {
     return this.ops.query(table, filter, orderField, orderDirection, limit, indexQuery, keysetCursor, searchQuery);
   }
+
+  async countRaw(
+    table: string,
+    filter: FilterExpressionJSON | null,
+    indexQuery?: IndexQueryJSON | null,
+    searchQuery?: SearchQueryJSON | null
+  ): Promise<number> {
+    return this.ops.count(table, filter, indexQuery, searchQuery);
+  }
 }
 

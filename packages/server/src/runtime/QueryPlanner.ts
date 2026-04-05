@@ -6,6 +6,100 @@ import type { SqlApi } from "./types";
 
 export type QueryResult = { documentId: string; data: unknown; ts: number };
 
+export function countTable(
+  sql: SqlApi,
+  schemaInfo: SchemaJSON,
+  tableColumns: Map<string, TableColumnInfo>,
+  table: string,
+  asOfTs: number,
+  filter: FilterExpressionJSON | null,
+  indexQuery: IndexQueryJSON | null,
+  searchQuery?: SearchQueryJSON | null
+): number {
+  const info = tableColumns.get(table)
+  if (!info) {
+    const available = [...tableColumns.keys()].join(", ")
+    throw new Error(
+      `Table "${table}" is not defined in your schema. Available tables: ${available}`
+    )
+  }
+
+  const jsonColumns = new Set<string>()
+  for (const [name, col] of info.columns) {
+    if (col.isJsonColumn) jsonColumns.add(name)
+  }
+
+  const isSearch = !!searchQuery
+  const colPrefix = isSearch ? "m." : ""
+  const ftsTable = isSearch
+    ? `${table}_search_${searchQuery!.searchField}`
+    : null
+
+  let resolvedFtsTable = ftsTable
+  if (isSearch) {
+    const tableSchema = schemaInfo.tables[table]
+    if (tableSchema?.searchIndexes) {
+      const si = tableSchema.searchIndexes.find(
+        (s) => s.searchField === searchQuery!.searchField
+      )
+      if (si) {
+        resolvedFtsTable = `${table}_${si.name}`
+      }
+    }
+  }
+
+  const conditions: string[] = [`${colPrefix}_ts <= ?`]
+  const params: unknown[] = [asOfTs]
+
+  if (isSearch && resolvedFtsTable) {
+    conditions.push(`"${resolvedFtsTable}" MATCH ?`)
+    params.push(searchQuery!.searchQuery)
+  }
+
+  if (indexQuery && !isSearch) {
+    for (const range of indexQuery.ranges) {
+      const sqlOps: Record<string, string> = {
+        eq: "=", gt: ">", gte: ">=", lt: "<", lte: "<=",
+      }
+      conditions.push(`${colPrefix}"${range.field}" ${sqlOps[range.op]} ?`)
+      params.push(typeof range.value === "boolean" ? (range.value ? 1 : 0) : range.value)
+    }
+  }
+
+  const compiled = filter ? compileFilterToSQL(filter, jsonColumns) : null
+  const filterPushed = !filter || compiled !== null
+
+  if (compiled) {
+    if (isSearch) {
+      conditions.push(prefixFilterColumns(compiled.sql, "m"))
+    } else {
+      conditions.push(compiled.sql)
+    }
+    params.push(...compiled.params)
+  }
+
+  const where = conditions.join(" AND ")
+
+  let sqlQuery: string
+  if (isSearch && resolvedFtsTable) {
+    sqlQuery = `SELECT COUNT(*) as cnt FROM "${table}" m INNER JOIN "${resolvedFtsTable}" fts ON m.rowid = fts.rowid WHERE ${where}`
+  } else {
+    sqlQuery = `SELECT COUNT(*) as cnt FROM "${table}" WHERE ${where}`
+  }
+
+  const results = sql.exec(sqlQuery, ...params).toArray() as Record<string, unknown>[]
+
+  if (!filterPushed) {
+    // Can't use SQL count — must fall back to full query and count in JS
+    const fullResults = queryTable(
+      sql, schemaInfo, tableColumns, table, asOfTs, filter, indexQuery, null, "asc", null, undefined, searchQuery ?? null
+    )
+    return fullResults.length
+  }
+
+  return (results[0]?.cnt as number) ?? 0
+}
+
 export function queryTable(
   sql: SqlApi,
   schemaInfo: SchemaJSON,

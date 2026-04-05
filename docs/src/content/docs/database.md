@@ -278,6 +278,28 @@ Fetch at most `n` documents.
 const recent = await ctx.db.query("tasks").order("desc").take(10);
 ```
 
+#### `.count()`
+
+Count the number of matching documents. Executes `SELECT COUNT(*)` in SQLite for efficiency — no documents are fetched.
+
+```ts
+.count(): Promise<number>
+```
+
+```ts
+const total = await ctx.db.query("tasks").count();
+
+// With filters
+const active = await ctx.db.query("tasks")
+  .filter((q) => q.eq(q.field("status"), "active"))
+  .count();
+
+// With index
+const projectTasks = await ctx.db.query("tasks")
+  .withIndex("by_project", (q) => q.eq("projectId", "proj123"))
+  .count();
+```
+
 #### `.paginate(opts)`
 
 Cursor-based pagination. Returns a page of results with a cursor for the next page.

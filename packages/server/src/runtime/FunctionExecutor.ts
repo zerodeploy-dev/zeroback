@@ -6,7 +6,7 @@ import type { TableColumnInfo } from "./db/SchemaMapper"
 import type { TransactionStore } from "./transaction/TransactionStore"
 import type { SqlApi, FunctionDef } from "./types"
 import type { DOSQLiteReader } from "./db/DOSQLiteReader"
-import { queryTable } from "./QueryPlanner"
+import { queryTable, countTable } from "./QueryPlanner"
 import type { StorageManager } from "./StorageManager"
 import type { CronManager } from "./CronManager"
 import { executeMutation, type MutationDeps } from "./MutationExecutor"
@@ -59,6 +59,27 @@ export class FunctionExecutor {
           transactions.addRead(txId, { table, documentId: doc.documentId, ts: doc.ts })
         }
         return docs.map((d) => d.data as Record<string, unknown>)
+      },
+
+      count: async (table, filter, indexQuery, searchQuery) => {
+        const tx = transactions.get(txId)
+        if (!tx) throw new Error("Invalid transaction")
+
+        let descriptorFilter = filter
+        if (searchQuery) {
+          descriptorFilter = null
+        } else if (indexQuery) {
+          const indexFilter = indexRangesToFilter(indexQuery.ranges)
+          descriptorFilter = filter && indexFilter
+            ? { op: "and" as const, exprs: [indexFilter, filter] }
+            : (indexFilter || filter)
+        }
+        transactions.addQueryDescriptor(txId, { table, filter: descriptorFilter })
+
+        return countTable(
+          sql, schemaInfo, tableColumns,
+          table, tx.beginTs, filter, indexQuery ?? null, searchQuery ?? null
+        )
       },
 
       get: async (table, id) => {
