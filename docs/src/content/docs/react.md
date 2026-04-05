@@ -69,7 +69,8 @@ Subscribe to a query with real-time updates.
 ```ts
 function useQuery<Ref extends FunctionReference<"query">>(
   ref: Ref,
-  args?: Ref["_args"]
+  args?: Ref["_args"],
+  opts?: { enabled?: boolean }
 ): Ref["_returns"] | undefined
 ```
 
@@ -77,12 +78,14 @@ function useQuery<Ref extends FunctionReference<"query">>(
 |-----------|------|-------------|
 | `ref` | `FunctionReference<"query">` | A query reference from `api.*` |
 | `args` | `Ref["_args"]` | Arguments to pass. Defaults to `{}`. |
+| `opts.enabled` | `boolean` | Whether to subscribe. Defaults to `true`. Set to `false` to skip the subscription (returns `undefined`). |
 
-**Returns:** The query result, or `undefined` while loading.
+**Returns:** The query result, or `undefined` while loading (or when `enabled` is `false`).
 
 - Automatically subscribes via WebSocket on mount and unsubscribes on unmount.
 - Only re-renders when this specific query's result changes (granular via `useSyncExternalStore`).
 - Re-subscribes when `ref` or `args` change.
+- When `enabled` is `false`, no WebSocket subscription is created and the hook returns `undefined`.
 
 ```tsx
 import { api } from "../zeroback/_generated/api";
@@ -110,7 +113,8 @@ Like `useQuery` but returns additional loading/staleness status.
 ```ts
 function useQueryWithStatus<Ref extends FunctionReference<"query">>(
   ref: Ref,
-  args?: Ref["_args"]
+  args?: Ref["_args"],
+  opts?: { enabled?: boolean }
 ): { data: Ref["_returns"] | undefined; isStale: boolean; isLoading: boolean }
 ```
 
@@ -241,7 +245,7 @@ Load paginated data with a `loadMore` function. Each page is independently subsc
 function usePaginatedQuery<Ref extends FunctionReference<"query">>(
   ref: Ref,
   args: Omit<Ref["_args"], "cursor" | "numItems">,
-  opts: { initialNumItems: number }
+  opts: { initialNumItems: number; enabled?: boolean }
 ): UsePaginatedQueryResult<any>
 ```
 
@@ -250,6 +254,7 @@ function usePaginatedQuery<Ref extends FunctionReference<"query">>(
 | `ref` | `FunctionReference<"query">` | A paginated query reference (must return `PaginationResult`) |
 | `args` | `Omit<Args, "cursor" \| "numItems">` | Stable query arguments (without pagination params) |
 | `opts.initialNumItems` | `number` | Number of items to fetch for the first page |
+| `opts.enabled` | `boolean` | Whether to subscribe. Defaults to `true`. |
 
 **Returns:**
 
@@ -377,6 +382,53 @@ function AdvancedComponent() {
   // Direct access to client.subscribe(), client.mutation(), etc.
 }
 ```
+
+## `useAuth()`
+
+Access session state for the current user. Requires `auth: true` in `ZerobackClient` options.
+
+```ts
+function useAuth(): {
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  user: AuthUser | null;
+  signOut: () => Promise<void>;
+}
+```
+
+**Returns:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `isLoading` | `boolean` | `true` while the session is being fetched |
+| `isAuthenticated` | `boolean` | `true` when a user is signed in |
+| `user` | `AuthUser \| null` | The current user, or `null` |
+| `signOut` | `() => Promise<void>` | Sign the user out and clear session state |
+
+Throws if the client was not created with `auth: true`.
+
+```tsx
+import { useAuth } from "@zeroback/react";
+
+function Header() {
+  const { isLoading, isAuthenticated, user, signOut } = useAuth();
+
+  if (isLoading) return <span>Loading...</span>;
+
+  if (!isAuthenticated) {
+    return <a href="/login">Sign in</a>;
+  }
+
+  return (
+    <div>
+      <span>Hello, {user?.name}</span>
+      <button onClick={signOut}>Sign out</button>
+    </div>
+  );
+}
+```
+
+See [Authentication](/authentication) for full setup including `defineAuth`, client configuration, and OAuth providers.
 
 ## SSR / Server-Side Rendering
 

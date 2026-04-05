@@ -100,6 +100,46 @@ export const auth = defineAuth({
 | `providers` | `Array<{ type: "google" \| "github" }>` | `[]` | OAuth providers |
 | `trustedOrigins` | `string[]` | `[]` | Allowed origins for cross-origin requests |
 | `session.expiresIn` | `number` | 604800 (7 days) | Session lifetime in seconds |
+| `user.additionalFields` | `Record<string, Validator>` | `undefined` | Custom fields to add to the user model |
+
+### Custom User Fields
+
+You can extend the user model with additional fields using `user.additionalFields`. These fields are stored in the auth database and forwarded onto the `UserIdentity` returned by `ctx.auth.getUserIdentity()`.
+
+```typescript
+import { defineAuth } from "@zeroback/server"
+import { v } from "@zeroback/server"
+
+export const auth = defineAuth({
+  emailAndPassword: true,
+  user: {
+    additionalFields: {
+      role: v.string(),
+      companyId: v.optional(v.string()),
+    },
+  },
+})
+```
+
+Custom fields are available on the identity object in your functions:
+
+```typescript
+export const me = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
+    return {
+      id: identity.subject,
+      email: identity.email,
+      role: identity.role,       // custom field
+      companyId: identity.companyId, // custom field
+    }
+  },
+})
+```
+
+Supported validator types: `v.string()`, `v.number()`, `v.boolean()`, `v.optional(...)`, `v.literal(...)`, `v.union(...)`.
 
 ---
 

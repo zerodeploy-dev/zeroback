@@ -36,6 +36,7 @@ interface ZerobackClientOptions {
   backoff?: BackoffOptions;
   heartbeatIntervalMs?: number;
   requestTimeoutMs?: number;
+  auth?: boolean;
 }
 ```
 
@@ -47,6 +48,7 @@ interface ZerobackClientOptions {
 | `backoff` | `BackoffOptions` | See below | Configure reconnection backoff behavior. |
 | `heartbeatIntervalMs` | `number` | `30000` (30s) | How often the client sends a ping to keep the connection alive. |
 | `requestTimeoutMs` | `number` | `60000` (60s) | How long to wait for a mutation/action response before timing out. |
+| `auth` | `boolean` | `undefined` (disabled) | Enable the `client.auth` namespace for built-in authentication. See [Authentication](/authentication). |
 
 #### `BackoffOptions`
 
@@ -54,11 +56,11 @@ interface ZerobackClientOptions {
 interface BackoffOptions {
   baseMs?: number;       // Default: 1000
   maxMs?: number;        // Default: 30000
-  maxAttempts?: number;  // Default: 5
+  maxAttempts?: number;  // Default: Infinity
 }
 ```
 
-When persistence is **disabled** (default), the client connects immediately on construction.
+When persistence is **disabled** (default), the client connects eagerly on construction.
 When persistence is **enabled**, you must call `client.init()` before using the client.
 
 ## Methods
@@ -206,7 +208,7 @@ client.action(fnName: string, args: unknown): Promise<unknown>
 
 ### `client.onConnectionChange(listener)`
 
-Listen for connection state changes.
+Listen for connection state changes. The listener is called immediately with the current state when registered, so late subscribers don't miss the initial state.
 
 ```ts
 client.onConnectionChange(listener: (state: ConnectionState) => void): () => void
@@ -260,7 +262,8 @@ static makeKey(fnName: string, args: unknown): string
 
 ## Connection Behavior
 
-- **Auto-reconnect:** The client automatically reconnects with exponential backoff when disconnected.
+- **Eager connect:** When persistence is disabled, the client opens a WebSocket connection immediately on construction — no subscription or send is needed to trigger it.
+- **Auto-reconnect:** The client automatically reconnects with exponential backoff (1s base, 30s max) when disconnected. By default, retries are unlimited (`maxAttempts: Infinity`).
 - **Message queuing:** Messages sent while disconnected are queued and flushed on reconnect.
 - **Re-subscribe on reconnect:** All active subscriptions are automatically re-established.
 - **Server reset handling:** If the server loses subscription state (e.g., after hibernation), the client re-subscribes all active queries.

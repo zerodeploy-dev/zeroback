@@ -47,6 +47,7 @@ query({
 **`QueryCtx`** provides:
 - `ctx.db` — [`DatabaseReader`](database.md) (read-only database access)
 - `ctx.storage` — [`StorageReader`](storage.md) (read-only file storage access)
+- `ctx.auth` — [`Auth`](authentication.md) (access to the current user identity, when auth is enabled)
 
 **Example:**
 
@@ -85,6 +86,7 @@ mutation({
 - `ctx.db` — [`DatabaseWriter`](database.md) (read + write database access)
 - `ctx.scheduler` — [`Scheduler`](scheduling.md) (schedule future function calls)
 - `ctx.storage` — [`StorageWriter`](storage.md) (read + write file storage access)
+- `ctx.auth` — [`Auth`](authentication.md) (access to the current user identity, when auth is enabled)
 
 **Example:**
 
@@ -125,6 +127,7 @@ action({
 - `ctx.runAction(fnName, args?)` — Call another action function
 - `ctx.scheduler` — [`Scheduler`](scheduling.md)
 - `ctx.storage` — [`StorageActions`](storage.md) (full storage access including `store()`)
+- `ctx.auth` — [`Auth`](authentication.md) (access to the current user identity, when auth is enabled)
 
 The `fnName` format is `"module:functionName"` — e.g., `"tasks:create"`, `"utils/stats:taskStats"`.
 

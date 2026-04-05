@@ -71,8 +71,8 @@ Every document automatically includes two system fields that users do not declar
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `_id` | `string` | Auto-generated ULID-based ID in `"tableName:ULID"` format |
-| `_creationTime` | `number` | Unix timestamp in milliseconds, derived from the ULID |
+| `_id` | `Id<TableName>` | Auto-generated [TypeID](https://github.com/jetpack-io/typeid) in `"prefix_base32uuidv7"` format (e.g., `"tasks_01aryz6p69z5wqvzqz4lxcdpxx"`) |
+| `_creationTime` | `number` | Unix timestamp in milliseconds, derived from the UUIDv7 embedded in the TypeID |
 
 These fields cannot be set or modified by user code and are excluded from `insert()`, `patch()`, and `replace()` arguments.
 
@@ -106,6 +106,30 @@ defineTable({
   .index("by_project", ["projectId"])
   .index("by_project_status", ["projectId", "status"])
 ```
+
+### `.idPrefix(prefix)`
+
+Overrides the default ID prefix for this table. By default, the table name is used as the prefix. Use this when the table name isn't a valid TypeID prefix (must be 1–63 lowercase alpha characters).
+
+```ts
+.idPrefix(prefix: string): TableDefinition
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `prefix` | `string` | 1–63 lowercase alpha characters (e.g., `"task"`, `"projectmember"`) |
+
+**Example:**
+
+```ts
+defineTable({
+  title: v.string(),
+  status: v.string(),
+}).idPrefix("task")
+// IDs will be: "task_01aryz6p69z5wqvzqz4lxcdpxx"
+```
+
+Throws at schema definition time if the prefix contains non-lowercase-alpha characters.
 
 ### `.searchIndex(name, opts)`
 
@@ -161,7 +185,7 @@ Validators are used in three places:
 | `v.id(tableName)` | `Id<TableName>` | Document ID referencing a specific table |
 
 ```ts
-v.id("tasks")  // Id<"tasks"> — e.g. "tasks:01HXZ..."
+v.id("tasks")  // Id<"tasks"> — e.g. "tasks_01aryz6p69z5wqvzqz4lxcdpxx"
 ```
 
 ### Compound Validators
