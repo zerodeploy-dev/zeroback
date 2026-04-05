@@ -13,7 +13,7 @@ export class Backoff {
   constructor(opts?: BackoffOptions) {
     this.baseMs = opts?.baseMs ?? 1000;
     this.maxMs = opts?.maxMs ?? 30000;
-    this.maxAttempts = opts?.maxAttempts ?? 5;
+    this.maxAttempts = opts?.maxAttempts ?? Infinity;
   }
 
   next(): number {

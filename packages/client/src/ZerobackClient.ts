@@ -101,6 +101,14 @@ export class ZerobackClient {
     if (options?.auth) {
       this.auth = this.buildAuthClient();
     }
+
+    // When not using persistence, connect eagerly so the WebSocket is
+    // established before any component subscribes. Without this, the
+    // lazy-connect-on-first-send pattern means the client stays
+    // disconnected if no subscription is created before session resolves.
+    if (!this.options.persistence) {
+      this.connect();
+    }
   }
 
   private getBaseUrl(): string {
@@ -236,6 +244,7 @@ export class ZerobackClient {
 
   onConnectionChange(listener: (state: ConnectionState) => void): () => void {
     this.connectionListeners.add(listener);
+    listener(this._connectionState);
     return () => this.connectionListeners.delete(listener);
   }
 
@@ -253,6 +262,7 @@ export class ZerobackClient {
     }
 
     this.isConnecting = true;
+    this.backoff.reset();
     this.setConnectionState("connecting");
 
     try {
