@@ -23,7 +23,8 @@ docs/         - API documentation
 ## Key Architecture
 
 - **Runtime engine** lives in `packages/server/src/runtime/` (published as `@zeroback/server/runtime`). The static `.zeroback/entry.ts` (scaffolded by `init`, user-owned) imports from `zeroback/_generated/manifest.ts` (regenerated on every build) to wire user functions to the runtime.
-- **ZerobackDO** (`packages/runtime/src/ZerobackDO.ts`) is the main Durable Object, created via `createZerobackDO(config)`. It handles all state, transactions, subscriptions, and WebSocket connections.
+- **ZerobackDO** (`packages/server/src/runtime/ZerobackDO.ts`) is the main Durable Object, created via `createZerobackDO(config)`. It delegates to `RequestHandler` (HTTP), `WebSocketHandler` (WS messages), and `FunctionExecutor` (invoking user functions).
+- **Auth** (`packages/server/src/runtime/auth/AuthManager.ts`) wraps better-auth for session management inside the DO. Users define providers in `zeroback/auth.ts` via `defineAuth()`. The React hook `useAuth()` exposes session state.
 - **Codegen** analyzes user's `zeroback/` directory and generates typed API references, function factories, DataModel types, and a manifest into `zeroback/_generated/`.
 - All filters compile to SQL WHERE clauses via `json_extract` for efficiency.
 - IDs use TypeID format `"prefix_base32uuidv7"` (e.g., `posts_01h455vb4pex5vsknk084sn02q`). `_creationTime` is derived from the UUIDv7 timestamp. Custom prefixes configurable via `.idPrefix()` on `defineTable`.
@@ -52,12 +53,13 @@ bun run typecheck
 
 - [Schema & Validators](docs/schema.md) — `defineSchema`, `defineTable`, `v.*` validators, indexes, search indexes
 - [Functions](docs/functions.md) — `query`, `mutation`, `action`, internal functions, HTTP actions, cron jobs, codegen
-- [Database](docs/database.md) — `DatabaseReader`, `DatabaseWriter`, `QueryBuilder`, filters, indexes, pagination, full-text search
+- [Database](docs/database.md) — `DatabaseReader`, `DatabaseWriter`, `QueryBuilder`, filters, indexes, pagination, count queries, full-text search
 - [Client SDK](docs/client.md) — `ZerobackClient`, WebSocket subscriptions, optimistic updates, persistence
 - [React Hooks](docs/react.md) — `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
 - [CLI](docs/cli.md) — `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`
 - [Scheduling](docs/scheduling.md) — `scheduler.runAfter`, `scheduler.runAt`, `scheduler.cancel`
 - [File Storage](docs/storage.md) — `StorageReader`, `StorageWriter`, `StorageActions`, R2 setup
+- [Seeding](docs/seeding.md) — Seeding data via `zeroback run`
 - [How It Works](docs/how-it-works.md) — Real-time subscriptions, OCC, codegen internals
 - [Feature Status](docs/feature-status.md) — Implementation status of all features
 

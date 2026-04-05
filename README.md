@@ -31,7 +31,10 @@ Convex introduced a great developer experience: define your backend as plain Typ
 - **Optimistic concurrency control** — mutations are checked for conflicts before committing
 - **Database indexes** — declare indexes in your schema, query them with `.withIndex()` for efficient lookups
 - **Full-text search** — declare search indexes in your schema, query with `.search()` for relevance-ranked results powered by SQLite FTS5
+- **Count queries** — efficient `SELECT COUNT(*)` via `.count()` on any query — no need to fetch all documents
 - **Pagination** — built-in cursor-based pagination with `.paginate()`
+- **Authentication** — built-in auth via better-auth with email/password and social providers (Google, GitHub). `defineAuth()` in your schema, `useAuth()` in React, `ctx.auth` in functions
+- **Branded `Id<T>` type** — IDs are typed per-table (`Id<"tasks">`) for compile-time safety across your entire stack
 - **Single Durable Object** — all state, transactions, and WebSocket connections in one place for strong consistency
 - **Offline support** — opt-in IndexedDB persistence for instant cached renders, offline reads, and mutation replay
 - **SSR support** — preload queries server-side with `preloadQuery` for instant hydration without a loading flash
@@ -203,7 +206,7 @@ For many apps (internal tools, collaborative docs, moderate-traffic SaaS), these
 |---------|-------------|
 | `@zeroback/server` | Define schemas, queries, mutations. Database reader/writer, query builder, filter DSL |
 | `@zeroback/client` | WebSocket client with auto-reconnect, subscription management, mutation queue, IndexedDB persistence. Also exports `preloadQuery` for SSR. |
-| `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState`, `usePreloadedQuery` |
+| `@zeroback/react` | `ZerobackProvider`, `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`, `useQueryWithStatus`, `useConnectionState`, `usePreloadedQuery`, `useAuth` |
 | `@zeroback/solid` | Solid.js bindings: `ZerobackProvider`, `createQuery`, `createQueryWithStatus`, `createMutation`, `createAction`, `createPaginatedQuery`, `createConnectionState` |
 | `@zeroback/values` | Validator library (`v.string()`, `v.number()`, `v.object()`, etc.) for schema and args |
 | `@zeroback/cli` | `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`, `zeroback run`, `zeroback reset` — scaffold, develop, deploy |
@@ -217,7 +220,7 @@ For many apps (internal tools, collaborative docs, moderate-traffic SaaS), these
 - **[React Hooks](https://zeroback.dev/react)** — `useQuery`, `useMutation`, `useAction`, `usePaginatedQuery`
 - **[Solid.js](https://zeroback.dev/solid)** — `createQuery`, `createMutation`, `createAction`, `createPaginatedQuery`
 - **[CLI](https://zeroback.dev/cli)** — `zeroback init`, `zeroback dev`, `zeroback deploy`, `zeroback codegen`, `zeroback run`, `zeroback reset`
-- **[Authentication](https://zeroback.dev/authentication)** — token-based auth, user identity in functions
+- **[Authentication](https://zeroback.dev/authentication)** — better-auth integration, email/password and social providers, `ctx.auth` in functions
 - **[Scheduling](https://zeroback.dev/scheduling)** — `scheduler.runAfter`, `scheduler.runAt`, cron jobs
 - **[File Storage](https://zeroback.dev/storage)** — upload, serve, and manage files via Cloudflare R2
 - **[Deployment](https://zeroback.dev/deployment)** — deploy to Cloudflare Workers
