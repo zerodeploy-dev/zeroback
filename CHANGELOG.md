@@ -2,6 +2,12 @@
 
 All notable changes to Zeroback are documented here.
 
+## [0.0.26] — 2026-04-06
+
+### Fixed
+
+- **Cron schedules crash after SQLite roundtrip**: `parseField()` returned `Set<number>` which serializes to `{}` via `JSON.stringify`. Restored schedules had a plain object instead of a Set, causing `field.values.has is not a function` on the next alarm. Changed to `number[]` with `.includes()`.
+
 ## [0.0.25] — 2026-04-05
 
 ### Added
