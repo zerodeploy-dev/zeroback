@@ -13,18 +13,18 @@ describe("parseCron", () => {
 
   it("parses single values", () => {
     const result = parseCron("30 14 1 6 3")
-    expect(result.minute).toEqual({ type: "values", values: new Set([30]) })
-    expect(result.hour).toEqual({ type: "values", values: new Set([14]) })
-    expect(result.dayOfMonth).toEqual({ type: "values", values: new Set([1]) })
-    expect(result.month).toEqual({ type: "values", values: new Set([6]) })
-    expect(result.dayOfWeek).toEqual({ type: "values", values: new Set([3]) })
+    expect(result.minute).toEqual({ type: "values", values: ([30]) })
+    expect(result.hour).toEqual({ type: "values", values: ([14]) })
+    expect(result.dayOfMonth).toEqual({ type: "values", values: ([1]) })
+    expect(result.month).toEqual({ type: "values", values: ([6]) })
+    expect(result.dayOfWeek).toEqual({ type: "values", values: ([3]) })
   })
 
   it("parses ranges (1-5)", () => {
     const result = parseCron("1-5 * * * *")
     expect(result.minute).toEqual({
       type: "values",
-      values: new Set([1, 2, 3, 4, 5]),
+      values: ([1, 2, 3, 4, 5]),
     })
   })
 
@@ -32,7 +32,7 @@ describe("parseCron", () => {
     const result = parseCron("0 1,12,23 * * *")
     expect(result.hour).toEqual({
       type: "values",
-      values: new Set([1, 12, 23]),
+      values: ([1, 12, 23]),
     })
   })
 
@@ -40,7 +40,7 @@ describe("parseCron", () => {
     const result = parseCron("*/15 * * * *")
     expect(result.minute).toEqual({
       type: "values",
-      values: new Set([0, 15, 30, 45]),
+      values: ([0, 15, 30, 45]),
     })
   })
 
@@ -48,7 +48,7 @@ describe("parseCron", () => {
     const result = parseCron("1-30/10 * * * *")
     expect(result.minute).toEqual({
       type: "values",
-      values: new Set([1, 11, 21]),
+      values: ([1, 11, 21]),
     })
   })
 
@@ -56,19 +56,19 @@ describe("parseCron", () => {
     const result = parseCron("5/20 * * * *")
     expect(result.minute).toEqual({
       type: "values",
-      values: new Set([5, 25, 45]),
+      values: ([5, 25, 45]),
     })
   })
 
   it("parses complex mixed expression", () => {
     // list + range
     const result = parseCron("0,30 9-17 * 1,6 *")
-    expect(result.minute).toEqual({ type: "values", values: new Set([0, 30]) })
+    expect(result.minute).toEqual({ type: "values", values: ([0, 30]) })
     expect(result.hour).toEqual({
       type: "values",
-      values: new Set([9, 10, 11, 12, 13, 14, 15, 16, 17]),
+      values: ([9, 10, 11, 12, 13, 14, 15, 16, 17]),
     })
-    expect(result.month).toEqual({ type: "values", values: new Set([1, 6]) })
+    expect(result.month).toEqual({ type: "values", values: ([1, 6]) })
   })
 
   it("throws on wrong number of fields", () => {
@@ -78,8 +78,8 @@ describe("parseCron", () => {
 
   it("trims whitespace", () => {
     const result = parseCron("  0  0  *  *  *  ")
-    expect(result.minute).toEqual({ type: "values", values: new Set([0]) })
-    expect(result.hour).toEqual({ type: "values", values: new Set([0]) })
+    expect(result.minute).toEqual({ type: "values", values: ([0]) })
+    expect(result.hour).toEqual({ type: "values", values: ([0]) })
   })
 })
 

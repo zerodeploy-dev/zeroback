@@ -2,7 +2,7 @@
 //   minute hour dayOfMonth month dayOfWeek
 // Supports: numbers, ranges (1-5), steps (star/5), lists (1,3,5), wildcards (star)
 
-type CronField = { type: "any" } | { type: "values"; values: Set<number> };
+type CronField = { type: "any" } | { type: "values"; values: number[] };
 
 export interface ParsedCron {
   minute: CronField;
@@ -46,7 +46,7 @@ function parseField(field: string, min: number, max: number): CronField {
     }
   }
 
-  return { type: "values", values };
+  return { type: "values", values: Array.from(values) };
 }
 
 export function parseCron(expression: string): ParsedCron {
@@ -66,7 +66,7 @@ export function parseCron(expression: string): ParsedCron {
 
 function fieldMatches(field: CronField, value: number): boolean {
   if (field.type === "any") return true;
-  return field.values.has(value);
+  return field.values.includes(value);
 }
 
 /**
